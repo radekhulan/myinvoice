@@ -334,6 +334,24 @@ DB_PORT=3308               # místo 3307 (vázán jen na 127.0.0.1)
 
 a `docker compose up -d`. URL pak bude `http://localhost:9000`.
 
+### Env proměnné pro auto-migrace (Docker runtime)
+
+```bash
+MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
+MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
+MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
+```
+
+Od image **v3.1.0** se migrace pouští při startu kontejneru automaticky
+(`docker-entrypoint.sh`). Ruční `php api/bin/migrate.php` je stále bezpečný
+idempotentní fallback.
+
+### Railway / PaaS env placeholdery
+
+Od v3.1.0 aplikace v env overridech ignoruje nevyřešené placeholdery ve tvaru
+`${VAR}` (typicky Railway, když proměnná není definovaná), takže nepřepíšou
+validní hodnoty z `cfg.php` / `cfg.docker.php`.
+
 ### Daily ops
 
 ```bash
