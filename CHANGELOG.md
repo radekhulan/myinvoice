@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-05-10
+
+### Added
+
+- **CLI rescue pro 2FA lockout** — nový skript
+  `php api/bin/reset-2fa.php <email>` resetuje `totp_enabled = 0` a
+  `totp_secret = NULL` pro zadaného uživatele.
+
+### Changed
+
+- **Docker runtime auto-migrace** — runtime image používá
+  `docker-entrypoint.sh`, který před startem Apache spustí
+  `php api/bin/migrate.php` (s retry), takže nová/obnovená instance naběhne
+  se schématem bez ručního zásahu.
+- **ENV override hardening (Railway/PaaS)** — `Config` ignoruje nevyhodnocené
+  placeholdery ve tvaru `${VAR}` v env overridech, aby se nepřepisovaly validní
+  hodnoty konfigurace.
+
+### Fixed
+
+- **TOTP setup/enable při špatném encryption key** — endpointy vrací
+  kontrolovanou JSON chybu místo neobsloužené 500 výjimky; chybové texty jsou
+  v češtině kvůli správnému i18n překladu přes `ErrorCatalog`.
+- **Validace `app.secret_encryption_key` v health/admin UI** — backend health
+  endpoint vrací warning při chybějícím/invalidním klíči (včetně 24B klíče),
+  admin stránka Aktualizace ho zobrazuje jako viditelné provozní upozornění.
+
 ## [3.0.3] — 2026-05-08
 
 ### Fixed

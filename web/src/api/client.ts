@@ -99,6 +99,7 @@ export interface HealthResponse {
   env: string
   db: boolean
   redis: boolean
+  warnings: Array<{ code: string; message: string }>
   time: string
 }
 

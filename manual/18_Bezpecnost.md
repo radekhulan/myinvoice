@@ -39,7 +39,8 @@ TOTP = time-based one-time password (RFC 6238). Nejznámější standard pro 2FA
 4. Zadej aktuální kód do MyInvoice → **Potvrdit aktivaci**.
 
 > ⚠️ MyInvoice **nepoužívá záložní jednorázové kódy** (recovery codes).
-> Při ztrátě autentikátoru se 2FA musí deaktivovat ručně v databázi —
+> Při ztrátě autentikátoru použij CLI rescue:
+> `php api/bin/reset-2fa.php <email>` —
 > viz [§ 18.2.3](#1823-ztrata-telefonu--deaktivace).
 
 ### 18.2.2 Přihlášení s 2FA
@@ -48,21 +49,28 @@ Po zadání e-mailu + hesla aplikace vyzve k 6-cifernému kódu z autentikátoru
 
 ![2FA výzva](img/04_2fa.webp)
 
-Pokud autentikátor nemáš po ruce, nezbývá než provést deaktivaci v DB
+Pokud autentikátor nemáš po ruce, nezbývá než provést rescue reset
 (následující sekce).
 
 ### 18.2.3 Ztráta telefonu / deaktivace
 
-Aplikace nemá UI pro deaktivaci 2FA — uděláš to přímo v databázi:
+Aplikace nemá UI pro deaktivaci 2FA — doporučený postup je CLI rescue tool:
+
+```bash
+php api/bin/reset-2fa.php tvuj@email.cz
+```
+
+Skript nastaví `totp_enabled = 0` a `totp_secret = NULL` pro zadaný účet.
+Pak se přihlásíš jen s heslem a 2FA si můžeš znovu aktivovat na novém telefonu
+(Můj profil → 2FA → Aktivovat).
+
+Pokud **nemáš shell přístup ke kontejneru/serveru**, použij SQL fallback:
 
 ```sql
 UPDATE users
 SET totp_enabled = 0, totp_secret = NULL
 WHERE email = 'tvuj@email.cz';
 ```
-
-Po tomto SQL se přihlásíš jen s heslem a 2FA si můžeš znovu aktivovat na
-novém telefonu (Můj profil → 2FA → Aktivovat).
 
 > ⚠️ Pro produkční nasazení doporučujeme mít k DB přístup přes admin
 > (phpMyAdmin / Adminer / mysql CLI) připravený předem. Při ztrátě telefonu

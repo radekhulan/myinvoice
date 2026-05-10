@@ -25,7 +25,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  *   POST /api/auth/totp/enable  — ověří kód a flipne totp_enabled=1
  *   GET  /api/auth/totp/status  — vrátí { enabled: bool }
  *
- * Disable se dělá ručně v DB (UPDATE users SET totp_enabled = 0, totp_secret = NULL).
+ * Disable: CLI `php api/bin/reset-2fa.php <email>` (fallback ručně v DB).
  */
 final class TotpAction
 {
@@ -53,15 +53,20 @@ final class TotpAction
         $user = $this->user($request);
         if ($user === null) return Json::error($response, 'unauthenticated', 'Nepřihlášený uživatel.', 401);
 
-        // Nový secret pokaždé — pokud už totp_enabled=1, vrať 409 (musí nejdřív disable v DB)
+        // Nový secret pokaždé — pokud už totp_enabled=1, vrať 409 (reset přes CLI)
         if ((int) $user['totp_enabled'] === 1) {
-            return Json::error($response, 'already_enabled', 'TOTP už je aktivní. Pro reset proveď ručně v DB.', 409);
+            return Json::error($response, 'already_enabled', 'TOTP už je aktivní. Pro reset použij: php api/bin/reset-2fa.php <email>.', 409);
         }
 
         $secret = TotpService::generateSecret();
+        try {
+            $encrypted = $this->crypto->encrypt($secret);
+        } catch (\RuntimeException) {
+            return Json::error($response, 'server_error', 'Chyba konfigurace serveru.', 500);
+        }
         // Šifrované AES-256-GCM v DB; do response zasíláme plain (jednorázově pro setup)
         $this->db->pdo()->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
-            ->execute([$this->crypto->encrypt($secret), (int) $user['id']]);
+            ->execute([$encrypted, (int) $user['id']]);
 
         $issuer = parse_url((string) $this->config->get('app.url', 'MyInvoice'), PHP_URL_HOST) ?: 'MyInvoice';
         $uri = $this->totp->provisioningUri($secret, (string) $user['email'], $issuer);
@@ -97,7 +102,11 @@ final class TotpAction
         if (empty($user['totp_secret'])) {
             return Json::error($response, 'no_secret', 'Nejdřív zavolej /setup pro vygenerování secretu.', 400);
         }
-        $secret = $this->crypto->decrypt((string) $user['totp_secret']);
+        try {
+            $secret = $this->crypto->decrypt((string) $user['totp_secret']);
+        } catch (\RuntimeException) {
+            return Json::error($response, 'server_error', 'Chyba konfigurace serveru.', 500);
+        }
         if (!$this->totp->verify($secret, $code)) {
             return Json::error($response, 'invalid_code', 'Neplatný TOTP kód.', 400);
         }

@@ -41,15 +41,36 @@ na 24 h. Počkej, nebo požádej admina o reset z DB:
 
 ### 2FA — ztratil jsem telefon
 
-MyInvoice nemá záložní kódy ani UI pro deaktivaci 2FA. Požádej admina, aby
-přímo v DB udělal:
+MyInvoice nemá záložní kódy ani UI pro deaktivaci 2FA. Doporučený postup je
+CLI rescue:
+
+```bash
+php api/bin/reset-2fa.php tvuj@email.cz
+```
+
+Po resetu se přihlásíš jen s heslem a 2FA si znovu aktivuješ na novém telefonu.
+Detail viz [§ 18.2.3](18_Bezpecnost.md).
+
+Pokud nemáš shell přístup ke kontejneru/serveru, použij legacy SQL fallback:
 
 ```sql
 UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE email = 'tvuj@email.cz';
 ```
 
-Pak se přihlásíš jen s heslem a 2FA si znovu aktivuješ na novém telefonu.
-Detail viz [§ 18.2.3](18_Bezpecnost.md).
+### Varování `secret_encryption_key` (špatná délka klíče)
+
+Od v3.1.0 backend vrací v `GET /api/health` pole `warnings[]` a admin vidí
+upozornění i v UI (**Systém → Aktualizace**), pokud je problém s
+`app.secret_encryption_key` (typicky omyl: 24B místo 32B).
+
+Oprav konfiguraci v `cfg.php` / `cfg.docker.php`:
+
+```bash
+openssl rand -base64 32
+```
+
+Vygenerovanou hodnotu ulož do `app.secret_encryption_key`. Klíč musí být
+base64, který po dekódování dává přesně 32 bajtů.
 
 ## 99.2 Faktury
 

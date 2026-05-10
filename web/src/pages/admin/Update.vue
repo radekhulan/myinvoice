@@ -3,11 +3,13 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { updateApi, type UpdateStatus } from '@/api/update'
+import { systemApi, type HealthResponse } from '@/api/client'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 
 const status = ref<UpdateStatus | null>(null)
+const health = ref<HealthResponse | null>(null)
 const checking = ref(false)
 const triggering = ref(false)
 const triggerResult = ref<{ status: string; message?: string; instructions?: string[] } | null>(null)
@@ -20,7 +22,12 @@ const isAdmin = computed(() => auth.user?.role === 'admin')
 async function load() {
   errorMsg.value = null
   try {
-    status.value = await updateApi.status()
+    const [nextStatus, nextHealth] = await Promise.all([
+      updateApi.status(),
+      systemApi.health(),
+    ])
+    status.value = nextStatus
+    health.value = nextHealth
   } catch (e: unknown) {
     errorMsg.value = (e as Error)?.message ?? 'Failed to load status'
   }
@@ -185,6 +192,18 @@ const renderedNotes = computed(() => {
   return renderMarkdown(md)
 })
 
+const healthWarnings = computed(() => health.value?.warnings ?? [])
+
+function warningTitle(code: string): string {
+  if (code === 'secret_encryption_key') return t('updates.warning_secret_key_title')
+  return t('updates.warning_generic_title')
+}
+
+function warningText(code: string): string {
+  if (code === 'secret_encryption_key') return t('updates.warning_secret_key_text')
+  return t('updates.warning_generic_text')
+}
+
 function fmtDate(s?: string | null): string {
   if (!s) return '—'
   try {
@@ -208,6 +227,20 @@ function fmtDate(s?: string | null): string {
 
     <div v-else-if="status" class="space-y-6">
       <!-- Stav: aktuální vs. poslední -->
+      <section v-if="healthWarnings.length" class="rounded-lg border border-warning-300 bg-warning-50/40 p-5">
+        <h2 class="text-lg font-semibold text-warning-900">{{ t('updates.warnings_title') }}</h2>
+        <ul class="mt-2 space-y-2">
+          <li
+            v-for="warning in healthWarnings"
+            :key="`${warning.code}:${warning.message}`"
+            class="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-900"
+          >
+            <div class="font-medium">{{ warningTitle(warning.code) }}</div>
+            <div class="text-warning-800">{{ warningText(warning.code) }}</div>
+          </li>
+        </ul>
+      </section>
+
       <section
         class="rounded-lg border p-5"
         :class="status.has_update

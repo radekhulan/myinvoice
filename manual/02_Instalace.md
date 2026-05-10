@@ -140,6 +140,10 @@ docker compose up -d
 docker compose exec app php api/bin/migrate.php
 ```
 
+> 🛈 Od image **v3.1.0** se v Dockeru migrace spouští automaticky při startu
+> kontejneru (`docker-entrypoint.sh`). Ruční `php api/bin/migrate.php` zůstává
+> bezpečný idempotentní fallback.
+
 > ⚠️ Tato varianta NEgeneruje hesla a secrets automaticky — musíš je do
 > `cfg.docker.php` doplnit ručně (viz komentář v ukázce). Pro one-click
 > ekvivalent použij **Variantu A** (vyžaduje klon repa).
@@ -190,6 +194,26 @@ DB_PORT=3308           # místo 3307 (vázán jen na 127.0.0.1)
 ```
 
 a `docker compose up -d`. URL pak `http://localhost:9000`.
+
+### 2.1.5.1 Runtime env pro auto-migrace (Docker)
+
+Vstupní skript image podporuje tyto proměnné:
+
+```bash
+MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
+MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
+MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
+```
+
+Default je `20` pokusů s pauzou `3` sekundy. Pokud proměnné nenastavíš, použije
+se výchozí chování.
+
+### 2.1.5.2 Railway / PaaS specifika
+
+Některé PaaS (typicky Railway) injectují nevyřešené placeholdery jako
+`${VAR}`, pokud proměnná není definovaná. Od v3.1.0 je MyInvoice v env
+overridech ignoruje, takže nepřepíší validní hodnoty z `cfg.php`/`cfg.docker.php`.
+Pokud chybí `secret_encryption_key`, aplikace fallbackuje na HKDF z `app.pepper`.
 
 ### 2.1.6 Daily ops
 

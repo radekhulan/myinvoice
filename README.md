@@ -278,7 +278,6 @@ DB_ROOT_PASSWORD=$(openssl rand -base64 28)
 EOF
 
 docker compose up -d
-docker compose exec app php api/bin/migrate.php
 ```
 
 > ⚠️ Tato varianta hesla a secrets do `cfg.docker.php` automaticky nedoplní —
@@ -289,6 +288,9 @@ docker compose exec app php api/bin/migrate.php
 > `docker-compose.production.yml`) změň `:latest` na konkrétní tag, např.
 > `:1.7.0`. Update pak `cmd/docker-update.{sh,ps1}` (auto-detekuje registry
 > mode = `pull` + `up -d` + migrace).
+>
+> Od image **v3.1.0** se migrace pouští i automaticky při startu kontejneru
+> (`docker-entrypoint.sh`), takže nová DB se inicializuje sama.
 
 > 📖 **Manuál na `/manual`:** GHCR image má od **v2.1.5** vygenerovaný HTML
 > manuál a od **v2.3.0** i PDF (`tools/generateManualHtml.php` +
@@ -331,6 +333,24 @@ DB_PORT=3308               # místo 3307 (vázán jen na 127.0.0.1)
 ```
 
 a `docker compose up -d`. URL pak bude `http://localhost:9000`.
+
+### Env proměnné pro auto-migrace (Docker runtime)
+
+```bash
+MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
+MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
+MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
+```
+
+Od image **v3.1.0** se migrace pouští při startu kontejneru automaticky
+(`docker-entrypoint.sh`). Ruční `php api/bin/migrate.php` je stále bezpečný
+idempotentní fallback.
+
+### Railway / PaaS env placeholdery
+
+Od v3.1.0 aplikace v env overridech ignoruje nevyřešené placeholdery ve tvaru
+`${VAR}` (typicky Railway, když proměnná není definovaná), takže nepřepíšou
+validní hodnoty z `cfg.php` / `cfg.docker.php`.
 
 ### Daily ops
 
@@ -490,6 +510,7 @@ php api/bin/setup.php                # interaktivní úvodní zřízení (cfg + 
 php api/bin/sample.php               # vygeneruje testovací data (po setupu)
 php api/bin/reset.php                # smaže všechna user-data (CLI only, vyžaduje "ANO")
 php api/bin/reset.php --yes          # bez potvrzení
+php api/bin/reset-2fa.php <email>    # nouzově vypne 2FA uživateli podle e-mailu
 php api/bin/recompute-stats.php      # přepočítá agregované statistiky
 ```
 
@@ -614,4 +635,3 @@ Vyvíjí **[MyWebdesign.cz s.r.o.](https://mywebdesign.cz/)** © 2026.
 >   účetní doklady).
 >
 > Plné znění viz [LICENSE](LICENSE) (MIT — sekce *„NO WARRANTY"*).
-
