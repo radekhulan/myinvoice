@@ -50,8 +50,8 @@ uživatel s upgradem stejně nic neudělá).
 
 V **Systém → Aktualizace** klikni na **„Aktualizovat na vX.Y.Z"**.
 Aplikace zapíše flag soubor `storage/upgrade-requested.json` **uvnitř
-kontejneru** (Docker named volume `app-data:/data`, fyzicky pak v
-`/data/storage/upgrade-requested.json`) a UI začne pollovat. **Vlastní
+kontejneru** (default `app-storage:/var/www/html/storage`, v opt-in single-volume
+módu `app-data:/data/storage/upgrade-requested.json`) a UI začne pollovat. **Vlastní
 upgrade ale provádí host-side watcher** — proces běžící mimo container,
 který má přístup k `docker compose` na hostu a přes `docker compose exec`
 čte/píše do storage volume.
@@ -159,26 +159,28 @@ docker compose -f docker-compose.production.yml exec app rm -f storage/upgrade-r
 
 (Pokud nepoužíváš production compose, vynechej `-f docker-compose.production.yml`.)
 
-## 19.5 Upgrade na 3.2.0 — migrace Docker volumes
+## 19.5 Upgrade na 3.2.x — volitelná migrace na single-volume layout
 
-**Toto se týká jen Docker uživatelů přecházejících z 3.1.x (a starších) na
-3.2.0+.** Native (nedockerový) deployment migraci nepotřebuje.
+**Toto se týká jen Docker uživatelů, kteří se rozhodnou *dobrovolně* přejít
+ze 3-volume layoutu (`app-log` + `app-storage` + `app-private`) na opt-in
+single-volume layout (`app-data:/data`, řízené `MYINVOICE_DATA_DIR=/data`).**
+Většina Docker uživatelů migraci nepotřebuje — `docker compose pull && up -d`
+na 3.2.1+ funguje beze změny, default chování je 3-volume layout (kompatibilní
+s 3.1.x).
 
-Od 3.2.0 image používá jediný persistent volume `app-data:/data` místo tří
-samostatných (`app-log`, `app-storage`, `app-private`). Pokud uděláš
-`docker compose pull && up -d` s novou image bez migrace, **Docker připojí
-prázdný `app-data`** a aplikace nebude vidět existující faktury, uploady,
-sessions ani DKIM klíče. Stará data v původních volumes nejsou ztracená,
-jen nejsou připojena.
+Single-volume layout zjednodušuje stack na PaaS (Railway, Heroku, Fly.io) a
+umožňuje strict read-only kontejner mimo `/data`. Sjednotí všechny stateful
+adresáře (log, storage, private, volitelně `cfg.local.php`) pod jediný volume
+`app-data:/data`.
 
-### Postup migrace
+### Postup opt-in migrace
 
 ```bash
 # Linux / macOS
 cd /opt/myinvoice
-git pull --ff-only                          # nebo `curl -O` aktuální docker-compose.yml a docker-migrate-volumes.sh
+git pull --ff-only                          # nebo `curl -O` aktuální compose soubory + docker-migrate-volumes.sh
 bash cmd/docker-migrate-volumes.sh
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
 ```
 
 ```powershell
@@ -186,8 +188,11 @@ docker compose up -d
 cd C:\inetpub\myinvoice
 git pull --ff-only
 .\cmd\docker-migrate-volumes.ps1
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
 ```
+
+(Alternativně přejmenuj `docker-compose.single-volume.yml` na
+`docker-compose.override.yml` — pak stačí `docker compose up -d`.)
 
 Skript:
 
@@ -203,9 +208,15 @@ Skript:
 6. **Staré volumes nemaže** — vypíše ti `docker volume rm` příkazy, abys je
    spustil ručně po ověření, že nová instalace funguje.
 
-Po `docker compose up -d` se přihlas, ověř, že vidíš historii faktur a
+Po `docker compose ... up -d` se přihlas, ověř, že vidíš historii faktur a
 upload souborů, a pak pusť výpis `docker volume rm …` ze závěru migrace
 pro úklid starých volumes.
+
+### Zůstat na 3-volume layoutu (default)
+
+Pokud nepotřebuješ single-volume mód, **nedělej nic** — `docker compose pull && up -d`
+na 3.2.1+ pracuje beze změny s existujícími 3 volumes, žádný env nemusíš
+nastavovat. Migrace je čistě opt-in.
 
 ### Idempotence + recovery
 

@@ -203,20 +203,33 @@ Vstupní skript image podporuje tyto proměnné:
 MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
 MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
 MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
-MYINVOICE_DATA_DIR=/data       # od v3.2.0 — sjednocený persistent volume
-                               # (default v image; nemusíš nastavovat)
+MYINVOICE_DATA_DIR=/data       # od v3.2.0 — opt-in single-volume mód
+                               # (default unset → 3-volume layout, 3.1.x kompatibilní)
 ```
 
 Default je `20` pokusů s pauzou `3` sekundy. Pokud proměnné nenastavíš, použije
 se výchozí chování.
 
-**`MYINVOICE_DATA_DIR`** (od v3.2.0) sjednotí všechny stateful adresáře
-(`log/`, `storage/{invoices,uploads,backup,sessions,cache}`, `private/dkim/`)
-pod jediný path — Docker compose stačí jeden `app-data:/data` volume místo
-tří. Image má default `/data`, takže nic nenastavuj. Lokální dev / nativní
-VPS bez ENV běží dál nezměněně (paths zůstanou v kořeni repa). Pokud
-upgraduješ z 3.1.x, **nezapomeň** nejdřív spustit `cmd/docker-migrate-volumes.{sh,ps1}`
-(viz § 19.5).
+**`MYINVOICE_DATA_DIR`** je od v3.2.1 čistě **opt-in**. Existují dva režimy:
+
+- **Default — 3-volume layout** (kompatibilní s 3.1.x). `MYINVOICE_DATA_DIR` je
+  unset, compose mountuje tři named volumes — `app-log:/var/www/html/log`,
+  `app-storage:/var/www/html/storage`, `app-private:/var/www/html/private`.
+  Pro většinu Docker uživatelů žádná změna oproti 3.1.x. `docker compose pull && up -d`
+  na 3.2.1 funguje bez jakékoli migrace.
+- **Opt-in — single-volume / DATA_DIR layout** (PaaS, Railway, Heroku, Fly.io).
+  Nastav `MYINVOICE_DATA_DIR=/data` (přes env nebo override compose) a všechny
+  stateful adresáře (`log/`, `storage/{invoices,uploads,backup,sessions,cache}`,
+  `private/dkim/`) se sjednotí pod `/data`. V repu je k tomu připravený
+  `docker-compose.single-volume.yml` override:
+
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
+  ```
+
+  Pokud přecházíš z existujícího 3-volume layoutu na single-volume, spusť napřed
+  `cmd/docker-migrate-volumes.{sh,ps1}` (zkopíruje data ze starých volumes
+  do `app-data`). Detaily viz § 19.5.
 
 **`cfg.docker.php` mount je nově volitelný** — image obsahuje stub `cfg.php`
 (`<?php return [];`) a vše lze předat přes ENV (12-factor). Pro full-ENV deploy

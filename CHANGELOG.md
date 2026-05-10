@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] — 2026-05-10
+
+### Fixed
+
+- **`MYINVOICE_DATA_DIR` je opět opt-in (žádný breaking change pro 3.1.x Docker uživatele)** —
+  3.2.0 nastavovalo `MYINVOICE_DATA_DIR=/data` natvrdo v Dockerfile a v `docker-compose.yml`
+  collapsovalo 3 volumes na 1, což po `docker compose pull && up -d` vypadalo jako ztráta dat
+  (staré volumes nemountovaly na nové cesty). 3.2.1 vrací default chování — `app-log`, `app-storage`,
+  `app-private` zůstávají, single-volume layout je opt-in přes `docker-compose.single-volume.yml`.
+- Existující 3.1.x Docker stacky můžou udělat `docker compose pull` bez jakékoli další migrace.
+
+### Changed
+
+- `Dockerfile` — `ENV MYINVOICE_DATA_DIR=/data` odstraněno; `/data` adresář a `VOLUME ["/data"]`
+  zůstávají, ale aktivují se až tehdy, když uživatel ENV explicitně nastaví.
+- `docker-compose.yml` + `docker-compose.production.yml` — vráceny 3 named volumes
+  (`app-log`, `app-storage`, `app-private`) jako default.
+- `cmd/docker-migrate-volumes.{sh,ps1}` — header označen jako *optional*; spouštět jen při
+  dobrovolném přechodu na single-volume mód.
+
+### Added
+
+- **`docker-compose.single-volume.yml`** — opt-in override pro single-volume mód
+  (PaaS, Railway, Heroku, Fly.io). Použití:
+  `docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d`.
+
 ## [3.2.0] — 2026-05-10
 
 ### Breaking Changes

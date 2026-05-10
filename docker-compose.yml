@@ -28,11 +28,14 @@ services:
       # (Railway, Heroku, Fly.io) tento mount zakomentuj/odstraň.
       # docker-install.{sh,ps1} generates cfg.docker.php with db=db, redis=redis hostnames.
       - ./cfg.docker.php:/var/www/html/cfg.php:ro
-      # Single persistent data volume — držte všechen mutable state (log, storage,
-      # private, volitelný cfg.local.php) pod /data. Zbytek kontejneru může být
-      # read-only, image updaty jsou bezbolestné. Řízeno ENV MYINVOICE_DATA_DIR=/data
-      # (default v Dockerfile). Při upgradu z 3.1.x spusť cmd/docker-migrate-volumes.{sh,ps1}.
-      - app-data:/data
+      # Default 3-volume layout (kompatibilní s 3.1.x — `docker compose pull && up -d`
+      # na 3.2.1 funguje bez migrace). Pro single-volume mód (PaaS, Railway, Heroku,
+      # Fly.io) použij override: `docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d`,
+      # nebo nastav `MYINVOICE_DATA_DIR=/data` env + namountuj `app-data:/data`
+      # a (volitelně) spusť `cmd/docker-migrate-volumes.{sh,ps1}` pro převod existujících dat.
+      - app-log:/var/www/html/log
+      - app-storage:/var/www/html/storage
+      - app-private:/var/www/html/private
     environment:
       TZ: Europe/Prague
 
@@ -67,5 +70,7 @@ services:
 
 volumes:
   db-data:
-  app-data:
+  app-log:
+  app-storage:
+  app-private:
   redis-data:

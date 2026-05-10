@@ -340,20 +340,28 @@ a `docker compose up -d`. URL pak bude `http://localhost:9000`.
 MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
 MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
 MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
-MYINVOICE_DATA_DIR=/data       # v3.2.0+ — jediný persistent volume; default v image
+MYINVOICE_DATA_DIR=/data       # v3.2.0+ — opt-in single-volume mód (default unset)
 ```
 
 Od image **v3.1.0** se migrace pouští při startu kontejneru automaticky
 (`docker-entrypoint.sh`). Ruční `php api/bin/migrate.php` je stále bezpečný
 idempotentní fallback.
 
-Od **v3.2.0** image používá `MYINVOICE_DATA_DIR=/data` — jediný persistent
-volume drží `log/`, `storage/`, `private/` (a volitelně `cfg.local.php`).
-Místo tří bind-mountů stačí jeden `app-data:/data`, zbytek `/var/www/html`
-může běžet read-only. Image obsahuje stub `cfg.php`, takže bind-mount
-`cfg.docker.php` je volitelný — pro full-ENV deploy (Railway, Heroku, Fly.io)
-ho lze vynechat. Existující 3.1.x instalace musí před upgradem spustit
-`cmd/docker-migrate-volumes.{sh,ps1}`, jinak Docker připojí prázdný `app-data`.
+Od **v3.2.1** je `MYINVOICE_DATA_DIR` čistě **opt-in** (3.2.0 ho nastavovalo
+natvrdo, což lámalo upgrade z 3.1.x). Default chování je legacy 3-volume layout
+(`app-log`, `app-storage`, `app-private`) — kompatibilní s 3.1.x, žádná migrace
+pro `docker compose pull && up -d`. Pro single-volume mód (PaaS, Railway,
+Heroku, Fly.io) použij override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
+```
+
+který nastaví `MYINVOICE_DATA_DIR=/data` a sloučí log/storage/private pod jediný
+`app-data:/data` volume. Image obsahuje stub `cfg.php`, takže bind-mount
+`cfg.docker.php` je volitelný — pro full-ENV deploy ho lze vynechat. Pokud na
+single-volume přecházíš ze 3-volume layoutu, spusť napřed
+`cmd/docker-migrate-volumes.{sh,ps1}` (zkopíruje data ze starých volumes).
 
 ### Railway / PaaS env placeholdery
 

@@ -1,16 +1,21 @@
-# Migrate MyInvoice.cz Docker volumes z 3-volume layoutu (3.1.x a starsi)
-# na novy jednovolume layout (3.2.0+).
+# Migrate MyInvoice.cz Docker volumes z 3-volume layoutu (default) na opt-in
+# single-volume layout (PaaS / DATA_DIR mod).
 #
-# Pred 3.2.0 mel docker-compose tri named volumes:
+# OPTIONAL — spoustej jen pokud dobrovolne prechazis na single-volume mod
+# (`docker-compose.single-volume.yml` override + `MYINVOICE_DATA_DIR=/data`).
+# 3.2.1+ default chovani je 3-volume layout (kompatibilni s 3.1.x), zadna
+# migrace pro bezny `docker compose pull && up -d` upgrade neni potreba.
+#
+# Default 3-volume layout:
 #   - app-log     -> /var/www/html/log
 #   - app-storage -> /var/www/html/storage
 #   - app-private -> /var/www/html/private
 #
-# Od 3.2.0 je to jediny volume:
+# Opt-in single-volume layout:
 #   - app-data    -> /data   (drzi log/, storage/, private/, volitelne cfg.local.php)
 #
-# Bez migrace by `docker compose up -d` s 3.2.0 image pripojil PRAZDNY
-# `app-data` a aplikace by nevidela existujici faktury/uploady/sessions/DKIM.
+# Bez migrace by `docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d`
+# pripojil PRAZDNY `app-data` a aplikace by nevidela existujici faktury/uploady/sessions/DKIM.
 #
 # Skript:
 #   1. Detekuje docker compose project name (z dir jmena nebo COMPOSE_PROJECT_NAME).

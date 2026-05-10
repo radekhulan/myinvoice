@@ -1,0 +1,43 @@
+# MyInvoice.cz — Single-volume override pro PaaS / DATA_DIR mód
+#
+# Aktivuje opt-in single-volume layout (od 3.2.0):
+#   - nastaví `MYINVOICE_DATA_DIR=/data` (Config::applyDataDirOverrides() přepíše
+#     všechny stateful path klíče pod /data)
+#   - nahradí default 3-volume layout (`app-log`, `app-storage`, `app-private`)
+#     za jediný `app-data:/data`
+#
+# Použití:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
+#
+# (nebo přejmenuj na `docker-compose.override.yml` a `docker compose up -d`
+# použije override automaticky).
+#
+# Upgrade z 3.1.x → single-volume:
+#
+#   1. cd /opt/myinvoice && git pull --ff-only
+#   2. bash cmd/docker-migrate-volumes.sh        # zkopíruje stará data do app-data
+#   3. docker compose -f docker-compose.yml -f docker-compose.single-volume.yml up -d
+#
+# Migrace je VOLITELNÁ — kdo zůstává na 3-volume layoutu, nemusí dělat nic.
+#
+# Vyžaduje Compose v2.24+ (kvůli `!reset`). Pro starší verze použij explicitní
+# override compose souboru bez 3-volume mountů.
+
+services:
+  app:
+    environment:
+      MYINVOICE_DATA_DIR: /data
+    # `!override` nahradí celý seznam volumes z base compose souboru
+    # (default 3-volume layout) za jediný persistent volume `app-data:/data`.
+    # cfg.docker.php mount je tu volitelný — pokud používáš full-ENV deploy,
+    # zakomentuj ho.
+    volumes: !override
+      - ./cfg.docker.php:/var/www/html/cfg.php:ro
+      - app-data:/data
+
+volumes:
+  app-log: !reset null
+  app-storage: !reset null
+  app-private: !reset null
+  app-data:
