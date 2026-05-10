@@ -8,6 +8,14 @@
  *   3. cfg.php je v .gitignore — NIKDY ho necommituj
  *
  * Per-environment override můžeš dát do cfg.local.php (taky gitignored).
+ *
+ * Docker / kontejnerový deploy: stačí prázdný `<?php return [];` a všechny
+ * citlivé hodnoty předat přes ENV (viz envOverrideMap v Config.php). Volitelná
+ * ENV `MYINVOICE_DATA_DIR=/data` přesune VŠECHNY stateful adresáře (log/,
+ * storage/{invoices,uploads,backup,sessions,cache}, private/dkim/) pod jediný
+ * volume — zbytek kontejneru pak může běžet read-only a image updaty jsou
+ * bezbolestné. `${MYINVOICE_DATA_DIR}/cfg.local.php` se navíc auto-loaduje,
+ * takže per-instance konfigurace přežije image update.
  */
 
 return [

@@ -47,7 +47,9 @@ final class Bootstrap
 
         // PHP error log → log/php-errors.log (jinak by warnings/notices padaly do
         // system php_errors.log, který je mimo repo). Display_errors v dev=on, prod=off.
-        $logDir = $rootDir . '/log';
+        // Pokud je nastaven MYINVOICE_DATA_DIR, ukládáme i tento log do data_dir
+        // (drží všechen state pod jediným perzistentním volume).
+        $logDir = ($config->dataDir() ?? $rootDir) . '/log';
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0755, true);
         }

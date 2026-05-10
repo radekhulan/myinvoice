@@ -83,7 +83,23 @@ RUN php tools/generateManualHtml.php \
  && php tools/exportManualToPdf.php \
  && chown -R www-data:www-data manual/generated manual/manual.pdf
 
-# Writable dirs (cfg.php, log/, storage/, private/ are bind-mounted from host)
+# Stub cfg.php — image je samostatný a `/var/www/html` může běžet jako read-only.
+# Veškerou konfiguraci lze předat přes ENV (viz api/src/Infrastructure/Config/Config.php).
+# cfg.php je v .dockerignore, takže ve fázi COPY tady reálně neexistuje. Pokud
+# uživatel přesto chce vlastní cfg.php, namountuje ho přes volume přes tento stub.
+RUN echo '<?php return [];' > cfg.php && chown www-data:www-data cfg.php
+
+# Single persistent data dir — drží všechen mutable state (log, storage, private,
+# i volitelný cfg.local.php). Stačí jediný volume mount na /data a zbytek
+# kontejneru může být striktně read-only — bezbolestné image updaty.
+ENV MYINVOICE_DATA_DIR=/data
+RUN mkdir -p /data/log /data/storage /data/private \
+ && chown -R www-data:www-data /data
+VOLUME ["/data"]
+
+# Legacy fallback: pokud uživatel explicitně vypne DATA_DIR (MYINVOICE_DATA_DIR=""),
+# aplikace zapisuje do těchto adresářů uvnitř image. V default módu (DATA_DIR=/data)
+# se nepoužívají, ale držíme je pro zpětnou kompatibilitu starších compose souborů.
 RUN mkdir -p log storage private && chown -R www-data:www-data log storage private
 
 EXPOSE 80

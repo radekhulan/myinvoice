@@ -26,10 +26,11 @@ services:
       # Docker-specific cfg (separate from native-dev cfg.php so both can coexist).
       # docker-install.{sh,ps1} generates cfg.docker.php with db=db, redis=redis hostnames.
       - ./cfg.docker.php:/var/www/html/cfg.php:ro
-      # Mutable runtime data
-      - app-log:/var/www/html/log
-      - app-storage:/var/www/html/storage
-      - app-private:/var/www/html/private
+      # Single persistent data volume — držte všechen mutable state (log, storage,
+      # private, volitelný cfg.local.php) pod /data. Zbytek kontejneru může být
+      # read-only, image updaty jsou bezbolestné. Řízeno ENV MYINVOICE_DATA_DIR=/data
+      # (default v Dockerfile).
+      - app-data:/data
     environment:
       TZ: Europe/Prague
 
@@ -64,7 +65,5 @@ services:
 
 volumes:
   db-data:
-  app-log:
-  app-storage:
-  app-private:
+  app-data:
   redis-data:

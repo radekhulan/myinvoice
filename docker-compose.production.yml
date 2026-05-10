@@ -28,9 +28,10 @@ services:
       - "${APP_PORT:-8080}:80"
     volumes:
       - ./cfg.docker.php:/var/www/html/cfg.php:ro
-      - app-log:/var/www/html/log
-      - app-storage:/var/www/html/storage
-      - app-private:/var/www/html/private
+      # Single persistent data volume (viz docker-compose.yml). Drží log/, storage/,
+      # private/ a volitelný cfg.local.php pod /data — zbytek kontejneru read-only,
+      # bezbolestné updaty image. Řízeno ENV MYINVOICE_DATA_DIR=/data (Dockerfile).
+      - app-data:/data
     environment:
       TZ: Europe/Prague
 
@@ -64,7 +65,5 @@ services:
 
 volumes:
   db-data:
-  app-log:
-  app-storage:
-  app-private:
+  app-data:
   redis-data:

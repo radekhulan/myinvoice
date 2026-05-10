@@ -50,10 +50,11 @@ uživatel s upgradem stejně nic neudělá).
 
 V **Systém → Aktualizace** klikni na **„Aktualizovat na vX.Y.Z"**.
 Aplikace zapíše flag soubor `storage/upgrade-requested.json` **uvnitř
-kontejneru** (Docker named volume `app-storage:/var/www/html/storage`)
-a UI začne pollovat. **Vlastní upgrade ale provádí host-side watcher**
-— proces běžící mimo container, který má přístup k `docker compose` na
-hostu a přes `docker compose exec` čte/píše do storage volume.
+kontejneru** (Docker named volume `app-data:/data`, fyzicky pak v
+`/data/storage/upgrade-requested.json`) a UI začne pollovat. **Vlastní
+upgrade ale provádí host-side watcher** — proces běžící mimo container,
+který má přístup k `docker compose` na hostu a přes `docker compose exec`
+čte/píše do storage volume.
 
 ### Test režim (jednorázově, ve foregroundu)
 

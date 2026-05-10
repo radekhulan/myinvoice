@@ -19,14 +19,24 @@ namespace MyInvoice\Infrastructure\Config;
  * strukturou (může být celý prázdný `<?php return [];`) a všechny citlivé
  * údaje předat přes ENV. Lokální dev / VPS nasazení funguje beze změny
  * (cfg.php má přednost před chybějícími ENV).
+ *
+ * `MYINVOICE_DATA_DIR` (volitelná ENV): pokud je nastavená, **všechny**
+ * stateful adresáře (log/, storage/{invoices,uploads,backup,sessions,cache},
+ * private/dkim/) se přesunou pod tuto cestu. Cílem je mít v Dockeru jediný
+ * persistentní volume (např. /data) a zbytek kontejneru jako read-only —
+ * eliminuje potřebu symlinkovat /storage, /private, /log, cfg.php zvlášť.
+ * Navíc se z `${MYINVOICE_DATA_DIR}/cfg.local.php` (pokud existuje) načte
+ * per-instance override, takže uživatelská konfigurace přežije image update.
  */
 final class Config
 {
     private array $data;
+    private ?string $dataDir;
 
-    public function __construct(array $data)
+    public function __construct(array $data, ?string $dataDir = null)
     {
-        $this->data = $data;
+        $this->data    = $data;
+        $this->dataDir = $dataDir;
     }
 
     public static function load(string $rootDir): self
@@ -46,9 +56,30 @@ final class Config
         }
 
         $merged = array_replace_recursive($base, $local);
+
+        // Volitelně merge cfg.local.php z DATA_DIR (pokud je set), aby uživatel
+        // mohl držet kompletní per-instance override mimo image.
+        $dataDir = self::resolveDataDir();
+        if ($dataDir !== null) {
+            $dataLocalPath = $dataDir . DIRECTORY_SEPARATOR . 'cfg.local.php';
+            if (is_file($dataLocalPath)) {
+                $dataLocal = require $dataLocalPath;
+                if (!is_array($dataLocal)) {
+                    throw new \RuntimeException('cfg.local.php v MYINVOICE_DATA_DIR musí vracet pole');
+                }
+                $merged = array_replace_recursive($merged, $dataLocal);
+            }
+        }
+
         $merged = self::applyEnvOverrides($merged);
 
-        return new self($merged);
+        // DATA_DIR má přednost před per-key path konfigurací — sjednocení všech
+        // stateful adresářů (log/, storage/, private/) pod jediný volume.
+        if ($dataDir !== null) {
+            $merged = self::applyDataDirOverrides($merged, $dataDir);
+        }
+
+        return new self($merged, $dataDir);
     }
 
     public function get(string $path, mixed $default = null): mixed
@@ -69,6 +100,59 @@ final class Config
     public function all(): array
     {
         return $this->data;
+    }
+
+    /**
+     * Vrací absolutní cestu z `MYINVOICE_DATA_DIR`, pokud je ENV nastavená.
+     * Když je nastavená, všechny stateful adresáře žijí pod touto cestou.
+     */
+    public function dataDir(): ?string
+    {
+        return $this->dataDir;
+    }
+
+    /**
+     * Načte hodnotu MYINVOICE_DATA_DIR z prostředí. Vrací normalizovanou
+     * absolutní cestu (bez závěrečného oddělovače) nebo null pokud není set.
+     */
+    private static function resolveDataDir(): ?string
+    {
+        $raw = getenv('MYINVOICE_DATA_DIR');
+        if (!is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+        $path = rtrim(trim($raw), "/\\");
+        return $path === '' ? null : $path;
+    }
+
+    /**
+     * Sjednotí všechny stateful cesty pod `${dataDir}` — pokud uživatel
+     * nastaví MYINVOICE_DATA_DIR, nemusí řešit jednotlivé volume mounty
+     * pro log/, storage/ a private/.
+     *
+     * Mapa: cfg klíč (dot notation) => relativní podcesta uvnitř data_dir.
+     */
+    private static function applyDataDirOverrides(array $data, string $dataDir): array
+    {
+        $sep = DIRECTORY_SEPARATOR;
+        $map = [
+            'logging.path'                => 'log' . $sep . 'app.log',
+            'storage.invoices_dir'        => 'storage' . $sep . 'invoices',
+            'storage.uploads_dir'         => 'storage' . $sep . 'uploads',
+            'storage.backup_dir'          => 'storage' . $sep . 'backup',
+            'storage.sessions_dir'        => 'storage' . $sep . 'sessions',
+            'storage.cache_dir'           => 'storage' . $sep . 'cache',
+            'cron.backup.output_dir'      => 'storage' . $sep . 'backup',
+            'smtp.dkim.private_key_path'  => 'private' . $sep . 'dkim' . $sep . 'myinvoice.pem',
+            'smtp.dkim.public_key_path'   => 'private' . $sep . 'dkim' . $sep . 'myinvoice.pub',
+            'smtp.dkim.dns_doc_path'      => 'private' . $sep . 'dkim' . $sep . 'dns.txt',
+        ];
+
+        foreach ($map as $path => $rel) {
+            $data = self::setByPath($data, $path, $dataDir . $sep . $rel);
+        }
+
+        return $data;
     }
 
     /**
