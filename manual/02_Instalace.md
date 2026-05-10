@@ -203,10 +203,25 @@ Vstupní skript image podporuje tyto proměnné:
 MYINVOICE_SKIP_MIGRATIONS=1    # vypne auto-migraci při startu
 MYINVOICE_MIGRATE_ATTEMPTS=20  # počet retry pokusů migrace
 MYINVOICE_MIGRATE_DELAY=3      # pauza mezi pokusy (sekundy)
+MYINVOICE_DATA_DIR=/data       # od v3.2.0 — sjednocený persistent volume
+                               # (default v image; nemusíš nastavovat)
 ```
 
 Default je `20` pokusů s pauzou `3` sekundy. Pokud proměnné nenastavíš, použije
 se výchozí chování.
+
+**`MYINVOICE_DATA_DIR`** (od v3.2.0) sjednotí všechny stateful adresáře
+(`log/`, `storage/{invoices,uploads,backup,sessions,cache}`, `private/dkim/`)
+pod jediný path — Docker compose stačí jeden `app-data:/data` volume místo
+tří. Image má default `/data`, takže nic nenastavuj. Lokální dev / nativní
+VPS bez ENV běží dál nezměněně (paths zůstanou v kořeni repa). Pokud
+upgraduješ z 3.1.x, **nezapomeň** nejdřív spustit `cmd/docker-migrate-volumes.{sh,ps1}`
+(viz § 19.5).
+
+**`cfg.docker.php` mount je nově volitelný** — image obsahuje stub `cfg.php`
+(`<?php return [];`) a vše lze předat přes ENV (12-factor). Pro full-ENV deploy
+(Railway, Heroku, Fly.io) bind-mount `./cfg.docker.php:/var/www/html/cfg.php:ro`
+v `docker-compose.yml` zakomentuj nebo odstraň.
 
 ### 2.1.5.2 Railway / PaaS specifika
 

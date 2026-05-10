@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-05-10
+
+### Breaking Changes
+
+- **Docker volume layout** — named volumes `app-log`, `app-storage` a
+  `app-private` byly nahrazeny jediným `app-data:/data`. Existující
+  Docker instalace **musí před `docker compose up -d` s novou image
+  spustit `cmd/docker-migrate-volumes.{sh,ps1}`**, jinak Docker připojí
+  prázdný `app-data` a aplikace nebude vidět existující faktury, uploady,
+  sessions ani DKIM klíče. Skript zkopíruje obsah starých volumes do
+  nového a vypíše instrukce pro smazání starých. Detailní postup je
+  v `manual/19_Aktualizace.md` § 19.5.
+
+### Added
+
+- **`MYINVOICE_DATA_DIR` env** — sjednotí všechny stateful adresáře
+  (`log/`, `storage/{invoices,uploads,backup,sessions,cache}`,
+  `private/dkim/`) pod jedinou cestu; default `/data` v Docker image.
+  Cílem je clean Docker volumes — místo čtyř bind-mountů (`/storage`,
+  `/private`, `/log`, `cfg.php`) stačí jediný persistent volume a zbytek
+  kontejneru může běžet jako read-only. Per-instance override
+  `cfg.local.php` z `${DATA_DIR}/` se auto-loaduje a přežije image update.
+- **Stub `cfg.php`** v image — kontejner je samostatný, lze pustit s
+  read-only `/var/www/html` a všechnu konfiguraci předat přes ENV.
+  Bind-mount vlastního `cfg.docker.php` je proto nově **volitelný** —
+  pro full-ENV deploy (Railway, Heroku, Fly.io) ho lze vynechat.
+- **`cmd/docker-migrate-volumes.{sh,ps1}`** — sidecar migrace ze starého
+  3-volume layoutu na nový jednovolume. Detekuje staré volumes, zastaví
+  stack, zkopíruje data přes `alpine cp -a`, vypíše příkazy pro smazání
+  starých volumes (mazání nedělá automaticky kvůli bezpečnosti).
+
+### Changed
+
+- `Bootstrap.php` — PHP error log honorí `Config::dataDir()` (když je
+  `MYINVOICE_DATA_DIR` set, `php-errors.log` jde do `${DATA_DIR}/log/`).
+- `VersionService::upgrade{Flag,Result}Path()` — flag a result soubory
+  se ukládají do `${DATA_DIR}/storage/` když je ENV set; jinak fallback
+  na rootDir (zachová zpětnou kompat se starým volume layoutem během
+  přechodu před spuštěním migrace).
+
 ## [3.1.0] — 2026-05-10
 
 ### Added

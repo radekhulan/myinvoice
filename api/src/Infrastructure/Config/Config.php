@@ -116,8 +116,11 @@ final class Config
     /**
      * Načte hodnotu MYINVOICE_DATA_DIR z prostředí. Vrací normalizovanou
      * absolutní cestu (bez závěrečného oddělovače) nebo null pokud není set.
+     *
+     * Public static, aby ji mohly volat konzumenti, kteří si Config neumí
+     * snadno vstříknout (např. `VersionService` má jen `Connection`).
      */
-    private static function resolveDataDir(): ?string
+    public static function resolveDataDir(): ?string
     {
         $raw = getenv('MYINVOICE_DATA_DIR');
         if (!is_string($raw) || trim($raw) === '') {

@@ -159,7 +159,68 @@ docker compose -f docker-compose.production.yml exec app rm -f storage/upgrade-r
 
 (Pokud nepoužíváš production compose, vynechej `-f docker-compose.production.yml`.)
 
-## 19.5 Aktualizace v UI — nativní instalace
+## 19.5 Upgrade na 3.2.0 — migrace Docker volumes
+
+**Toto se týká jen Docker uživatelů přecházejících z 3.1.x (a starších) na
+3.2.0+.** Native (nedockerový) deployment migraci nepotřebuje.
+
+Od 3.2.0 image používá jediný persistent volume `app-data:/data` místo tří
+samostatných (`app-log`, `app-storage`, `app-private`). Pokud uděláš
+`docker compose pull && up -d` s novou image bez migrace, **Docker připojí
+prázdný `app-data`** a aplikace nebude vidět existující faktury, uploady,
+sessions ani DKIM klíče. Stará data v původních volumes nejsou ztracená,
+jen nejsou připojena.
+
+### Postup migrace
+
+```bash
+# Linux / macOS
+cd /opt/myinvoice
+git pull --ff-only                          # nebo `curl -O` aktuální docker-compose.yml a docker-migrate-volumes.sh
+bash cmd/docker-migrate-volumes.sh
+docker compose up -d
+```
+
+```powershell
+# Windows
+cd C:\inetpub\myinvoice
+git pull --ff-only
+.\cmd\docker-migrate-volumes.ps1
+docker compose up -d
+```
+
+Skript:
+
+1. Detekuje compose project name a existující staré volumes
+   (`<project>_app-log`, `<project>_app-storage`, `<project>_app-private`).
+2. Zastaví stack přes `docker compose down` (DB volume `db-data` zůstane
+   nedotčen).
+3. Vytvoří nový `<project>_app-data` volume (pokud ještě neexistuje).
+4. Spustí dočasný `alpine` sidecar s mountem starých i nového volume a
+   přes `cp -a` zkopíruje obsah — výsledek je `/data/log`, `/data/storage`,
+   `/data/private` v novém volume.
+5. Sjednotí ownership na `www-data` (UID/GID 33).
+6. **Staré volumes nemaže** — vypíše ti `docker volume rm` příkazy, abys je
+   spustil ručně po ověření, že nová instalace funguje.
+
+Po `docker compose up -d` se přihlas, ověř, že vidíš historii faktur a
+upload souborů, a pak pusť výpis `docker volume rm …` ze závěru migrace
+pro úklid starých volumes.
+
+### Idempotence + recovery
+
+Skript je idempotentní — opětovné spuštění detekuje, že staré volumes
+už neexistují (nebo že nový volume už obsahuje data) a jen vypíše stav.
+
+Pokud něco selže před `docker volume rm`, **stará data jsou pořád celá**
+v `<project>_app-log/storage/private` — ručně je restoreneš přes:
+
+```bash
+docker run --rm -v myinvoice_app-storage:/old:ro -v myinvoice_app-data:/new alpine \
+  sh -c "cp -a /old/. /new/storage/"
+```
+
+## 19.6 Aktualizace v UI — nativní instalace
 
 Pro nativní deployment (sdílený hosting / VPS bez Dockeru) UI v této
 verzi (v3.0.0) zatím **neimplementuje** automatický download release
@@ -195,7 +256,7 @@ Node nemáš (typicky sdílený hosting), je nejjednodušší cesta:
 > 🛈 Phase 2 (plánováno na příští minor release) doplní automatický
 > download bundle + extrakci přímo z UI tlačítka, takže krok 1+2 odpadne.
 
-## 19.6 Co když upgrade selže
+## 19.7 Co když upgrade selže
 
 ### Docker watcher
 
@@ -228,7 +289,7 @@ cd web && pnpm install && pnpm build && cd ..
 Pokud `migrate.php` selhal, vrátit se nejde — musíš debugovat konkrétní
 migraci. Záloha DB je tvoje odpovědnost (kapitola **§ 14 Exporty**).
 
-## 19.7 Dohled na nové verze bez UI
+## 19.8 Dohled na nové verze bez UI
 
 Pokud nemáš administrátorský přístup do UI, ale chceš vědět, kdy je
 nová verze, můžeš pollovat veřejný endpoint:

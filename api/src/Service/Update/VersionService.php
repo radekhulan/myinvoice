@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MyInvoice\Service\Update;
 
 use MyInvoice\Bootstrap;
+use MyInvoice\Infrastructure\Config\Config;
 use MyInvoice\Infrastructure\Database\Connection;
 use PDO;
 
@@ -226,14 +227,7 @@ final class VersionService
      */
     private function stateBaseDir(): string
     {
-        $env = getenv('MYINVOICE_DATA_DIR');
-        if (is_string($env)) {
-            $trimmed = rtrim(trim($env), "/\\");
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-        return $this->rootDir;
+        return Config::resolveDataDir() ?? $this->rootDir;
     }
 
     // ---------- internals ------------------------------------------------

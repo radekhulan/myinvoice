@@ -23,13 +23,15 @@ services:
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
-      # Docker-specific cfg (separate from native-dev cfg.php so both can coexist).
+      # OPTIONAL — Docker-specific cfg. Image obsahuje stub `cfg.php` (`<?php return [];`)
+      # a všechnu konfiguraci lze předat přes ENV (12-factor). Pro full-ENV deploy
+      # (Railway, Heroku, Fly.io) tento mount zakomentuj/odstraň.
       # docker-install.{sh,ps1} generates cfg.docker.php with db=db, redis=redis hostnames.
       - ./cfg.docker.php:/var/www/html/cfg.php:ro
       # Single persistent data volume — držte všechen mutable state (log, storage,
       # private, volitelný cfg.local.php) pod /data. Zbytek kontejneru může být
       # read-only, image updaty jsou bezbolestné. Řízeno ENV MYINVOICE_DATA_DIR=/data
-      # (default v Dockerfile).
+      # (default v Dockerfile). Při upgradu z 3.1.x spusť cmd/docker-migrate-volumes.{sh,ps1}.
       - app-data:/data
     environment:
       TZ: Europe/Prague
