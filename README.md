@@ -289,7 +289,7 @@ docker compose up -d
 > `:1.7.0`. Update pak `cmd/docker-update.{sh,ps1}` (auto-detekuje registry
 > mode = `pull` + `up -d` + migrace).
 >
-> Od image **v3.1.4** se migrace pouští i automaticky při startu kontejneru
+> Od image **v3.1.0** se migrace pouští i automaticky při startu kontejneru
 > (`docker-entrypoint.sh`), takže nová DB se inicializuje sama.
 
 > 📖 **Manuál na `/manual`:** GHCR image má od **v2.1.5** vygenerovaný HTML

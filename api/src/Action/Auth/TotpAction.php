@@ -53,16 +53,16 @@ final class TotpAction
         $user = $this->user($request);
         if ($user === null) return Json::error($response, 'unauthenticated', 'Nepřihlášený uživatel.', 401);
 
-        // Nový secret pokaždé — pokud už totp_enabled=1, vrať 409 (musí nejdřív disable v DB)
+        // Nový secret pokaždé — pokud už totp_enabled=1, vrať 409 (reset přes CLI)
         if ((int) $user['totp_enabled'] === 1) {
-            return Json::error($response, 'already_enabled', 'TOTP už je aktivní. Pro reset proveď ručně v DB.', 409);
+            return Json::error($response, 'already_enabled', 'TOTP už je aktivní. Pro reset použij: php api/bin/reset-2fa.php <email>.', 409);
         }
 
         $secret = TotpService::generateSecret();
         try {
             $encrypted = $this->crypto->encrypt($secret);
         } catch (\RuntimeException) {
-            return Json::error($response, 'server_error', 'Server configuration error.', 500);
+            return Json::error($response, 'server_error', 'Chyba konfigurace serveru.', 500);
         }
         // Šifrované AES-256-GCM v DB; do response zasíláme plain (jednorázově pro setup)
         $this->db->pdo()->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
@@ -105,7 +105,7 @@ final class TotpAction
         try {
             $secret = $this->crypto->decrypt((string) $user['totp_secret']);
         } catch (\RuntimeException) {
-            return Json::error($response, 'server_error', 'Server configuration error.', 500);
+            return Json::error($response, 'server_error', 'Chyba konfigurace serveru.', 500);
         }
         if (!$this->totp->verify($secret, $code)) {
             return Json::error($response, 'invalid_code', 'Neplatný TOTP kód.', 400);
