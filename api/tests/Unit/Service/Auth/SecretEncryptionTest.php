@@ -89,13 +89,14 @@ final class SecretEncryptionTest extends TestCase
     public function testValidateKeyRejectsInvalidBase64(): void
     {
         $svc = $this->makeWithKey('not-valid-base64-32-bytes!!!');
-        self::assertSame('cfg.app.secret_encryption_key musí být 32B base64.', $svc->validateKey());
+        self::assertSame('cfg.app.secret_encryption_key musí být base64 klíč o délce 32B po dekódování.', $svc->validateKey());
     }
 
     public function testValidateKeyRejectsWrongLength(): void
     {
+        // 24B je častý omyl (AES-192), ale naše AES-256-GCM implementace vyžaduje 32B key.
         $svc = $this->makeWithKey(base64_encode(random_bytes(24)));
-        self::assertSame('cfg.app.secret_encryption_key musí být 32B base64.', $svc->validateKey());
+        self::assertSame('cfg.app.secret_encryption_key musí být base64 klíč o délce 32B po dekódování.', $svc->validateKey());
     }
 
     public function testValidateKeyAcceptsValid32ByteKey(): void

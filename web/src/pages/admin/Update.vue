@@ -237,7 +237,6 @@ function fmtDate(s?: string | null): string {
           >
             <div class="font-medium">{{ warningTitle(warning.code) }}</div>
             <div class="text-warning-800">{{ warningText(warning.code) }}</div>
-            <div class="mt-1 text-xs text-warning-700 font-mono">{{ warning.message }}</div>
           </li>
         </ul>
       </section>

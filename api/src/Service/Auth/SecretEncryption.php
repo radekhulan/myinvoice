@@ -76,7 +76,7 @@ final class SecretEncryption
         if ($b64 !== '') {
             $key = base64_decode($b64, true);
             if ($key === false || strlen($key) !== 32) {
-                return 'cfg.app.secret_encryption_key musí být 32B base64.';
+                return 'cfg.app.secret_encryption_key musí být base64 klíč o délce 32B po dekódování.';
             }
             return null;
         }
@@ -95,7 +95,7 @@ final class SecretEncryption
         if ($b64 !== '') {
             $key = base64_decode($b64, true);
             if ($key === false || strlen($key) !== 32) {
-                throw new \RuntimeException('cfg.app.secret_encryption_key musí být 32B base64.');
+                throw new \RuntimeException('cfg.app.secret_encryption_key musí být base64 klíč o délce 32B po dekódování.');
             }
             return $key;
         }
