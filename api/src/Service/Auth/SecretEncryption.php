@@ -66,6 +66,29 @@ final class SecretEncryption
         return str_starts_with($stored, self::PREFIX);
     }
 
+    /**
+     * Validace konfigurace klíče pro admin health warning.
+     * null = OK (dedikovaný key), string = warning/error v CZ.
+     */
+    public function validateKey(): ?string
+    {
+        $b64 = (string) $this->config->get('app.secret_encryption_key', '');
+        if ($b64 !== '') {
+            $key = base64_decode($b64, true);
+            if ($key === false || strlen($key) !== 32) {
+                return 'cfg.app.secret_encryption_key musí být 32B base64.';
+            }
+            return null;
+        }
+
+        $pepper = (string) $this->config->get('app.pepper', '');
+        if ($pepper === '') {
+            return 'Ani secret_encryption_key, ani app.pepper nejsou nastaveny.';
+        }
+
+        return 'secret_encryption_key chybí, používá se HKDF fallback z app.pepper (méně bezpečné).';
+    }
+
     private function key(): string
     {
         $b64 = (string) $this->config->get('app.secret_encryption_key', '');

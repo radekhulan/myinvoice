@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TOTP setup/enable při špatném encryption key** — endpointy vrací
   kontrolovanou JSON chybu místo neobsloužené 500 výjimky; chybové texty jsou
   v češtině kvůli správnému i18n překladu přes `ErrorCatalog`.
+- **Validace `app.secret_encryption_key` v health/admin UI** — backend health
+  endpoint vrací warning při chybějícím/invalidním klíči (včetně 24B klíče),
+  admin stránka Aktualizace ho zobrazuje jako viditelné provozní upozornění.
 
 ## [3.0.3] — 2026-05-08
 
