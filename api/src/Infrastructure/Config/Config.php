@@ -146,7 +146,7 @@ final class Config
     {
         // 1) Strukturovaný DATABASE_URL (mysql://user:pass@host:port/db)
         $dbUrl = getenv('DATABASE_URL') ?: getenv('MYSQL_URL');
-        if (is_string($dbUrl) && $dbUrl !== '') {
+        if (is_string($dbUrl) && $dbUrl !== '' && !self::isUnresolvedEnvReference($dbUrl)) {
             $parts = parse_url($dbUrl);
             if (is_array($parts)) {
                 if (isset($parts['host']))     { $data['db']['host'] = $parts['host']; }
@@ -159,7 +159,7 @@ final class Config
 
         // 2) Strukturovaný REDIS_URL (redis://[:pass]@host:port/db)
         $redisUrl = getenv('REDIS_URL');
-        if (is_string($redisUrl) && $redisUrl !== '') {
+        if (is_string($redisUrl) && $redisUrl !== '' && !self::isUnresolvedEnvReference($redisUrl)) {
             $parts = parse_url($redisUrl);
             if (is_array($parts)) {
                 if (isset($parts['host'])) { $data['redis']['host'] = $parts['host']; }
@@ -179,11 +179,19 @@ final class Config
             if ($raw === false) {
                 continue;
             }
+            if (self::isUnresolvedEnvReference($raw)) {
+                continue;
+            }
             $value = self::castEnv($raw, $type);
             $data  = self::setByPath($data, $path, $value);
         }
 
         return $data;
+    }
+
+    private static function isUnresolvedEnvReference(string $raw): bool
+    {
+        return preg_match('/^\$\{[^}]+\}$/', trim($raw)) === 1;
     }
 
     private static function castEnv(string $raw, string $type): mixed

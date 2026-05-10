@@ -74,6 +74,7 @@ RUN sed -ri \
 # Copy application code
 WORKDIR /var/www/html
 COPY --chown=www-data:www-data . .
+RUN chmod +x /var/www/html/docker-entrypoint.sh
 COPY --from=web-build --chown=www-data:www-data /app/dist ./web/dist
 COPY --from=php-deps  --chown=www-data:www-data /app/vendor ./api/vendor
 
@@ -88,4 +89,4 @@ RUN mkdir -p log storage private && chown -R www-data:www-data log storage priva
 
 EXPOSE 80
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["apache2-foreground"]
+CMD ["/var/www/html/docker-entrypoint.sh"]
