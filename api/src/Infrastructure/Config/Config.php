@@ -22,6 +22,8 @@ namespace MyInvoice\Infrastructure\Config;
  */
 final class Config
 {
+    private const UNRESOLVED_ENV_REFERENCE_PATTERN = '/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/';
+
     private array $data;
 
     public function __construct(array $data)
@@ -191,7 +193,7 @@ final class Config
 
     private static function isUnresolvedEnvReference(string $raw): bool
     {
-        return preg_match('/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/', trim($raw)) === 1;
+        return preg_match(self::UNRESOLVED_ENV_REFERENCE_PATTERN, trim($raw)) === 1;
     }
 
     private static function castEnv(string $raw, string $type): mixed
