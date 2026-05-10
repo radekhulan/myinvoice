@@ -62,7 +62,7 @@ final class TotpAction
         try {
             $encrypted = $this->crypto->encrypt($secret);
         } catch (\RuntimeException) {
-            return Json::error($response, 'misconfigured_secret_key', 'Konfigurace app.secret_encryption_key je neplatná (musí být 32B base64).', 500);
+            return Json::error($response, 'misconfigured_secret_key', 'Server configuration error.', 500);
         }
         // Šifrované AES-256-GCM v DB; do response zasíláme plain (jednorázově pro setup)
         $this->db->pdo()->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?')
@@ -105,7 +105,7 @@ final class TotpAction
         try {
             $secret = $this->crypto->decrypt((string) $user['totp_secret']);
         } catch (\RuntimeException) {
-            return Json::error($response, 'misconfigured_secret_key', 'Konfigurace app.secret_encryption_key je neplatná (musí být 32B base64).', 500);
+            return Json::error($response, 'misconfigured_secret_key', 'Server configuration error.', 500);
         }
         if (!$this->totp->verify($secret, $code)) {
             return Json::error($response, 'invalid_code', 'Neplatný TOTP kód.', 400);

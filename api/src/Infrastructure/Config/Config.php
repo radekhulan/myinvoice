@@ -191,7 +191,7 @@ final class Config
 
     private static function isUnresolvedEnvReference(string $raw): bool
     {
-        return preg_match('/^\$\{[^}]+\}$/', trim($raw)) === 1;
+        return preg_match('/^\$\{[A-Z_][A-Z0-9_]*\}$/i', trim($raw)) === 1;
     }
 
     private static function castEnv(string $raw, string $type): mixed
