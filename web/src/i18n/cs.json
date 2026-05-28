@@ -1408,6 +1408,12 @@
     "ic": "IČO",
     "dic": "DIČ",
     "is_vat_payer": "Plátce DPH",
+    "flat_tax_band": "Paušální daň",
+    "flat_tax_band_none": "Nepoužívám paušální daň",
+    "flat_tax_band_band1": "1. pásmo (do 1 mil. Kč/rok)",
+    "flat_tax_band_band2": "2. pásmo (do 1,5 mil. Kč/rok)",
+    "flat_tax_band_band3": "3. pásmo (do 2 mil. Kč/rok)",
+    "flat_tax_band_hint": "Pouze pro neplátce DPH (§7a ZDP). Aktivuje hlídání limitu pásma v Přehledu a CRM.",
     "email": "Email",
     "phone": "Telefon",
     "web": "Web",
@@ -2260,6 +2266,17 @@
     "invalid_email": "Neplatný email",
     "invalid_ic": "IČO musí mít 8 číslic",
     "invalid_dic": "Neplatné DIČ"
+  },
+  "tax_thresholds": {
+    "loading": "Načítám obratové prahy…",
+    "vat_title": "Obrat pro registraci k DPH (12 měsíců)",
+    "vat_year_label": "Kalendářní rok {year}",
+    "vat_hint": "Po překročení 2 mil. Kč obratu za 12 po sobě jdoucích kalendářních měsíců (§6 ZDPH) vzniká povinnost registrace k DPH. Druhá hranice 2 536 500 Kč/rok znamená okamžitou registraci. Počítáno z vystavených faktur (issued/sent/reminded/paid).",
+    "flat_title": "Paušální daň — {band}",
+    "flat_hint": "Po překročení limitu pásma OSVČ z paušálního režimu vypadává. Měsíční záloha aktuálního pásma: {advance}. Počítáno ze zaplacených faktur v kalendářním roce (paid_at).",
+    "band_band1": "1. pásmo (do 1 mil. Kč)",
+    "band_band2": "2. pásmo (do 1,5 mil. Kč)",
+    "band_band3": "3. pásmo (do 2 mil. Kč)"
   },
   "errors": {
     "generic": "Něco se pokazilo",

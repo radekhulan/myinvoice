@@ -9,6 +9,7 @@ import { dashboardApi, type DashboardSummary } from '@/api/dashboard'
 import { formatMoney, formatDate } from '@/composables/useFormat'
 import SparklineChart from '@/components/charts/SparklineChart.vue'
 import TopClientsPieChart from '@/components/charts/TopClientsPieChart.vue'
+import TaxThresholdsWidget from '@/components/TaxThresholdsWidget.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -124,6 +125,9 @@ function sparklineFor(currency: string): { labels: string[]; values: number[] } 
     </div>
 
     <div v-else-if="summary" class="space-y-6">
+      <!-- Obratové prahy (DPH + paušál); widget se sám skryje, pokud nejsou applicable -->
+      <TaxThresholdsWidget />
+
       <!-- ═══ Sekce 1: VYSTAVENÉ FAKTURY ═══ -->
       <section class="space-y-3">
         <h2>

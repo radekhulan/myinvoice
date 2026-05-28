@@ -106,6 +106,8 @@ async function saveSupplier() {
       opr_jmeno: (supplier.value as any).opr_jmeno ?? null,
       opr_prijmeni: (supplier.value as any).opr_prijmeni ?? null,
       opr_postaveni: (supplier.value as any).opr_postaveni ?? null,
+      // Paušální daň pásmo (migrace 0061)
+      flat_tax_band: (supplier.value as any).flat_tax_band ?? 'none',
     })
     toast.success(t('common.saved'))
     bumpPreview()
@@ -309,6 +311,17 @@ async function removeCurrency(c: CurrencyAccount) {
               <input v-model="supplier.is_vat_payer" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
               {{ t('settings.is_vat_payer') }}
             </label>
+          </div>
+          <div v-if="!supplier.is_vat_payer">
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.flat_tax_band') }}</label>
+            <select v-model="(supplier as any).flat_tax_band"
+              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+              <option value="none">{{ t('settings.flat_tax_band_none') }}</option>
+              <option value="band1">{{ t('settings.flat_tax_band_band1') }}</option>
+              <option value="band2">{{ t('settings.flat_tax_band_band2') }}</option>
+              <option value="band3">{{ t('settings.flat_tax_band_band3') }}</option>
+            </select>
+            <p class="mt-1 text-xs text-neutral-500">{{ t('settings.flat_tax_band_hint') }}</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.email') }} *</label>

@@ -1408,6 +1408,12 @@
     "ic": "Reg. No.",
     "dic": "VAT ID",
     "is_vat_payer": "VAT payer",
+    "flat_tax_band": "Flat tax regime",
+    "flat_tax_band_none": "Not on flat tax",
+    "flat_tax_band_band1": "Band 1 (up to 1M CZK/year)",
+    "flat_tax_band_band2": "Band 2 (up to 1.5M CZK/year)",
+    "flat_tax_band_band3": "Band 3 (up to 2M CZK/year)",
+    "flat_tax_band_hint": "For non-VAT payers only (§7a CZ ITA). Enables band limit monitoring on Dashboard and CRM.",
     "email": "Email",
     "phone": "Phone",
     "web": "Website",
@@ -2260,6 +2266,17 @@
     "invalid_email": "Invalid email",
     "invalid_ic": "Reg. No. must be 8 digits",
     "invalid_dic": "Invalid VAT ID"
+  },
+  "tax_thresholds": {
+    "loading": "Loading tax thresholds…",
+    "vat_title": "VAT registration turnover (12 months)",
+    "vat_year_label": "Calendar year {year}",
+    "vat_hint": "Czech VAT registration becomes mandatory when 12-month rolling turnover exceeds 2,000,000 CZK (§6 ZDPH); 2,536,500 CZK/year triggers immediate registration. Counted from issued invoices (issued/sent/reminded/paid).",
+    "flat_title": "Flat tax regime — {band}",
+    "flat_hint": "Exceeding the band limit drops the OSVČ out of the flat tax regime. Current monthly advance: {advance}. Counted from paid invoices in the calendar year (paid_at).",
+    "band_band1": "Band 1 (up to 1M CZK)",
+    "band_band2": "Band 2 (up to 1.5M CZK)",
+    "band_band3": "Band 3 (up to 2M CZK)"
   },
   "errors": {
     "generic": "Something went wrong",

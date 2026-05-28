@@ -12,6 +12,7 @@ import { crmApi, type CrmOverview, type CrmMonthlyRow, type TopClient, type TopV
   type ReminderEffectiveness, type PaymentTimeHistogram, type CrmYearlyRow } from '@/api/crm'
 import { formatMoney } from '@/composables/useFormat'
 import { apiErrorMessage } from '@/api/errors'
+import TaxThresholdsWidget from '@/components/TaxThresholdsWidget.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -276,6 +277,9 @@ onMounted(loadAll)
     </div>
 
     <div v-else class="space-y-4">
+      <!-- Obratové prahy (DPH + paušál); widget se sám skryje, pokud nejsou applicable -->
+      <TaxThresholdsWidget />
+
       <!-- ═══ Action items widget (daily TODO) ═══ -->
       <div v-if="actionItems && actionItems.total > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-primary-50 to-white rounded-t-lg">

@@ -175,6 +175,42 @@ export interface DashboardSummary {
   is_vat_payer: boolean
 }
 
+export type ThresholdStatus = 'ok' | 'notice' | 'warning' | 'danger'
+
+export interface ThresholdBucket {
+  current_czk: number
+  limit_czk: number
+  percent: number
+  status: ThresholdStatus
+}
+
+export interface VatThresholdRolling extends ThresholdBucket {
+  window_from: string
+  window_to: string
+}
+export interface VatThresholdYear extends ThresholdBucket {
+  year: number
+}
+
+export interface TaxThresholds {
+  vat_threshold: {
+    applicable: boolean
+    rolling12m: VatThresholdRolling | null
+    calendar_year: VatThresholdYear | null
+  }
+  flat_tax_threshold: {
+    applicable: boolean
+    band: 'band1' | 'band2' | 'band3' | null
+    monthly_advance_czk: number | null
+    current_czk: number | null
+    limit_czk: number | null
+    percent: number | null
+    status: ThresholdStatus | null
+    year: number | null
+  }
+}
+
 export const dashboardApi = {
   summary: () => api.get<DashboardSummary>('/dashboard/summary').then(r => r.data),
+  taxThresholds: () => api.get<TaxThresholds>('/dashboard/tax-thresholds').then(r => r.data),
 }

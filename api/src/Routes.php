@@ -48,6 +48,7 @@ use MyInvoice\Action\Settings\SettingsAction;
 use MyInvoice\Action\Bank\BankStatementAction;
 use MyInvoice\Action\Dashboard\SummaryAction;
 use MyInvoice\Action\Dashboard\PurchaseSummaryAction;
+use MyInvoice\Action\Dashboard\TaxThresholdsAction;
 use MyInvoice\Action\Invoice\CancelInvoiceAction;
 use MyInvoice\Action\Invoice\CreateInvoiceAction;
 use MyInvoice\Action\Invoice\DeleteInvoiceAction;
@@ -285,6 +286,7 @@ final class Routes
         // Dashboard
         $app->get ('/api/dashboard/summary',          SummaryAction::class);
         $app->get ('/api/dashboard/purchase-summary', PurchaseSummaryAction::class);
+        $app->get ('/api/dashboard/tax-thresholds',   TaxThresholdsAction::class);
 
         // Admin (M6)
         $app->get    ('/api/admin/activity-log',    ListActivityLogAction::class);

@@ -204,6 +204,8 @@ final class SettingsAction
             'taxpayer_type', 'vat_period', 'financial_office_code', 'workplace_code',
             'cz_nace_code', 'data_box_type', 'data_box_id',
             'sest_jmeno', 'sest_prijmeni', 'sest_telefon', 'sest_email', 'sest_funkce',
+            // Paušální daň pásmo (migrace 0061) — vstup do TaxThresholdService
+            'flat_tax_band',
             // Doplňky pro DPH/KH XML VetaP (migrace 0043)
             'street_number_pop', 'street_number_orient',
             'opr_jmeno', 'opr_prijmeni', 'opr_postaveni',
@@ -217,6 +219,17 @@ final class SettingsAction
         if (array_key_exists('vat_period', $body) && $body['vat_period'] !== null
             && !in_array($body['vat_period'], ['monthly', 'quarterly'], true)) {
             return Json::error($response, 'validation_failed', "vat_period musí být 'monthly' nebo 'quarterly'.", 400);
+        }
+        if (array_key_exists('flat_tax_band', $body) && $body['flat_tax_band'] !== null
+            && !in_array($body['flat_tax_band'], ['none', 'band1', 'band2', 'band3'], true)) {
+            return Json::error($response, 'validation_failed', "flat_tax_band musí být 'none', 'band1', 'band2' nebo 'band3'.", 400);
+        }
+        if (array_key_exists('flat_tax_band', $body) && $body['flat_tax_band'] !== null
+            && $body['flat_tax_band'] !== 'none'
+            && !empty($body['is_vat_payer'])
+        ) {
+            return Json::error($response, 'validation_failed',
+                'Paušální daň lze zvolit jen pro neplátce DPH (§7a ZDP).', 422);
         }
         // Empty string → null pro tax fields (NULL = nevyplněno)
         foreach (['taxpayer_type', 'vat_period', 'financial_office_code', 'workplace_code',
