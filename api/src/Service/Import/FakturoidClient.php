@@ -260,7 +260,10 @@ final class FakturoidClient
             foreach ($res['items'] as $item) {
                 yield $item;
             }
-            $hasMore = $res['next_page'] !== null && !empty($res['items']);
+            // Fakturoid API v3 neposílá RFC 5988 Link header (oproti komentáři u parseNextPage)
+            // — `next_page` je vždy null, takže původní podmínka ukončila smyčku po první stránce.
+            // Pokračujeme tedy dokud dostáváme plnou stránku (Fakturoid používá per_page=40).
+            $hasMore = count($res['items']) >= 40;
             $page++;
         } while ($hasMore);
     }
