@@ -3936,6 +3936,7 @@ components:
           example: 21
           description: "Snapshot procentní hodnoty DPH v okamžiku přidání položky (drží se i po případné změně sazby v číselníku)"
         vat_code: { type: string, nullable: true, example: "STD", description: "Kód sazby ze snapshot-u (STD / RED1 / RED2 / ZERO / FREE)" }
+        vat_classification_code: { type: string, nullable: true, example: "3", description: "Kód klasifikace plnění pro DPH přiznání / Kontrolní hlášení (default podle sazby + reverse charge + země klienta). U neplátce DPH bez významu." }
         total_without_vat: { type: number, format: float }
         total_vat: { type: number, format: float }
         total_with_vat: { type: number, format: float }
@@ -3957,6 +3958,7 @@ components:
         unit_price_without_vat: { type: number, format: float, description: "Jednotková cena BEZ DPH. Může být záporná pro slevový řádek, ale ne současně se záporným množstvím." }
         vat_rate_id: { type: integer, description: "FK do /codebooks/vat-rates (kontextově k supplierovi)" }
         order_index: { type: integer, description: "Pořadí v rámci faktury. Default = pozice v poli." }
+        vat_classification_code: { type: string, nullable: true, description: "Volitelný kód klasifikace plnění (DPH přiznání / KH). Když nevyplněno, server dopočítá default podle sazby + reverse charge + země klienta." }
 
     RecurringTemplate:
       type: object

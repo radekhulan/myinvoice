@@ -124,6 +124,7 @@ final class InvoiceRepository
                     ii.unit_price_without_vat, ii.vat_rate_id, ii.vat_rate_snapshot,
                     ii.total_without_vat, ii.total_vat, ii.total_with_vat,
                     ii.order_index, ii.item_kind, ii.linked_work_report_id,
+                    ii.vat_classification_code,
                     vr.code AS vat_code, vr.label_cs AS vat_label_cs, vr.label_en AS vat_label_en
                FROM invoice_items ii
                JOIN vat_rates vr ON vr.id = ii.vat_rate_id
