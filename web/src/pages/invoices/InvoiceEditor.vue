@@ -137,6 +137,26 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+// +N kalendářních měsíců se zachováním dne; pokud cílový měsíc nemá takový den
+// (31.1. + 1 měsíc → "31.2."), vrátí poslední den cílového měsíce (28./29.2.).
+// Datumy parsujeme jako YYYY-MM-DD bez TZ posunu (new Date('2026-01-31') by v záporných
+// TZ skočilo na 30.1., pak +1 měsíc = 28.2. místo 1.3.).
+function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const targetMonthIdx = (m - 1) + months
+  const targetYear = y + Math.floor(targetMonthIdx / 12)
+  const normalizedMonth = ((targetMonthIdx % 12) + 12) % 12
+  const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate()
+  const day = Math.min(d, lastDay)
+  return `${String(targetYear).padStart(4, '0')}-${String(normalizedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+type DueUnit = 'days' | 'month'
+
+function computeDueDate(issueDate: string, value: number, unit: DueUnit): string {
+  return unit === 'month' ? addMonths(issueDate, value) : addDays(issueDate, value)
+}
+
 function defaultVatRateId(reverseCharge = false): number {
   // Neplátce DPH → vždy 0% Osvobozeno (rate_percent=0, !is_reverse_charge).
   if (!supplierIsVatPayer.value) {
@@ -216,20 +236,24 @@ watch(() => [form.value.invoice_type, form.value.issue_date, form.value.client_i
   if (loaded.value && editedStatus.value === 'draft') loadVarsymbolPreview()
 })
 
-// Při změně Vystaveno přepočti Splatnost — projekt přebíjí klienta. Jen pro draft / nový
-// (po `loaded`), abys nepřepsal uloženou hodnotu při hydrataci nebo u vystavených dokladů.
+// Při změně Vystaveno přepočti Splatnost — projekt přebíjí klienta, klient přebíjí supplier.
+// Jen pro draft / nový (po `loaded`), abys nepřepsal uloženou hodnotu při hydrataci nebo
+// u vystavených dokladů. Projekt má jen `payment_due_days` (vždy v dnech), klient a
+// supplier mají i `unit` ('days' nebo 'month').
 watch(() => form.value.issue_date, (newIssue) => {
   if (!loaded.value || editedStatus.value !== 'draft' || !newIssue) return
-  let days: number | null = null
   if (form.value.project_id) {
     const p = projects.value.find(x => x.id === form.value.project_id)
-    if (p && typeof p.payment_due_days === 'number') days = p.payment_due_days
+    if (p && typeof p.payment_due_days === 'number') {
+      form.value.due_date = addDays(newIssue, p.payment_due_days)
+      return
+    }
   }
-  if (days === null && form.value.client_id) {
-    const c = clients.value.find(x => x.id === form.value.client_id)
-    if (c && typeof c.payment_due_default === 'number') days = c.payment_due_default
-  }
-  if (days !== null) form.value.due_date = addDays(newIssue, days)
+  const c = form.value.client_id ? clients.value.find(x => x.id === form.value.client_id) : null
+  const sup = supplierStore.currentSupplier
+  const value = c?.payment_due_default ?? sup?.default_payment_due_days
+  const unit: DueUnit = (c?.payment_due_unit ?? sup?.default_payment_due_unit ?? 'days') as DueUnit
+  if (typeof value === 'number') form.value.due_date = computeDueDate(newIssue, value, unit)
 })
 
 // Při přepnutí typu na credit_note převrať množství všech existujících položek na záporná.
@@ -384,8 +408,12 @@ async function applyClientDefaults(clientId: number) {
   const rcChanged = form.value.reverse_charge !== newRc
   form.value.reverse_charge = newRc
   if (rcChanged) syncItemsVatRateToReverseCharge()
-  if (c.payment_due_default) {
-    form.value.due_date = addDays(form.value.issue_date, c.payment_due_default)
+  // Hodnota i jednotka mohou pocházet z klienta (override) nebo padají na supplier default.
+  const sup = supplierStore.currentSupplier
+  const dueValue = c.payment_due_default ?? sup?.default_payment_due_days
+  const dueUnit: DueUnit = (c.payment_due_unit ?? sup?.default_payment_due_unit ?? 'days') as DueUnit
+  if (typeof dueValue === 'number') {
+    form.value.due_date = computeDueDate(form.value.issue_date, dueValue, dueUnit)
   }
   // Klientská sazba — fallback pro faktury bez zakázky (project rate přepíše později).
   // „Prázdná položka" = prázdný popis; rate mohl naplnit předchozí klient/projekt, přesto chceme refresh.

@@ -144,7 +144,8 @@ final class ClientRepository
         $sql = "SELECT c.id, c.supplier_id, c.company_name, c.ic, c.dic, c.main_email, c.language,
                        c.currency_default_id, cur.code AS currency_default,
                        c.reverse_charge, c.is_customer, c.is_vendor,
-                       c.payment_due_default, c.hourly_rate, c.default_expense_category_id,
+                       c.payment_due_default, c.payment_due_unit, c.hourly_rate,
+                       c.default_expense_category_id,
                        c.archived_at, co.iso2 AS country_iso2,
                        (SELECT COUNT(*) FROM projects p WHERE p.client_id = c.id AND p.status = 'active' AND p.archived_at IS NULL) AS active_projects_count,
                        COALESCE(crc.revenue, 0) AS revenue,
@@ -230,9 +231,9 @@ final class ClientRepository
             (supplier_id, company_name, first_name, last_name, ic, dic, street, city, zip, country_id,
              main_email, phone, language, currency_default_id, reverse_charge,
              is_customer, is_vendor,
-             auto_send_reminders, payment_due_default, hourly_rate, note, default_expense_category_id,
+             auto_send_reminders, payment_due_default, payment_due_unit, hourly_rate, note, default_expense_category_id,
              invoice_number_format, proforma_number_format, credit_note_number_format, invoice_number_period)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
         $stmt = $this->db->pdo()->prepare($sql);
         $stmt->execute([
             $supplierId,
@@ -254,6 +255,7 @@ final class ClientRepository
             $isVendor,
             array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
             isset($data['payment_due_default']) ? (int) $data['payment_due_default'] : null,
+            $this->nullablePaymentDueUnit($data, 'payment_due_unit'),
             (float) ($data['hourly_rate'] ?? 0),
             $this->nullable($data, 'note'),
             $defaultExpenseCategoryId,
@@ -355,7 +357,7 @@ final class ClientRepository
                 street = ?, city = ?, zip = ?, country_id = ?,
                 main_email = ?, phone = ?, language = ?, currency_default_id = ?,
                 reverse_charge = ?, is_customer = ?, is_vendor = ?,
-                auto_send_reminders = ?, payment_due_default = ?,
+                auto_send_reminders = ?, payment_due_default = ?, payment_due_unit = ?,
                 hourly_rate = ?, note = ?, default_expense_category_id = ?,
                 invoice_number_format = ?, proforma_number_format = ?,
                 credit_note_number_format = ?, invoice_number_period = ?
@@ -380,6 +382,7 @@ final class ClientRepository
             $newIsVendor,
             array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
             isset($data['payment_due_default']) ? (int) $data['payment_due_default'] : null,
+            $this->nullablePaymentDueUnit($data, 'payment_due_unit'),
             (float) ($data['hourly_rate'] ?? 0),
             $this->nullable($data, 'note'),
             $newDefaultCategory,
@@ -567,6 +570,19 @@ final class ClientRepository
         if ($v === null) return null;
         if (!in_array($v, ['year', 'month', 'none'], true)) {
             throw new \InvalidArgumentException("{$key} musí být year, month nebo none.");
+        }
+        return $v;
+    }
+
+    /**
+     * Per-client splatnost unit override. NULL = dědí supplier.default_payment_due_unit.
+     */
+    private function nullablePaymentDueUnit(array $data, string $key): ?string
+    {
+        $v = $this->nullable($data, $key);
+        if ($v === null) return null;
+        if (!in_array($v, ['days', 'month'], true)) {
+            throw new \InvalidArgumentException("{$key} musí být 'days' nebo 'month'.");
         }
         return $v;
     }

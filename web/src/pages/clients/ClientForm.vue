@@ -6,6 +6,7 @@ import { clientsApi, type ClientPayload, type Client } from '@/api/clients'
 import { codebooksApi, type Country, type Currency } from '@/api/codebooks'
 import { expenseCategoriesApi, type ExpenseCategory } from '@/api/expenseCategories'
 import { useToast } from '@/composables/useToast'
+import { useSupplierStore } from '@/stores/supplier'
 
 /**
  * V `embedded` módu komponenta nečte route, neredirektuje a vrací výsledek
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const toast = useToast()
+const supplierStore = useSupplierStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +32,51 @@ const isEdit = computed(() =>
   !props.embedded && route.params.id !== undefined && route.params.id !== 'new'
 )
 const clientId = computed(() => (isEdit.value ? Number(route.params.id) : null))
+
+// Splatnost — UI preset selector. 'inherit' = dědit supplier default; ostatní hodnoty
+// zapíšou do form pevnou dvojici (payment_due_default, payment_due_unit). 'custom'
+// odhalí číselný input pro libovolný počet dnů (zachová dosavadní hodnotu, nebo 30 default).
+type ClientDuePreset = 'inherit' | '7' | '14' | 'month' | 'custom'
+const clientDuePreset = computed<ClientDuePreset>({
+  get() {
+    const d = form.value.payment_due_default
+    const u = form.value.payment_due_unit
+    if (d == null && u == null) return 'inherit'
+    if (u === 'month' && d === 1) return 'month'
+    if ((u === 'days' || u == null) && d === 7) return '7'
+    if ((u === 'days' || u == null) && d === 14) return '14'
+    return 'custom'
+  },
+  set(v: ClientDuePreset) {
+    if (v === 'inherit') {
+      form.value.payment_due_default = null
+      form.value.payment_due_unit = null
+    } else if (v === '7') {
+      form.value.payment_due_default = 7
+      form.value.payment_due_unit = 'days'
+    } else if (v === '14') {
+      form.value.payment_due_default = 14
+      form.value.payment_due_unit = 'days'
+    } else if (v === 'month') {
+      form.value.payment_due_default = 1
+      form.value.payment_due_unit = 'month'
+    } else {
+      if (form.value.payment_due_default == null) form.value.payment_due_default = 30
+      form.value.payment_due_unit = 'days'
+    }
+  },
+})
+
+// Lidsky čitelná hodnota supplier defaultu pro „Použít výchozí (…)" option.
+const supplierDueLabel = computed(() => {
+  const sup = supplierStore.currentSupplier
+  if (!sup) return t('client.payment_due_inherit_fallback')
+  const d = sup.default_payment_due_days
+  const u = sup.default_payment_due_unit
+  if (u === 'month' && d === 1) return t('client.payment_due_preset_month').toLowerCase()
+  if (u === 'days') return `${d} ${t('client.payment_due_custom_days_suffix')}`
+  return `${d}× ${t('client.payment_due_preset_month').toLowerCase()}`
+})
 
 const form = ref<ClientPayload>({
   company_name: '',
@@ -48,7 +95,8 @@ const form = ref<ClientPayload>({
   is_customer: route.query.role !== 'vendor',
   is_vendor: route.query.role === 'vendor',
   auto_send_reminders: true,
-  payment_due_default: 7,
+  payment_due_default: null,
+  payment_due_unit: null,
   hourly_rate: 0,
   note: null,
   default_expense_category_id: null,
@@ -118,6 +166,7 @@ function sanitize(c: Client): Partial<ClientPayload> {
     is_vendor:   c.is_vendor   === true,
     auto_send_reminders: c.auto_send_reminders ?? true,
     payment_due_default: c.payment_due_default ?? null,
+    payment_due_unit: c.payment_due_unit ?? null,
     hourly_rate: c.hourly_rate ?? 0,
     note: c.note ?? null,
     default_expense_category_id: c.default_expense_category_id ?? null,
@@ -346,9 +395,24 @@ async function submit() {
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('client.payment_due_default') }}</label>
-            <input autocomplete="off" v-model.number="form.payment_due_default" type="number" min="1" max="365" placeholder="default"
-              class="w-full h-10 px-3 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('client.payment_due_label') }}</label>
+            <div class="flex gap-2">
+              <select v-model="clientDuePreset"
+                class="h-10 px-2 border border-neutral-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
+                :class="clientDuePreset === 'custom' ? 'w-48' : 'w-full'">
+                <option value="inherit">{{ t('client.payment_due_inherit', { default: supplierDueLabel }) }}</option>
+                <option value="7">{{ t('client.payment_due_preset_7') }}</option>
+                <option value="14">{{ t('client.payment_due_preset_14') }}</option>
+                <option value="month">{{ t('client.payment_due_preset_month') }}</option>
+                <option value="custom">{{ t('client.payment_due_preset_custom') }}</option>
+              </select>
+              <div v-if="clientDuePreset === 'custom'" class="flex items-center gap-2 flex-1">
+                <input autocomplete="off" v-model.number="form.payment_due_default" type="number" min="1" max="365"
+                  class="w-24 h-10 px-3 border border-neutral-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none" />
+                <span class="text-sm text-neutral-500">{{ t('client.payment_due_custom_days_suffix') }}</span>
+              </div>
+            </div>
+            <p v-if="clientDuePreset === 'month'" class="text-xs text-neutral-500 mt-1">{{ t('client.payment_due_month_hint') }}</p>
           </div>
           <div class="flex items-end">
             <label class="flex items-center gap-2 text-sm h-10">

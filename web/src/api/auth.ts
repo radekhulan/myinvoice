@@ -15,6 +15,8 @@ export interface SupplierBrief {
   company_name: string
   ic: string | null
   is_vat_payer: boolean
+  default_payment_due_days: number
+  default_payment_due_unit: 'days' | 'month'
 }
 
 export interface SetupStatus {

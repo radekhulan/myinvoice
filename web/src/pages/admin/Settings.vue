@@ -27,6 +27,38 @@ function validateAndPreview(template: string | null) {
   if (!hasCounterPlaceholder(tmpl)) return { error: t('settings.numbering_must_have_counter'), preview: '' }
   return { error: '', preview: renderVarsymbolTemplate(tmpl, new Date(), 1) }
 }
+// Výchozí splatnost — UI preset ('7' / '14' / 'month' / 'custom') je odvozen z dvojice
+// (default_payment_due_days, default_payment_due_unit). 'month' znamená přesně 1 kalendářní
+// měsíc (days=1, unit='month'); 'custom' nechá volný číselný input v dnech.
+type DuePreset = '7' | '14' | 'month' | 'custom'
+const dueSelectValue = computed<DuePreset>({
+  get() {
+    if (!supplier.value) return '7'
+    const d = supplier.value.default_payment_due_days
+    const u = supplier.value.default_payment_due_unit
+    if (u === 'month' && d === 1) return 'month'
+    if (u === 'days' && d === 7)  return '7'
+    if (u === 'days' && d === 14) return '14'
+    return 'custom'
+  },
+  set(v: DuePreset) {
+    if (!supplier.value) return
+    if (v === '7') {
+      supplier.value.default_payment_due_days = 7
+      supplier.value.default_payment_due_unit = 'days'
+    } else if (v === '14') {
+      supplier.value.default_payment_due_days = 14
+      supplier.value.default_payment_due_unit = 'days'
+    } else if (v === 'month') {
+      supplier.value.default_payment_due_days = 1
+      supplier.value.default_payment_due_unit = 'month'
+    } else {
+      supplier.value.default_payment_due_unit = 'days'
+      // days zachovat — pokud byl 7/14 user dostane editovatelnou hodnotu k úpravě
+    }
+  },
+})
+
 const invoicePreview        = computed(() => validateAndPreview(supplier.value?.invoice_number_format ?? null).preview)
 const invoiceFormatError    = computed(() => validateAndPreview(supplier.value?.invoice_number_format ?? null).error)
 const proformaPreview       = computed(() => validateAndPreview(supplier.value?.proforma_number_format ?? null).preview)
@@ -73,6 +105,7 @@ async function saveSupplier() {
       tagline: supplier.value.tagline,
       commercial_register: supplier.value.commercial_register,
       default_payment_due_days: supplier.value.default_payment_due_days,
+      default_payment_due_unit: supplier.value.default_payment_due_unit,
       default_hourly_rate: supplier.value.default_hourly_rate,
       auto_send_reminders: supplier.value.auto_send_reminders,
       auto_generate_recurring: supplier.value.auto_generate_recurring,
@@ -336,8 +369,20 @@ async function removeCurrency(c: CurrencyAccount) {
             <p class="text-xs text-neutral-500 mt-1">{{ t('settings.commercial_register_hint') }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.default_due') }}</label>
-            <input v-model.number="supplier.default_payment_due_days" type="number" min="0" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm font-mono" />
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.default_due_label') }}</label>
+            <div class="flex gap-2">
+              <select v-model="dueSelectValue" class="h-10 px-2 border border-neutral-300 rounded-md text-sm bg-white" :class="dueSelectValue === 'custom' ? 'w-40' : 'w-full'">
+                <option value="7">{{ t('settings.default_due_preset_7') }}</option>
+                <option value="14">{{ t('settings.default_due_preset_14') }}</option>
+                <option value="month">{{ t('settings.default_due_preset_month') }}</option>
+                <option value="custom">{{ t('settings.default_due_preset_custom') }}</option>
+              </select>
+              <div v-if="dueSelectValue === 'custom'" class="flex items-center gap-2 flex-1">
+                <input v-model.number="supplier.default_payment_due_days" type="number" min="0" class="w-24 h-10 px-3 border border-neutral-300 rounded-md text-sm font-mono" />
+                <span class="text-sm text-neutral-500">{{ t('settings.default_due_custom_days_suffix') }}</span>
+              </div>
+            </div>
+            <p v-if="dueSelectValue === 'month'" class="text-xs text-neutral-500 mt-1">{{ t('settings.default_due_month_hint') }}</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.default_hourly_rate') }} ({{ supplier.default_currency }})</label>

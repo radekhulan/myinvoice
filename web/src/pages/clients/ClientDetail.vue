@@ -50,6 +50,16 @@ const purchaseDisplayCurrency = computed(() =>
   purchaseIsMultiCurrency.value ? 'CZK' : (purchaseCurrencies.value[0] || 'CZK')
 )
 
+function formatPaymentDue(c: Client): string {
+  if (c.payment_due_default == null) return t('client.due_default')
+  if (c.payment_due_unit === 'month') {
+    return c.payment_due_default === 1
+      ? t('client.payment_due_preset_month')
+      : `${c.payment_due_default}× ${t('client.payment_due_preset_month').toLowerCase()}`
+  }
+  return t('client.due_days_n', { n: c.payment_due_default })
+}
+
 // Náklady čteme ze server-side agregace (client.costs_by_month / costs_by_year) — nezávislé na paginaci
 // listu. Multi-currency: v multi režimu sloučíme do CZK přes total_czk, single-ccy zachová per měnu.
 const purchaseByMonth = computed(() => {
@@ -351,7 +361,7 @@ async function deleteClient() {
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('client.language_label') }}</dt><dd class="font-mono">{{ client.language.toUpperCase() }}</dd></div>
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('common.currency') }}</dt><dd class="font-mono">{{ client.currency_default }}</dd></div>
-          <div class="flex justify-between"><dt class="text-neutral-500">{{ t('client.due_label') }}</dt><dd>{{ client.payment_due_default ? t('client.due_days_n', { n: client.payment_due_default }) : t('client.due_default') }}</dd></div>
+          <div class="flex justify-between"><dt class="text-neutral-500">{{ t('client.due_label') }}</dt><dd>{{ formatPaymentDue(client) }}</dd></div>
           <div v-if="client.hourly_rate > 0" class="flex justify-between"><dt class="text-neutral-500">{{ t('client.hourly_rate') }}</dt><dd class="font-mono">{{ client.hourly_rate.toLocaleString('cs') }} {{ client.currency_default }}/h</dd></div>
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('client.rc_label') }}</dt><dd>{{ client.reverse_charge ? t('client.yes_short') : t('client.no_short') }}</dd></div>
         </dl>

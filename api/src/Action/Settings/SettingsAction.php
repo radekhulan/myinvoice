@@ -188,7 +188,7 @@ final class SettingsAction
         $allowed = [
             'company_name', 'display_name', 'street', 'city', 'zip', 'country_id',
             'ic', 'dic', 'is_vat_payer', 'email', 'phone', 'web', 'tagline', 'commercial_register',
-            'default_currency_id', 'default_vat_rate_id', 'default_payment_due_days',
+            'default_currency_id', 'default_vat_rate_id', 'default_payment_due_days', 'default_payment_due_unit',
             // logo_path / signature_path se NIKDY nemění přes mass-assignment — jen přes
             // dedikované endpointy EmailBrandingAction::uploadLogo (multipart, processed by
             // SupplierLogoConverter do storage/branding/sup-N/). Mass-assign by umožnil
@@ -282,6 +282,11 @@ final class SettingsAction
             && !in_array($body['invoice_number_period'], ['year', 'month', 'none'], true)
         ) {
             return Json::error($response, 'validation_failed', "Neplatné invoice_number_period (year|month|none).", 400);
+        }
+        if (array_key_exists('default_payment_due_unit', $body)
+            && !in_array($body['default_payment_due_unit'], ['days', 'month'], true)
+        ) {
+            return Json::error($response, 'validation_failed', "default_payment_due_unit musí být 'days' nebo 'month'.", 400);
         }
         // Legacy: pokud frontend pošle 'default_currency' jako code, převedeme na id (scoped to supplier)
         if (isset($body['default_currency']) && !isset($body['default_currency_id'])) {
@@ -401,6 +406,7 @@ final class SettingsAction
         $row['default_vat_rate_id']      = (int) $row['default_vat_rate_id'];
         $row['default_currency_id']      = (int) $row['default_currency_id'];
         $row['default_payment_due_days'] = (int) $row['default_payment_due_days'];
+        $row['default_payment_due_unit'] = (string) ($row['default_payment_due_unit'] ?? 'days');
         $row['default_hourly_rate']      = (float) $row['default_hourly_rate'];
         $row['auto_send_reminders']      = (bool) $row['auto_send_reminders'];
         $row['auto_generate_recurring']  = (bool) ($row['auto_generate_recurring'] ?? true);

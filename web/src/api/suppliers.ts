@@ -34,6 +34,7 @@ export interface Supplier {
   default_currency: string
   default_vat_rate_id: number
   default_payment_due_days: number
+  default_payment_due_unit: 'days' | 'month'
   default_hourly_rate: number
 }
 
@@ -52,6 +53,7 @@ export interface SupplierCreatePayload {
   web?: string
   tagline?: string
   default_payment_due_days?: number
+  default_payment_due_unit?: 'days' | 'month'
   default_hourly_rate?: number
 }
 
