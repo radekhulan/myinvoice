@@ -46,6 +46,11 @@ export interface Supplier {
   email_accent_color: string  // #RRGGBB
   pdf_logo_show_name: boolean // vedle loga v PDF zobrazit i název firmy (migrace 0058)
   has_email_logo?: boolean    // server flag (existence storage/supplier-logos/sup-{id}.png)
+  // Podpis PDF certifikátem (PAdES, migrace 0072)
+  pdf_signing_enabled: boolean
+  signing_tsa_url: string | null  // RFC 3161 TSA endpoint; null = PAdES-B bez razítka
+  signing_reason: string          // důvod podpisu (default „Faktura")
+  has_signing_cert?: boolean       // server flag (existence P12); heslo/cesta se NIKDY nevrací
   // Tax settings pro EPO výkazy DPH/KH (migrace 0038, fáze 6)
   taxpayer_type?: 'fo' | 'po' | null
   vat_period?: 'monthly' | 'quarterly' | null
@@ -127,6 +132,16 @@ export interface Unit {
   items_count?: number
 }
 
+export interface SigningCertMeta {
+  has_cert: boolean
+  cn?: string
+  issuer?: string
+  valid_from?: string
+  valid_to?: string
+  expired?: boolean
+  fingerprint?: string
+}
+
 export const settingsApi = {
   getSupplier: () => api.get<Supplier>('/settings/supplier').then(r => r.data),
   updateSupplier: (payload: Partial<Supplier>) => api.put<Supplier>('/settings/supplier', payload).then(r => r.data),
@@ -164,6 +179,18 @@ export const settingsApi = {
     ).then(r => r.data)
   },
   deleteEmailLogo: () => api.delete('/settings/email-branding/logo').then(r => r.data),
+
+  // Podpis PDF certifikátem (PAdES, migrace 0072)
+  getSigningCert: () => api.get<SigningCertMeta>('/settings/signing-cert').then(r => r.data),
+  uploadSigningCert: (file: File, password: string) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('password', password)
+    return api.post<SigningCertMeta>('/settings/signing-cert', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
+  deleteSigningCert: () => api.delete('/settings/signing-cert').then(r => r.data),
   // Vrací HTML string — frontend ho pak nacpe do iframe.srcdoc (obejde X-Frame-Options DENY).
   emailPreviewHtml: (locale: 'cs' | 'en' = 'cs') =>
     api.get<string>(`/settings/email-branding/preview?locale=${locale}`, { responseType: 'text', transformResponse: [(d) => d] }).then(r => r.data),

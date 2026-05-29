@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { settingsApi, type Supplier, type CurrencyAccount } from '@/api/settings'
+import { settingsApi, type Supplier, type CurrencyAccount, type SigningCertMeta } from '@/api/settings'
 import { useHotkey } from '@/composables/useHotkey'
 import { useToast } from '@/composables/useToast'
 import { renderVarsymbolTemplate, hasCounterPlaceholder } from '@/utils/varsymbol'
@@ -80,6 +80,7 @@ async function load() {
     ])
     // První render preview hned po loadu supplier
     bumpPreview()
+    loadSigningMeta()
   } finally { loading.value = false }
 }
 
@@ -243,6 +244,69 @@ async function removeLogo() {
     supplier.value.has_email_logo = false
     toast.success(t('settings.branding_logo_removed'))
     bumpPreview()
+  } catch (e: any) {
+    toast.error(e?.response?.data?.error?.message || t('common.error'))
+  }
+}
+
+// === Podpis PDF certifikátem (PAdES, migrace 0072) ===========================
+const signingCert = ref<SigningCertMeta>({ has_cert: false })
+const certFileInput = ref<HTMLInputElement | null>(null)
+const certUploading = ref(false)
+const certPassword = ref('')
+
+async function loadSigningMeta() {
+  try { signingCert.value = await settingsApi.getSigningCert() } catch { /* ignore */ }
+}
+
+// Uloží jen signing pole (toggle/TSA/důvod), nešahá na zbytek formuláře.
+async function saveSigning(silent = false) {
+  if (!supplier.value) return
+  try {
+    const updated = await settingsApi.updateSupplier({
+      pdf_signing_enabled: supplier.value.pdf_signing_enabled,
+      signing_tsa_url: supplier.value.signing_tsa_url || null,
+      signing_reason: supplier.value.signing_reason || '',
+    })
+    supplier.value = { ...supplier.value, ...updated }
+    if (!silent) toast.success(t('settings.signing_saved'))
+  } catch (e: any) {
+    toast.error(e?.response?.data?.error?.message || t('common.error'))
+  }
+}
+watch(() => supplier.value?.pdf_signing_enabled, () => { if (watching) saveSigning(true) })
+
+function pickCert() { certFileInput.value?.click() }
+async function onCertSelected(ev: Event) {
+  const f = (ev.target as HTMLInputElement).files?.[0]
+  if (!f || !supplier.value) return
+  if (!certPassword.value) {
+    toast.error(t('settings.signing_password_required'))
+    if (certFileInput.value) certFileInput.value.value = ''
+    return
+  }
+  certUploading.value = true
+  try {
+    signingCert.value = await settingsApi.uploadSigningCert(f, certPassword.value)
+    supplier.value.has_signing_cert = true
+    certPassword.value = ''
+    toast.success(t('settings.signing_cert_uploaded'))
+  } catch (e: any) {
+    toast.error(e?.response?.data?.error?.message || t('common.error'))
+  } finally {
+    certUploading.value = false
+    if (certFileInput.value) certFileInput.value.value = ''
+  }
+}
+async function removeCert() {
+  if (!supplier.value) return
+  if (!window.confirm(t('settings.signing_cert_remove_confirm'))) return
+  try {
+    await settingsApi.deleteSigningCert()
+    signingCert.value = { has_cert: false }
+    supplier.value.has_signing_cert = false
+    supplier.value.pdf_signing_enabled = false
+    toast.success(t('settings.signing_cert_removed'))
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
   }
@@ -728,6 +792,70 @@ async function removeCurrency(c: CurrencyAccount) {
               </div>
             </div>
             <iframe :srcdoc="previewHtml" sandbox="allow-same-origin" class="w-full h-[420px] border border-neutral-200 rounded-md bg-neutral-50" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Podpis PDF certifikátem (PAdES, migrace 0072) -->
+      <section class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('settings.signing_title') }}</h2>
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input v-model="supplier.pdf_signing_enabled" type="checkbox" :disabled="!supplier.has_signing_cert" class="h-4 w-4 accent-primary-600 disabled:opacity-50" />
+            <span class="text-sm text-neutral-700">{{ t('settings.signing_enabled') }}</span>
+          </label>
+        </div>
+        <p class="text-xs text-neutral-500 mb-4">{{ t('settings.signing_subtitle') }}</p>
+
+        <div class="space-y-4 max-w-2xl">
+          <!-- Certifikát -->
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.signing_cert') }}</label>
+            <p class="text-xs text-neutral-500 mb-2">{{ t('settings.signing_cert_hint') }}</p>
+            <div v-if="signingCert.has_cert" class="mb-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
+              <div><span class="text-neutral-500">{{ t('settings.signing_cert_cn') }}:</span> <span class="font-medium">{{ signingCert.cn }}</span></div>
+              <div><span class="text-neutral-500">{{ t('settings.signing_cert_issuer') }}:</span> {{ signingCert.issuer }}</div>
+              <div>
+                <span class="text-neutral-500">{{ t('settings.signing_cert_validity') }}:</span>
+                <span :class="signingCert.expired ? 'text-danger-600 font-semibold' : 'text-success-600'">
+                  {{ (signingCert.valid_from || '').slice(0,10) }} – {{ (signingCert.valid_to || '').slice(0,10) }}
+                  <template v-if="signingCert.expired"> ({{ t('settings.signing_cert_expired') }})</template>
+                </span>
+              </div>
+              <div class="font-mono text-[10px] text-neutral-400 mt-1 break-all">SHA-256: {{ signingCert.fingerprint }}</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input v-model="certPassword" type="password" :placeholder="t('settings.signing_password')"
+                class="h-9 w-48 px-3 border border-neutral-300 rounded-md text-sm" autocomplete="new-password" />
+              <button @click="pickCert" type="button" :disabled="certUploading"
+                class="cursor-pointer px-3 h-9 text-sm border border-neutral-300 rounded-md hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                {{ certUploading ? t('common.loading') : (signingCert.has_cert ? t('settings.signing_cert_replace') : t('settings.signing_cert_upload')) }}
+              </button>
+              <button v-if="signingCert.has_cert" @click="removeCert" type="button"
+                class="cursor-pointer text-sm text-danger-600 hover:text-danger-700">{{ t('common.remove') }}</button>
+              <input ref="certFileInput" @change="onCertSelected" type="file" accept=".p12,.pfx,application/x-pkcs12" class="hidden" />
+            </div>
+          </div>
+
+          <!-- TSA URL -->
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.signing_tsa') }}</label>
+            <p class="text-xs text-neutral-500 mb-2">{{ t('settings.signing_tsa_hint') }}</p>
+            <input v-model="supplier.signing_tsa_url" type="text" placeholder="http://tsa.cesnet.cz:3161/tsa"
+              class="h-10 w-full max-w-md px-3 border border-neutral-300 rounded-md text-sm font-mono" />
+          </div>
+
+          <!-- Důvod -->
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.signing_reason') }}</label>
+            <input v-model="supplier.signing_reason" type="text" :placeholder="t('settings.signing_reason_ph')"
+              class="h-10 w-full max-w-md px-3 border border-neutral-300 rounded-md text-sm" />
+          </div>
+
+          <div class="pt-1">
+            <button @click="() => saveSigning(false)" class="cursor-pointer px-4 h-10 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-md">
+              {{ t('settings.signing_save') }}
+            </button>
           </div>
         </div>
       </section>
