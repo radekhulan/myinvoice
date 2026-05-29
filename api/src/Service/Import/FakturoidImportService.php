@@ -246,6 +246,7 @@ final class FakturoidImportService
         $invoiceId = $this->invoices->createDraft($payload, $userId);
 
         $vatRates = $this->loadVatRateMap();
+        $defaultVatRateId = $this->matchVatRateId($vatRates, 21.0) ?? $this->matchVatRateId($vatRates, 0.0) ?? 0;
         $items = [];
         foreach (($i['lines'] ?? []) as $idx => $line) {
             $rate = (float) ($line['vat_rate'] ?? 0);
@@ -254,7 +255,7 @@ final class FakturoidImportService
                 'quantity'               => (float) ($line['quantity'] ?? 1),
                 'unit'                   => (string) ($line['unit_name'] ?? 'ks'),
                 'unit_price_without_vat' => (float) ($line['unit_price'] ?? 0),
-                'vat_rate_id'            => $this->matchVatRateId($vatRates, $rate),
+                'vat_rate_id'            => $this->matchVatRateId($vatRates, $rate) ?? $defaultVatRateId,
                 'order_index'            => $idx,
             ];
         }
@@ -405,11 +406,14 @@ final class FakturoidImportService
 
     private function loadVatRateMap(): array
     {
-        // vat_rates nemá is_active — platnost se řídí valid_from/valid_to (k dnešku).
+        // Bereme VŠECHNY sazby bez ohledu na valid_from/valid_to — importujeme
+        // historické doklady (2019+), kde platí dobové sazby (CZ-15 %, CZ-10 %,
+        // valid_to 2023-12-31, viz migrace 0049). Filtr k dnešku by je vyřadil →
+        // matchVatRateId by vrátil null → vat_rate_id=0 → fk_ii_vat violation.
+        // Konkrétní % se snapshotuje do invoice_items.vat_rate_snapshot, takže
+        // výpočty/výkazy zůstávají korektní.
         $rows = $this->db->pdo()->query(
-            'SELECT id, rate_percent FROM vat_rates
-              WHERE (valid_from IS NULL OR valid_from <= CURDATE())
-                AND (valid_to   IS NULL OR valid_to   >= CURDATE())'
+            'SELECT id, rate_percent FROM vat_rates'
         )->fetchAll(\PDO::FETCH_ASSOC);
         $map = [];
         foreach ($rows as $r) $map[(int) $r['id']] = (float) $r['rate_percent'];
