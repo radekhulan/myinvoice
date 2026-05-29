@@ -243,7 +243,134 @@ final class PdfSigner
         }
         $smime = (string) file_get_contents($out);
         @unlink($out);
-        return $this->derFromSmime($smime);
+        $der = $this->derFromSmime($smime);
+
+        // PAdES-T: přidej RFC 3161 timestamp token jako unsigned attribute do SignerInfo.
+        // Při jakékoli chybě TSA tiše degraduj na PAdES-B (timestamp je opt-in).
+        if ($cfg->tsaUrl !== null && $cfg->tsaUrl !== '') {
+            try {
+                $der = $this->addTimestamp($der, $cfg->tsaUrl);
+            } catch (\Throwable) {
+                // ponech $der (PAdES-B) — výpadek TSA nesmí shodit podpis (timestamp je opt-in)
+            }
+        }
+        return $der;
+    }
+
+    /** Přidá do CMS signature-timestamp (id-aa-timeStampToken) nad hodnotou podpisu. */
+    private function addTimestamp(string $cmsDer, string $tsaUrl): string
+    {
+        $sigValue = $this->signatureValue($cmsDer);
+        $token = $this->requestTimestamp($sigValue, $tsaUrl);
+        return $this->insertTimestampToken($cmsDer, $token);
+    }
+
+    /** Vytáhne hodnotu podpisu (SignerInfo.signature OCTET STRING) z CMS. */
+    private function signatureValue(string $cmsDer): string
+    {
+        $si = $this->signerInfo($cmsDer);
+        // signature = poslední OCTET STRING (tag 0x04) v SignerInfo (bez signed/unsigned attrs)
+        $sig = null;
+        foreach ($si['children'] as $c) {
+            if ($c['tag'] === 0x04) {
+                $sig = $c['raw'];
+            }
+        }
+        if ($sig === null) {
+            throw new \RuntimeException('CMS: nelze najít hodnotu podpisu.');
+        }
+        return $sig;
+    }
+
+    /** Pošle hash na TSA (RFC 3161), vrátí timeStampToken (ContentInfo DER). Timeout 5 s. */
+    private function requestTimestamp(string $data, string $tsaUrl): string
+    {
+        $hash = hash('sha256', $data, true);
+        // TimeStampReq: SEQ { version 1, messageImprint SEQ { alg SEQ{sha256,NULL}, OCTET hash }, certReq TRUE }
+        $alg = Asn1::tlv(0x30, Asn1::tlv(0x06, Asn1::oid('2.16.840.1.101.3.4.2.1')) . Asn1::tlv(0x05, ''));
+        $msgImprint = Asn1::tlv(0x30, $alg . Asn1::tlv(0x04, $hash));
+        $tsq = Asn1::tlv(0x30, Asn1::tlv(0x02, chr(1)) . $msgImprint . Asn1::tlv(0x01, chr(0xFF)));
+
+        $ch = curl_init($tsaUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/timestamp-query'],
+            CURLOPT_POSTFIELDS => $tsq,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+        ]);
+        $resp = curl_exec($ch);
+        $err = curl_error($ch);
+        curl_close($ch);
+        if ($resp === false || $resp === '') {
+            throw new \RuntimeException('TSA nedostupná: ' . $err);
+        }
+        return $this->tokenFromTsr((string) $resp);
+    }
+
+    /** Z TimeStampResp vytáhne timeStampToken (ContentInfo). Ověří PKIStatus granted. */
+    private function tokenFromTsr(string $tsr): string
+    {
+        $off = 0;
+        $nodes = Asn1::decode($tsr, $off, strlen($tsr));
+        $resp = $nodes[0] ?? null; // TimeStampResp SEQ { PKIStatusInfo, timeStampToken? }
+        if ($resp === null || empty($resp['children'])) {
+            throw new \RuntimeException('TSA: neplatná odpověď.');
+        }
+        // PKIStatusInfo SEQ { status INTEGER } — 0 granted, 1 grantedWithMods
+        $statusInfo = $resp['children'][0];
+        $status = isset($statusInfo['children'][0]) ? ord($statusInfo['children'][0]['raw'][0] ?? "\xFF") : 0xFF;
+        if ($status !== 0 && $status !== 1) {
+            throw new \RuntimeException('TSA status != granted (' . $status . ').');
+        }
+        $token = $resp['children'][1] ?? null; // ContentInfo (timeStampToken)
+        if ($token === null) {
+            throw new \RuntimeException('TSA: chybí timeStampToken.');
+        }
+        return Asn1::encode([$token]);
+    }
+
+    /** Vloží timeStampToken jako unsigned attribute (id-aa-timeStampToken) do SignerInfo. */
+    private function insertTimestampToken(string $cmsDer, string $tokenDer): string
+    {
+        $off = 0;
+        $tree = Asn1::decode($cmsDer, $off, strlen($cmsDer));
+        // ContentInfo SEQ → [1]=[0] EXPLICIT → [0]=SignedData SEQ
+        $sd = $tree[0]['children'][1]['children'][0];
+        // signerInfos = poslední child se SET (tag 0x31)
+        $siSetIdx = null;
+        foreach ($sd['children'] as $i => $c) {
+            if ($c['tag'] === 0x31) { $siSetIdx = $i; }
+        }
+        if ($siSetIdx === null) {
+            throw new \RuntimeException('CMS: nenalezen SignerInfos SET.');
+        }
+        // unsignedAttrs: [1] IMPLICIT SET OF Attribute { OID timeStampToken, SET { token } }
+        $attr = Asn1::tlv(0x30,
+            Asn1::tlv(0x06, Asn1::oid('1.2.840.113549.1.9.16.2.14')) . Asn1::tlv(0x31, $tokenDer));
+        $unsignedAttrs = Asn1::tlv(0xA1, $attr);
+        $o2 = 0;
+        $uaNode = Asn1::decode($unsignedAttrs, $o2, strlen($unsignedAttrs))[0];
+
+        // přidej unsignedAttrs do prvního SignerInfo (in-place přes index chain)
+        $tree[0]['children'][1]['children'][0]['children'][$siSetIdx]['children'][0]['children'][] = $uaNode;
+        return Asn1::encode($tree);
+    }
+
+    /** Vrátí uzel prvního SignerInfo z CMS DER. */
+    private function signerInfo(string $cmsDer): array
+    {
+        $off = 0;
+        $tree = Asn1::decode($cmsDer, $off, strlen($cmsDer));
+        $sd = $tree[0]['children'][1]['children'][0];
+        $siSetIdx = null;
+        foreach ($sd['children'] as $i => $c) {
+            if ($c['tag'] === 0x31) { $siSetIdx = $i; }
+        }
+        if ($siSetIdx === null || empty($sd['children'][$siSetIdx]['children'][0])) {
+            throw new \RuntimeException('CMS: nenalezen SignerInfo.');
+        }
+        return $sd['children'][$siSetIdx]['children'][0];
     }
 
     /**
