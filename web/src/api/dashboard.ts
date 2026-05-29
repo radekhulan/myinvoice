@@ -129,11 +129,17 @@ export interface AgingReportRow {
 export interface RevenueForecast {
   currency: string
   ytd: number
-  prev_year_ytd: number
   prev_year_remainder: number
-  growth_ratio: number
-  forecast: number
   prev_year_full: number
+  /** Krátkodobý růst: rolling 12m / předchozích 12m (faktor, 1.2 = +20 %) */
+  growth_short: number
+  /** Dlouhodobý trend: CAGR z posledních let (faktor) */
+  growth_trend: number
+  /** Medián tří projekcí (run-rate / krátkodobý růst / trend) */
+  forecast: number
+  /** Spodní a horní hranice projekcí — rozpětí nejistoty */
+  forecast_low: number
+  forecast_high: number
 }
 
 export interface Revenue30d {

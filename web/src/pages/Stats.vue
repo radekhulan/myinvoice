@@ -155,6 +155,11 @@ function ymLabel(ym: string): string {
   return `${m}/${y}`
 }
 
+/** Růstový faktor → procento s 1 desetinným místem (1.26 → 25.9). */
+function growthPct(factor: number): number {
+  return Math.round((factor - 1) * 1000) / 10
+}
+
 /** Aging report jen s ne-nulovými řádky (žádná měna bez pohledávek). */
 const agingRows = computed(() => {
   return (summary.value?.aging_report ?? []).filter(r =>
@@ -295,7 +300,7 @@ const hasAnyData = computed(() =>
           </div>
         </div>
 
-        <!-- Forecast aktuálního roku per měna — growth-adjusted seasonality -->
+        <!-- Forecast aktuálního roku per měna — medián 3 odhadů (run-rate / krátkodobý růst / trend) -->
         <div v-for="f in summary.revenue_forecast" :key="`fc-${f.currency}`"
           class="bg-surface border border-primary-200 rounded-lg p-5 shadow-sm bg-primary-50/30">
           <div class="text-xs uppercase tracking-wide text-primary-700 mb-1">
@@ -304,9 +309,15 @@ const hasAnyData = computed(() =>
           <div class="text-2xl font-semibold text-primary-700 font-mono"
             :title="t('stats.forecast_tooltip', {
               ytd: formatMoney(f.ytd, f.currency),
-              growth: Math.round((f.growth_ratio - 1) * 100 * 10) / 10,
-              remainder: formatMoney(f.prev_year_remainder, f.currency)
+              remainder: formatMoney(f.prev_year_remainder, f.currency),
+              short: growthPct(f.growth_short),
+              trend: growthPct(f.growth_trend),
+              low: formatMoney(f.forecast_low, f.currency),
+              high: formatMoney(f.forecast_high, f.currency)
             })">{{ formatMoney(f.forecast, f.currency) }}</div>
+          <div v-if="f.forecast_high > f.forecast_low" class="text-[11px] text-neutral-400 font-mono mt-0.5">
+            {{ t('stats.forecast_range', { low: formatMoney(f.forecast_low, f.currency), high: formatMoney(f.forecast_high, f.currency) }) }}
+          </div>
           <div v-if="f.prev_year_full > 0" class="text-xs mt-1"
             :class="f.forecast >= f.prev_year_full ? 'text-success-600' : 'text-danger-500'">
             {{ f.forecast >= f.prev_year_full ? '▲' : '▼' }}
@@ -314,7 +325,7 @@ const hasAnyData = computed(() =>
             {{ t('stats.vs_prev_year_full', { year: summary.prev_year }) }}
           </div>
           <div class="text-[11px] text-neutral-500 mt-2">
-            {{ t('stats.forecast_growth_hint', { growth: ((f.growth_ratio - 1) * 100).toFixed(1) }) }}
+            {{ t('stats.forecast_growth_hint', { trend: growthPct(f.growth_trend), short: growthPct(f.growth_short) }) }}
           </div>
         </div>
 
@@ -490,7 +501,8 @@ const hasAnyData = computed(() =>
                     {{ summary.year }}
                     <span class="ml-1 text-[10px] font-normal text-primary-600 uppercase tracking-wide">{{ t('stats.forecast_label') }}</span>
                   </td>
-                  <td class="px-4 py-2 text-right font-mono text-primary-700">
+                  <td class="px-4 py-2 text-right font-mono text-primary-700"
+                      :title="t('stats.forecast_range', { low: formatMoney(f.forecast_low, f.currency), high: formatMoney(f.forecast_high, f.currency) })">
                     {{ formatMoney(f.forecast, f.currency) }}
                   </td>
                   <td class="px-4 py-2 text-right text-xs text-primary-600">—</td>

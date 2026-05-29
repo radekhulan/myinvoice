@@ -43,6 +43,8 @@ final class SummaryAction
         $prevYear = $year - 1;
         $sid = (int) $request->getAttribute(SupplierScopeMiddleware::ATTR_CURRENT_ID, 0);
         $isVatPayer = $this->fetchIsVatPayer($pdo, $sid);
+        // revenueByYear počítáme jednou a sdílíme s forecastem (CAGR trend) — žádný druhý dotaz.
+        $revenueByYear = $this->revenueByYear($pdo, $sid, $isVatPayer);
 
         return Json::ok($response, [
             'kpi'                    => $this->kpi($pdo, $year, $prevYear, $sid, $isVatPayer),
@@ -53,7 +55,7 @@ final class SummaryAction
             'top_clients_12m'        => $this->topClientsRolling12m($pdo, $sid, $isVatPayer),
             'revenue_by_month'       => $this->revenueByMonth($pdo, $sid, $isVatPayer),
             'purchase_costs_by_month'=> $this->purchaseCostsByMonth($pdo, $sid),
-            'revenue_by_year'        => $this->revenueByYear($pdo, $sid, $isVatPayer),
+            'revenue_by_year'        => $revenueByYear,
             'rolling_12m'            => $this->rolling12mRevenue($pdo, $sid, $isVatPayer),
             'cashflow_ytd'           => $this->cashflowYtd($pdo, $year, $prevYear, $sid),
             'payment_days_histogram' => $this->paymentDaysHistogram($pdo, $sid),
@@ -61,7 +63,7 @@ final class SummaryAction
             'cashflow_forecast'      => $this->cashflowForecast($pdo, $sid),
             'due_buckets'            => $this->dueBuckets($pdo, $sid),
             'aging_report'           => $this->agingReport($pdo, $sid),
-            'revenue_forecast'       => $this->revenueForecast($pdo, $year, $prevYear, $sid, $isVatPayer),
+            'revenue_forecast'       => $this->revenueForecast($pdo, $year, $prevYear, $sid, $isVatPayer, $revenueByYear),
             'invoice_size_histogram' => $this->invoiceSizeHistogram($pdo, $sid, $isVatPayer),
             'revenue_last_30d'       => $this->revenueLast30d($pdo, $sid, $isVatPayer),
             'active_recurring_count' => $this->activeRecurringCount($pdo, $sid),
@@ -935,60 +937,138 @@ final class SummaryAction
     }
 
     /**
-     * Forecast ročního obratu — growth-adjusted seasonality.
+     * Forecast ročního obratu — robustní odhad ze tří nezávislých signálů.
      *
-     * Postup:
-     *  1. YTD letošek (Jan 1 – dnes)
-     *  2. YTD loňsko (Jan 1 – stejné datum minulého roku) — pro vypočet growth ratio
-     *  3. Loňsko od dneška do konce roku (sezonalita budoucích měsíců)
-     *  4. growth_ratio = YTD_this / YTD_prev (capnut na rozumný rozsah, default 1.0 pokud loni nula)
-     *  5. forecast = YTD_this + (prev_remainder × growth_ratio)
+     * Starý model měřil růst jako YTD_letos / YTD_loni — tj. z pár měsíců na začátku roku.
+     * Krátké okno = šum: slabý loňský start nafoukl růst na stovky % a forecast přestřelil.
      *
-     * Tj. pokud rosteš +10 % YoY, predikujeme i zbytek roku o +10 % nad loni.
+     * Nově počítáme tři projekce celého roku a bereme jejich MEDIÁN (odolný vůči jednomu
+     * odlehlému signálu); navíc vracíme rozpětí min–max:
      *
-     * @return list<array{currency: string, ytd: float, prev_year_ytd: float, prev_year_remainder: float, growth_ratio: float, forecast: float, prev_year_full: float}>
+     *  1. run-rate                       — ytd / uplynulé_dny × dní_v_roce
+     *  2. sezonalita × krátkodobý růst    — ytd + loňský_zbytek × (rolling 12m / předch. 12m)
+     *  3. sezonalita × dlouhodobý trend   — ytd + loňský_zbytek × CAGR (posledních ≤5 let)
+     *
+     * Sezonalita (= loňský zbytek roku) drží tvar roku; růst se měří z dlouhých oken, takže
+     * odráží strukturální růst (rostoucí sazby/objem), ne sezónní výkyv krátkého YTD okna.
+     * Jak rok postupuje, loňský_zbytek → 0 a všechny tři signály konvergují ke skutečnosti.
+     *
+     * @param list<array{year: int, currency: string, total: float, invoice_count: int}> $revenueByYear sdílený výsledek revenueByYear() — zdroj CAGR trendu
+     * @return list<array{currency: string, ytd: float, prev_year_remainder: float, prev_year_full: float, growth_short: float, growth_trend: float, forecast: float, forecast_low: float, forecast_high: float}>
      */
-    private function revenueForecast(\PDO $pdo, int $year, int $prevYear, int $sid, bool $isVatPayer): array
+    private function revenueForecast(\PDO $pdo, int $year, int $prevYear, int $sid, bool $isVatPayer, array $revenueByYear): array
     {
         $rev = $this->revenueCol($isVatPayer);
+        // Scope musí pokrýt i rok−2, protože rolling-24m okno (prev_roll_12m) sahá dva roky zpět.
+        $prevPrevYear = $prevYear - 1;
         $sql = "SELECT cur.code AS currency,
                        SUM(CASE WHEN YEAR(COALESCE(i.tax_date, i.issue_date)) = ?
                                  THEN $rev ELSE 0 END) AS ytd,
                        SUM(CASE WHEN YEAR(COALESCE(i.tax_date, i.issue_date)) = ?
-                                  AND COALESCE(i.tax_date, i.issue_date) <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
-                                 THEN $rev ELSE 0 END) AS prev_year_ytd,
-                       SUM(CASE WHEN YEAR(COALESCE(i.tax_date, i.issue_date)) = ?
                                   AND COALESCE(i.tax_date, i.issue_date) > DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
                                  THEN $rev ELSE 0 END) AS prev_year_remainder,
                        SUM(CASE WHEN YEAR(COALESCE(i.tax_date, i.issue_date)) = ?
-                                 THEN $rev ELSE 0 END) AS prev_year_full
+                                 THEN $rev ELSE 0 END) AS prev_year_full,
+                       SUM(CASE WHEN COALESCE(i.tax_date, i.issue_date) >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                                 THEN $rev ELSE 0 END) AS roll_12m,
+                       SUM(CASE WHEN COALESCE(i.tax_date, i.issue_date) >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH)
+                                  AND COALESCE(i.tax_date, i.issue_date) <  DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                                 THEN $rev ELSE 0 END) AS prev_roll_12m
                   FROM invoices i
                   JOIN currencies cur ON cur.id = i.currency_id
                  WHERE i.supplier_id = ?
-                   AND YEAR(COALESCE(i.tax_date, i.issue_date)) IN (?, ?)
+                   AND YEAR(COALESCE(i.tax_date, i.issue_date)) IN (?, ?, ?)
                    AND i.status IN ('issued', 'sent', 'reminded', 'paid')
                    AND i.invoice_type IN ('invoice', 'credit_note')
                  GROUP BY cur.code";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$year, $prevYear, $prevYear, $prevYear, $sid, $year, $prevYear]);
-        return array_map(static function (array $r): array {
+        $stmt->execute([$year, $prevYear, $prevYear, $sid, $year, $prevYear, $prevPrevYear]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // Roční totály ukončených let pro CAGR — přetvořené z už načteného revenueByYear (žádný druhý dotaz).
+        $yearly = [];
+        foreach ($revenueByYear as $r) {
+            if ($r['year'] < $year) {
+                $yearly[$r['currency']][$r['year']] = $r['total'];
+            }
+        }
+
+        // Pozice v roce — pro run-rate a přirozenou konvergenci k realitě ke konci roku.
+        $today = new \DateTimeImmutable('today');
+        $daysElapsed = (int) $today->format('z') + 1;
+        $daysInYear = $today->format('L') === '1' ? 366 : 365;
+
+        return array_map(function (array $r) use ($daysElapsed, $daysInYear, $yearly): array {
+            $cur = (string) $r['currency'];
             $ytd = round((float) $r['ytd'], 2);
-            $ytdPrev = round((float) $r['prev_year_ytd'], 2);
             $rem = round((float) $r['prev_year_remainder'], 2);
-            // Růstový poměr — pokud loňské YTD je 0 nebo neznámé, fallback na 1.0 (= prostá sezonalita).
-            // Capnuto na [0.3, 3.0] — extrémní YoY (např. začátek byznysu) by jinak vytvořilo nerealistickou projekci.
-            $growth = ($ytdPrev > 0) ? max(0.3, min(3.0, $ytd / $ytdPrev)) : 1.0;
-            $forecast = round($ytd + ($rem * $growth), 2);
-            return [
-                'currency'            => (string) $r['currency'],
-                'ytd'                 => $ytd,
-                'prev_year_ytd'       => $ytdPrev,
-                'prev_year_remainder' => $rem,
-                'growth_ratio'        => round($growth, 3),
-                'forecast'            => $forecast,
-                'prev_year_full'      => round((float) $r['prev_year_full'], 2),
+            $prevFull = round((float) $r['prev_year_full'], 2);
+            $roll12 = (float) $r['roll_12m'];
+            $prevRoll12 = (float) $r['prev_roll_12m'];
+
+            // Krátkodobý růst: rolling 12m vs. předchozích 12m. Plná okna → bez sezónního zkreslení.
+            // Cap [0.5, 2.5] drží projekci v rozumných mezích i při raketovém/propadovém roce.
+            $gShort = $prevRoll12 > 0 ? max(0.5, min(2.5, $roll12 / $prevRoll12)) : 1.0;
+            // Dlouhodobý trend (CAGR). Cap [0.8, 1.8] je užší než u krátkodobého růstu — trend z více
+            // let je hladší, takže extrémy nečekáme. Bez dostatku historie fallback na krátkodobý růst.
+            $gTrendRaw = $this->trendGrowth($yearly[$cur] ?? []);
+            $gTrend = $gTrendRaw !== null ? max(0.8, min(1.8, $gTrendRaw)) : $gShort;
+
+            $runRate = $daysElapsed > 0 ? $ytd / $daysElapsed * $daysInYear : $ytd;
+
+            // Bez loňských dat nemá sezonalita o co se opřít → jediný smysluplný signál je run-rate.
+            if ($prevFull <= 0.0) {
+                $fc = round($runRate, 2);
+                return [
+                    'currency' => $cur, 'ytd' => $ytd, 'prev_year_remainder' => $rem,
+                    'prev_year_full' => $prevFull, 'growth_short' => round($gShort, 3),
+                    'growth_trend' => round($gTrend, 3), 'forecast' => $fc,
+                    'forecast_low' => $fc, 'forecast_high' => $fc,
+                ];
+            }
+
+            $signals = [
+                $runRate,                // run-rate (lineární extrapolace)
+                $ytd + $rem * $gShort,   // sezonalita × krátkodobý růst
+                $ytd + $rem * $gTrend,   // sezonalita × dlouhodobý trend
             ];
-        }, $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []);
+            sort($signals);
+
+            return [
+                'currency'            => $cur,
+                'ytd'                 => $ytd,
+                'prev_year_remainder' => $rem,
+                'prev_year_full'      => $prevFull,
+                'growth_short'        => round($gShort, 3),
+                'growth_trend'        => round($gTrend, 3),
+                'forecast'            => round($signals[1], 2),
+                'forecast_low'        => round($signals[0], 2),
+                'forecast_high'       => round($signals[2], 2),
+            ];
+        }, $rows);
+    }
+
+    /**
+     * CAGR (geometrický průměrný roční růst) z posledních ≤5 ukončených let.
+     * Vrací růstový faktor (1.25 = +25 %/rok), nebo null když není dost dat (< 2 roky).
+     *
+     * @param array<int, float> $byYear year => total
+     */
+    private function trendGrowth(array $byYear): ?float
+    {
+        $byYear = array_filter($byYear, static fn (float $t): bool => $t > 0);
+        if (count($byYear) < 2) {
+            return null;
+        }
+        ksort($byYear);
+        $window = array_slice($byYear, -5, null, true);
+        $firstYear = array_key_first($window);
+        $lastYear = array_key_last($window);
+        $span = $lastYear - $firstYear;
+        if ($span < 1 || $window[$firstYear] <= 0) {
+            return null;
+        }
+        return ($window[$lastYear] / $window[$firstYear]) ** (1.0 / $span);
     }
 
     /**
