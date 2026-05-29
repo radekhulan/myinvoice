@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Podpis PDF faktur certifikátem (PAdES)** — volitelný elektronický podpis PDF vydaných faktur a výkazů víceprací certifikátem, zapínatelný **per dodavatel** (#44). Úroveň **PAdES-B**, volitelně **PAdES-T** s důvěryhodným časovým razítkem (RFC 3161 TSA). Implementováno čistě v PHP (`openssl`, PDF incremental update) bez nové composer závislosti. V *Nastavení → Podpis PDF* lze nahrát certifikát **P12/PFX**, zadat heslo (uloženo šifrovaně přes `SecretEncryption`, soubor mimo web root, 0600), volitelně TSA URL a důvod podpisu; zobrazí se metadata certu (CN, vydavatel, platnost, SHA-256 fingerprint). Podpis se aplikuje při generování PDF (download, e-mail, vystavení, ZIP export). **Měkký fallback** — selhání podpisu (chybějící/expirovaný cert, výpadek TSA) fakturu nezablokuje, vygeneruje se nepodepsané PDF a událost se zaloguje. Veškerá správa i použití certifikátu se auditují do `activity_log` (`signing.cert_uploaded/removed`, `signing.pdf_signed`, `signing.failed`) bez úniku hesla/klíče. Migrace `0072`. (#44)
+
 ## [4.5.2] — 2026-05-29
 
 Opravy u přijatých faktur uhrazených zálohou a přenačtení detailu faktury při prokliku.
