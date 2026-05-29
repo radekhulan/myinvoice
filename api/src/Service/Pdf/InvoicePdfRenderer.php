@@ -28,6 +28,8 @@ use Twig\Loader\FilesystemLoader;
  */
 final class InvoicePdfRenderer
 {
+    use SignsPdf;
+
     private ?Environment $twig = null;
 
     public function __construct(
@@ -39,6 +41,8 @@ final class InvoicePdfRenderer
         private readonly SnapshotBuilder $snapshots,
         private readonly PdfArchiveService $archive,
         private readonly IsdocExporter $isdoc,
+        private readonly PdfSigner $signer,
+        private readonly \MyInvoice\Service\ActivityLogger $activity,
     ) {}
 
     /**
@@ -149,6 +153,17 @@ final class InvoicePdfRenderer
         // (když je starý PDF otevřený v Chrome PDF viewer, přepis přímo by selhal).
         $tmpPath = $cachedPath . '.new';
         $mpdf->Output($tmpPath, \Mpdf\Output\Destination::FILE);
+
+        // Podpis PDF (PAdES) — má-li dodavatel zapnuto; měkký fallback při chybě.
+        $tmpPath = $this->signPdfIfEnabled(
+            $tmpPath,
+            $this->getSupplierData((int) ($invoice['supplier_id'] ?? 0)),
+            $this->signer,
+            $this->activity,
+            'invoice',
+            $invoiceId,
+        );
+
         if (is_file($cachedPath)) {
             @unlink($cachedPath); // pokud locked, fail silently
         }

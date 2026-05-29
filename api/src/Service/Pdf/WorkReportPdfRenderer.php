@@ -21,10 +21,14 @@ use Twig\Loader\FilesystemLoader;
  */
 final class WorkReportPdfRenderer
 {
+    use SignsPdf;
+
     public function __construct(
         private readonly InvoiceRepository $invoices,
         private readonly WorkReportRepository $workReports,
         private readonly Connection $db,
+        private readonly PdfSigner $signer,
+        private readonly \MyInvoice\Service\ActivityLogger $activity,
     ) {}
 
     /**
@@ -107,6 +111,13 @@ final class WorkReportPdfRenderer
 
         $tmpPath = $path . '.new';
         $mpdf->Output($tmpPath, \Mpdf\Output\Destination::FILE);
+
+        // Podpis PDF (PAdES) — má-li dodavatel zapnuto; měkký fallback při chybě.
+        $tmpPath = $this->signPdfIfEnabled(
+            $tmpPath, $this->resolveSupplier($invoice), $this->signer, $this->activity,
+            'work_report', (int) $invoice['id'],
+        );
+
         if (is_file($path)) @unlink($path);
         if (!@rename($tmpPath, $path)) {
             $path = $tmpPath;
