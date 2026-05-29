@@ -43,7 +43,7 @@ async function submit() {
 <template>
   <AppShell :title="t('auth.reset_title')">
     <div class="w-full max-w-sm">
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-6">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-semibold mb-1">{{ t('auth.reset_title') }}</h2>
 
         <div v-if="success" class="rounded-md bg-primary-50 border border-primary-200 p-4 text-sm text-primary-800 mt-4">

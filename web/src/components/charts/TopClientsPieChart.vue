@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { Chart, DoughnutController, ArcElement, Tooltip, Legend } from 'chart.js'
 import type { TopClient } from '@/api/dashboard'
 import { formatMoney } from '@/composables/useFormat'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend)
 
@@ -14,12 +15,7 @@ const props = defineProps<{ clients: TopClient[] }>()
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 const { t, locale } = useI18n()
-
-// Indigo gradient palette
-const palette = [
-  '#3B2D83', '#5C45A0', '#6753AE', '#8675C5', '#A99CD8',
-  '#C9C0E9', '#E5E0F4', '#F4A261', '#E8A547', '#4CAF7A',
-]
+const colors = useChartColors()
 
 const sliceData = computed(() => {
   if (props.clients.length === 0) return { labels: [] as string[], values: [] as number[] }
@@ -47,9 +43,9 @@ function build() {
       labels,
       datasets: [{
         data: values,
-        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        backgroundColor: labels.map((_, i) => colors.value.palette[i % colors.value.palette.length]),
         borderWidth: 1,
-        borderColor: '#FFFFFF',
+        borderColor: colors.value.border,
       }],
     },
     options: {
@@ -58,9 +54,10 @@ function build() {
       plugins: {
         legend: {
           position: 'right',
-          labels: { boxWidth: 12, font: { size: 11 } },
+          labels: { boxWidth: 12, font: { size: 11 }, color: colors.value.tick },
         },
         tooltip: {
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => {
               const v = ctx.parsed as number
@@ -79,6 +76,7 @@ onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => props.clients, build, { deep: true })
 watch(() => locale.value, build)
+watch(colors, build)
 </script>
 
 <template>

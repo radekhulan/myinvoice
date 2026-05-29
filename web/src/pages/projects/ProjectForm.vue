@@ -192,7 +192,7 @@ async function submit() {
       {{ t('invoice.client') }}: <span class="font-medium text-neutral-900">{{ client.company_name }}</span>
     </div>
 
-    <form @submit.prevent="submit" autocomplete="off" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <form @submit.prevent="submit" autocomplete="off" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="p-5 space-y-4">
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('project.name') }} *</label>
@@ -205,7 +205,7 @@ async function submit() {
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('project.payment_due_label') }} *</label>
             <div class="flex gap-2 items-center">
               <select v-model="projectDuePreset"
-                class="flex-1 min-w-0 h-10 px-2 border border-neutral-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
+                class="flex-1 min-w-0 h-10 px-2 border border-neutral-300 rounded-md text-sm bg-surface focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
                 <option value="7">{{ t('project.payment_due_preset_7') }}</option>
                 <option value="14">{{ t('project.payment_due_preset_14') }}</option>
                 <option value="month">{{ t('project.payment_due_preset_month') }}</option>
@@ -227,14 +227,14 @@ async function submit() {
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('project.currency') }}</label>
             <select v-model.number="form.currency_id"
-              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
+              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
               <option v-for="c in currencies" :key="c.id" :value="c.id">{{ c.label }}</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('project.status') }}</label>
             <select v-model="form.status"
-              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
+              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
               <option value="active">{{ t('common.active') }}</option>
               <option value="paused">{{ t('project.status_paused') }}</option>
               <option value="closed">{{ t('project.status_closed') }}</option>
@@ -315,7 +315,7 @@ async function submit() {
       </div>
 
       <div class="px-5 py-3 border-t border-neutral-200 bg-neutral-50 flex justify-end gap-3 rounded-b-lg">
-        <button type="button" @click="embedded ? emit('cancel') : router.back()" class="px-4 h-10 border border-neutral-300 rounded-md text-neutral-700 hover:bg-white text-sm font-medium">{{ t('common.cancel') }}</button>
+        <button type="button" @click="embedded ? emit('cancel') : router.back()" class="px-4 h-10 border border-neutral-300 rounded-md text-neutral-700 hover:bg-surface text-sm font-medium">{{ t('common.cancel') }}</button>
         <button type="submit" :disabled="submitting"
           class="px-5 h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white text-sm font-medium rounded-md">
           {{ submitting ? t('common.saving') : (isEdit ? t('common.save') : t('common.create')) }}

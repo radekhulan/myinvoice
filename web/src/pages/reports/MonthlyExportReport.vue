@@ -179,10 +179,10 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
         <p class="text-sm text-neutral-500 mt-0.5">{{ t('reports.monthly_export.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model.number="month" :disabled="anyActive" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:bg-neutral-100">
+        <select v-model.number="month" :disabled="anyActive" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:bg-neutral-100">
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
         </select>
-        <select v-model.number="year" :disabled="anyActive" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:bg-neutral-100">
+        <select v-model.number="year" :disabled="anyActive" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:bg-neutral-100">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
       </div>
@@ -192,7 +192,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
       {{ error }}
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-5">
+    <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-5">
       <!-- Daňově korektní zařazení dokladů do období -->
       <div class="flex items-start gap-2 rounded-md bg-primary-50 border border-primary-200 px-3 py-2.5 text-sm text-primary-800">
         <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
@@ -259,7 +259,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
     </div>
 
     <!-- Historie exportů (zůstávají ke stažení) -->
-    <div v-if="jobs.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div v-if="jobs.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="px-5 py-3 border-b border-neutral-200 text-sm font-medium text-neutral-700">
         {{ t('reports.monthly_export.job.history') }}
       </div>

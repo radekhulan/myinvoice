@@ -332,7 +332,7 @@ async function deleteClient() {
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <!-- Kontakt -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.section_contact') }}</h3>
         <dl class="space-y-2 text-sm">
           <div>
@@ -347,7 +347,7 @@ async function deleteClient() {
       </div>
 
       <!-- Adresa -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.section_address') }}</h3>
         <div class="text-sm text-neutral-900 leading-relaxed">
           {{ client.street }}<br />
@@ -357,7 +357,7 @@ async function deleteClient() {
       </div>
 
       <!-- Nastavení -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('nav.settings') }}</h3>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('client.language_label') }}</dt><dd class="font-mono">{{ client.language.toUpperCase() }}</dd></div>
@@ -371,7 +371,7 @@ async function deleteClient() {
 
     <!-- KPI: nezaplaceno + po splatnosti -->
     <div v-if="(client.unpaid_summary?.length ?? 0) > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.unpaid') }}</h3>
         <div class="space-y-1">
           <div v-for="u in client.unpaid_summary || []" :key="`u-${u.currency}`" class="flex items-baseline justify-between">
@@ -380,7 +380,7 @@ async function deleteClient() {
           </div>
         </div>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm" :class="overdueAny ? 'border-danger-500/40' : ''">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm" :class="overdueAny ? 'border-danger-500/40' : ''">
         <h3 class="text-sm font-semibold uppercase tracking-wide mb-3" :class="overdueAny ? 'text-danger-500' : 'text-neutral-500'">{{ t('client.overdue') }}</h3>
         <div class="space-y-1">
           <div v-for="u in client.unpaid_summary || []" :key="`o-${u.currency}`" class="flex items-baseline justify-between">
@@ -393,14 +393,14 @@ async function deleteClient() {
 
     <!-- Obrat: graf po měsících + sumace po letech -->
     <div v-if="(client.revenue_by_month?.length ?? 0) > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="md:col-span-2 bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="md:col-span-2 bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('client.revenue_by_month') }}</h3>
           <span class="text-xs font-mono text-neutral-500">{{ primaryCurrency }}<span v-if="revenueIsMultiCurrency" class="ml-1 text-neutral-400 normal-case">({{ t('client.converted_from', { ccys: revenueCurrencies.join(', ') }) }})</span></span>
         </div>
         <MonthlyRevenueChart :labels="monthlyChart.labels" :values="monthlyChart.values" :currency="primaryCurrency" />
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.revenue_by_year') }}</h3>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -418,14 +418,14 @@ async function deleteClient() {
 
     <!-- Náklady (přijaté faktury) — graf po měsících + sumace po letech -->
     <div v-if="purchaseByMonth.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="md:col-span-2 bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="md:col-span-2 bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('client.costs_by_month') }}</h3>
           <span class="text-xs font-mono text-neutral-500">{{ purchaseDisplayCurrency }}<span v-if="purchaseIsMultiCurrency" class="ml-1 text-neutral-400 normal-case">({{ t('client.converted_from', { ccys: purchaseCurrencies.join(', ') }) }})</span></span>
         </div>
         <MonthlyRevenueChart :labels="purchaseMonthlyChart.labels" :values="purchaseMonthlyChart.values" :currency="purchaseDisplayCurrency" />
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.costs_by_year') }}</h3>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -448,14 +448,14 @@ async function deleteClient() {
 
     <!-- Obrat podle zakázek — graf + tabulka -->
     <div v-if="projectsTable.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('client.revenue_by_project') }}</h3>
           <span class="text-xs font-mono text-neutral-500">{{ primaryCurrency }}</span>
         </div>
         <TopProjectsBarChart :labels="projectsChart.labels" :values="projectsChart.values" :currency="primaryCurrency" />
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('client.revenue_by_project_table') }}</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
@@ -485,7 +485,7 @@ async function deleteClient() {
 
     <!-- Zakázky — visible pokud is_customer NEBO existují zakázky -->
     <div v-if="client.is_customer !== false || (client.projects?.length ?? 0) > 0"
-         class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+         class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
         <h3 class="font-semibold">{{ t('client.projects') }}</h3>
         <RouterLink v-if="auth.canWrite" :to="`/projects/new?client_id=${client.id}`"
@@ -514,8 +514,8 @@ async function deleteClient() {
             <td class="px-4 py-3">
               <span class="text-xs px-2 py-0.5 rounded"
                 :class="{
-                  'bg-emerald-50 text-emerald-700': p.status === 'active',
-                  'bg-amber-50 text-amber-700': p.status === 'paused',
+                  'bg-success-50 text-success-600': p.status === 'active',
+                  'bg-warning-50 text-warning-600': p.status === 'paused',
                   'bg-neutral-100 text-neutral-600': p.status === 'closed',
                 }">{{ p.status }}</span>
             </td>
@@ -547,8 +547,8 @@ async function deleteClient() {
             <div class="font-medium text-neutral-900 truncate">{{ p.name }}</div>
             <span class="text-xs px-2 py-0.5 rounded whitespace-nowrap"
               :class="{
-                'bg-emerald-50 text-emerald-700': p.status === 'active',
-                'bg-amber-50 text-amber-700': p.status === 'paused',
+                'bg-success-50 text-success-600': p.status === 'active',
+                'bg-warning-50 text-warning-600': p.status === 'paused',
                 'bg-neutral-100 text-neutral-600': p.status === 'closed',
               }">{{ p.status }}</span>
           </div>
@@ -565,7 +565,7 @@ async function deleteClient() {
     </div>
 
     <!-- Vystavené faktury — visible pokud is_customer NEBO existují vystavené faktury -->
-    <div v-if="client.is_customer !== false || invoices.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div v-if="client.is_customer !== false || invoices.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
         <h3 class="font-semibold">{{ t('client.issued_invoices') }} <span v-if="invoicesTotal" class="text-neutral-400 font-normal">({{ invoicesTotal }})</span></h3>
         <RouterLink v-if="auth.canWrite" :to="`/invoices/new?client_id=${client.id}`"
@@ -654,7 +654,7 @@ async function deleteClient() {
     </div>
 
     <!-- Přijaté faktury — visible pokud is_vendor NEBO existují přijaté faktury -->
-    <div v-if="client.is_vendor === true || purchaseInvoices.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div v-if="client.is_vendor === true || purchaseInvoices.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
         <h3 class="font-semibold">{{ t('client.received_invoices') }} <span v-if="purchaseInvoices.length" class="text-neutral-400 font-normal">({{ purchaseInvoices.length }})</span></h3>
         <RouterLink v-if="auth.canWrite" :to="`/purchase-invoices/new?vendor_id=${client.id}`"
@@ -696,7 +696,7 @@ async function deleteClient() {
 
     <!-- Pravidelné fakturace — visible pokud is_customer NEBO existují recurring -->
     <div v-if="client.is_customer !== false || recurringTemplates.length > 0"
-         class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+         class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
         <h3 class="font-semibold">
           {{ t('recurring.title') }}

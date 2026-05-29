@@ -538,7 +538,7 @@ function fieldErr(key: string): string | null {
       </RouterLink>
     </header>
 
-    <div v-if="error" class="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+    <div v-if="error" class="p-3 bg-danger-50 border border-danger-500/40 text-danger-600 rounded-md text-sm">
       {{ error }}
     </div>
 
@@ -566,7 +566,7 @@ function fieldErr(key: string): string | null {
 
     <form v-else @submit.prevent="submit" class="space-y-5">
       <!-- DRAG & DROP PDF (jen nahoře u nové faktury, schovaný po prvním interaction) -->
-      <div v-if="!isEdit && dropzoneVisible" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="!isEdit && dropzoneVisible" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <PdfDropzone :uploading="pdfUploading" @file-dropped="onPdfDropped" @error="onPdfError" />
         <p class="text-xs text-neutral-500 mt-2">
           {{ t('purchase_invoice.extraction.ai_pending') }}
@@ -574,7 +574,7 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Existující PDF na detail/edit (s inline preview, stejný pattern jako InvoiceDetail.vue) -->
-      <div v-if="existingPdf" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-if="existingPdf" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
           <div class="flex items-center gap-3">
             <svg class="w-7 h-8 shrink-0" viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg">
@@ -632,12 +632,12 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Replace dropzone když user vybere replace -->
-      <div v-else-if="isEdit && dropzoneVisible" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-else-if="isEdit && dropzoneVisible" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <PdfDropzone :uploading="pdfUploading" @file-dropped="onPdfDropped" @error="onPdfError" />
       </div>
 
       <!-- Box 1: Hlavička — vendor + typ + čísla + datumy + měna -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
         <h2 class="text-sm font-medium text-neutral-700 pb-2 border-b border-neutral-100">
           {{ t('purchase_invoice.fields.vendor') }} & {{ t('purchase_invoice.fields.document_kind') }}
         </h2>
@@ -664,7 +664,7 @@ function fieldErr(key: string): string | null {
           </div>
           <div>
             <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.document_kind') }}</label>
-            <select v-model="form.document_kind" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.document_kind" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option value="invoice">{{ t('purchase_invoice.document_kind.invoice') }}</option>
               <option value="receipt">{{ t('purchase_invoice.document_kind.receipt') }}</option>
               <option value="credit_note">{{ t('purchase_invoice.document_kind.credit_note') }}</option>
@@ -676,12 +676,12 @@ function fieldErr(key: string): string | null {
         <!-- Vendor invoice number + our varsymbol -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.vendor_invoice_number') }} <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.vendor_invoice_number') }} <span class="text-danger-500">*</span></label>
             <input v-model="form.vendor_invoice_number" type="text" maxlength="50" required
                    class="w-full h-10 px-3 border rounded-md text-sm font-mono"
-                   :class="fieldErr('vendor_invoice_number') ? 'border-red-300' : 'border-neutral-300'" />
+                   :class="fieldErr('vendor_invoice_number') ? 'border-danger-500/40' : 'border-neutral-300'" />
             <p class="text-xs text-neutral-500 mt-1">{{ t('purchase_invoice.fields.vendor_invoice_number_hint') }}</p>
-            <p v-if="fieldErr('vendor_invoice_number')" class="text-xs text-red-600 mt-1">{{ fieldErr('vendor_invoice_number') }}</p>
+            <p v-if="fieldErr('vendor_invoice_number')" class="text-xs text-danger-600 mt-1">{{ fieldErr('vendor_invoice_number') }}</p>
           </div>
           <div>
             <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.varsymbol') }}</label>
@@ -695,7 +695,7 @@ function fieldErr(key: string): string | null {
         <!-- Dates -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.issue_date') }} <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.issue_date') }} <span class="text-danger-500">*</span></label>
             <input v-model="form.issue_date" type="date" required class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm" />
           </div>
           <div>
@@ -703,7 +703,7 @@ function fieldErr(key: string): string | null {
             <input v-model="form.tax_date" type="date" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm" />
           </div>
           <div>
-            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.due_date') }} <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.due_date') }} <span class="text-danger-500">*</span></label>
             <input v-model="form.due_date" type="date" required class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm" />
           </div>
           <div>
@@ -715,9 +715,9 @@ function fieldErr(key: string): string | null {
         <!-- Currency + exchange rate -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.currency') }} <span class="text-red-500">*</span></label>
+            <label class="block text-sm text-neutral-700 mb-1">{{ t('purchase_invoice.fields.currency') }} <span class="text-danger-500">*</span></label>
             <div class="flex items-center gap-2">
-              <select v-model="form.currency_id" required class="flex-1 h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+              <select v-model="form.currency_id" required class="flex-1 h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
                 <option :value="null">—</option>
                 <option v-for="c in currencyOptions" :key="c.id" :value="c.id">
                   {{ c.code }}{{ !c.is_active ? ' · ' + t('purchase_invoice.fields.currency_purchase_only') : '' }}
@@ -757,7 +757,7 @@ function fieldErr(key: string): string | null {
           </label>
           <div class="inline-flex items-center gap-2">
             <label class="text-sm text-neutral-700">{{ t('purchase_invoice.fields.language') }}:</label>
-            <select v-model="form.language" class="h-8 px-2 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.language" class="h-8 px-2 border border-neutral-300 rounded-md bg-surface text-sm">
               <option value="cs">CS</option>
               <option value="en">EN</option>
             </select>
@@ -766,7 +766,7 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Box 2: Položky -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
         <header class="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
           <h2 class="text-sm font-medium text-neutral-700">{{ t('purchase_invoice.items.title') }}</h2>
           <button type="button" @click="addItem" class="cursor-pointer px-3 h-8 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-md font-medium">
@@ -799,7 +799,7 @@ function fieldErr(key: string): string | null {
                 <input v-model="it.quantity" v-math type="text" inputmode="decimal" class="w-full h-9 px-2 border border-neutral-200 rounded text-sm text-right font-mono" />
               </td>
               <td class="py-2 px-1">
-                <select v-model="it.unit" class="w-full h-9 px-1 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model="it.unit" class="w-full h-9 px-1 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="u in units" :key="u.code" :value="u.code">{{ u.code }}</option>
                 </select>
               </td>
@@ -807,7 +807,7 @@ function fieldErr(key: string): string | null {
                 <input v-model="it.unit_price_without_vat" v-math type="text" inputmode="decimal" class="w-full h-9 px-2 border border-neutral-200 rounded text-sm text-right font-mono" />
               </td>
               <td class="py-2 px-1">
-                <select v-model.number="it.vat_rate_id" class="w-full h-9 px-1 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model.number="it.vat_rate_id" class="w-full h-9 px-1 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="v in vatRates" :key="v.id" :value="v.id">{{ vatRateLabel(v) }}</option>
                 </select>
               </td>
@@ -817,7 +817,7 @@ function fieldErr(key: string): string | null {
                   class="w-full h-9 px-2 border border-neutral-200 rounded text-sm text-right font-mono" />
               </td>
               <td class="py-2 px-1 pr-3 text-center">
-                <button type="button" @click="removeItem(i)" class="cursor-pointer w-8 h-8 inline-flex items-center justify-center text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded" :title="t('purchase_invoice.items.remove')">✕</button>
+                <button type="button" @click="removeItem(i)" class="cursor-pointer w-8 h-8 inline-flex items-center justify-center text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded" :title="t('purchase_invoice.items.remove')">✕</button>
               </td>
             </tr>
           </tbody>
@@ -842,7 +842,7 @@ function fieldErr(key: string): string | null {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('purchase_invoice.items.unit') }}</label>
-                <select v-model="it.unit" class="w-full h-10 px-2 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model="it.unit" class="w-full h-10 px-2 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="u in units" :key="u.code" :value="u.code">{{ u.code }}</option>
                 </select>
               </div>
@@ -854,7 +854,7 @@ function fieldErr(key: string): string | null {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('purchase_invoice.items.vat_rate') }}</label>
-                <select v-model.number="it.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model.number="it.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="v in vatRates" :key="v.id" :value="v.id">{{ vatRateLabel(v) }}</option>
                 </select>
               </div>
@@ -891,7 +891,7 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Box 3: Multi-currency platba (collapsible — komponenta má vlastní wrapper) -->
-      <div v-if="form.currency_id" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-if="form.currency_id" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <PaymentCurrencyBlock
           :invoice-currency-id="form.currency_id"
           :invoice-currency="currencyCode"
@@ -912,12 +912,12 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Box: Klasifikace (kategorie nákladů + VAT klasifikace pro DPHDP3) -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.classification.title') }}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">{{ t('purchase_invoice.classification.expense_category') }}</label>
-            <select v-model="form.expense_category_id" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.expense_category_id" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option :value="null">— {{ t('purchase_invoice.classification.no_category') }} —</option>
               <option v-for="c in expenseCategories" :key="c.id" :value="c.id">
                 {{ c.label }} <span class="text-neutral-400">({{ c.code }})</span>
@@ -931,7 +931,7 @@ function fieldErr(key: string): string | null {
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">{{ t('purchase_invoice.classification.vat_classification') }}</label>
-            <select v-model="form.vat_classification_code" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.vat_classification_code" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option :value="null">— {{ t('purchase_invoice.classification.no_vat_class') }} —</option>
               <option v-for="vc in vatClassifications" :key="vc.id" :value="vc.code">
                 {{ vc.code }} — {{ vc.label.length > 60 ? vc.label.slice(0, 60) + '…' : vc.label }}
@@ -941,7 +941,7 @@ function fieldErr(key: string): string | null {
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">{{ t('purchase_invoice.classification.vat_deduction') }}</label>
-            <select v-model="form.vat_deduction" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.vat_deduction" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option value="full">{{ t('purchase_invoice.vat_deduction.full') }}</option>
               <option value="none">{{ t('purchase_invoice.vat_deduction.none') }}</option>
               <option value="proportional">{{ t('purchase_invoice.vat_deduction.proportional') }}</option>
@@ -949,7 +949,7 @@ function fieldErr(key: string): string | null {
             <template v-if="form.vat_deduction === 'proportional'">
               <div class="mt-2 flex items-center gap-2">
                 <input v-model.number="form.vat_deduction_percent" type="number" min="0" max="100" step="0.01"
-                  class="w-24 h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm text-right" />
+                  class="w-24 h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm text-right" />
                 <span class="text-sm text-neutral-600">% {{ t('purchase_invoice.vat_deduction_percent') }}</span>
               </div>
               <p class="text-xs text-neutral-500 mt-1">{{ t('purchase_invoice.vat_deduction_percent_hint') }}</p>
@@ -967,7 +967,7 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Box 4: Poznámky -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.fields.note_above_items') }} / {{ t('purchase_invoice.fields.note_below_items') }}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -982,7 +982,7 @@ function fieldErr(key: string): string | null {
       </div>
 
       <!-- Submit bar — sticky bottom -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm flex items-center justify-end gap-2">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 shadow-sm flex items-center justify-end gap-2">
         <RouterLink to="/purchase-invoices" class="px-4 h-10 inline-flex items-center text-sm border border-neutral-300 rounded-md hover:bg-neutral-50">
           {{ t('purchase_invoice.actions.back') }}
         </RouterLink>
@@ -993,8 +993,8 @@ function fieldErr(key: string): string | null {
     </form>
 
     <!-- Quick-add currency modal -->
-    <div v-if="showAddCurrency" class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4" @click.self="showAddCurrency = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 space-y-3">
+    <div v-if="showAddCurrency" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="showAddCurrency = false">
+      <div class="bg-surface rounded-lg shadow-xl max-w-sm w-full p-5 space-y-3">
         <h3 class="font-medium">{{ t('purchase_invoice.fields.currency_add_title') }}</h3>
         <p class="text-xs text-neutral-500">{{ t('purchase_invoice.fields.currency_add_iso_hint') }}</p>
         <input

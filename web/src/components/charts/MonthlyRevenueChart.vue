@@ -8,6 +8,7 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip)
 
@@ -19,6 +20,7 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
 
 function build() {
   if (!canvas.value) return
@@ -31,7 +33,7 @@ function build() {
       datasets: [
         {
           data: props.values,
-          backgroundColor: '#5C45A0',
+          backgroundColor: colors.value.primary,
           borderRadius: 4,
         },
       ],
@@ -42,7 +44,7 @@ function build() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#15131D',
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => `${formatVal(ctx.parsed.y ?? 0)} ${props.currency}`,
           },
@@ -51,11 +53,11 @@ function build() {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { color: '#7A748C', font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
-          grid: { color: '#E7E3EE' },
+          ticks: { color: colors.value.tick, font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
+          grid: { color: colors.value.grid },
         },
         x: {
-          ticks: { color: '#7A748C', font: { size: 10 }, maxRotation: 45, minRotation: 45 },
+          ticks: { color: colors.value.tick, font: { size: 10 }, maxRotation: 45, minRotation: 45 },
           grid: { display: false },
         },
       },
@@ -76,6 +78,7 @@ function formatTick(n: number): string {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.labels, props.values, props.currency], build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

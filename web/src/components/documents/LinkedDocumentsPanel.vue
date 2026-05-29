@@ -71,7 +71,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+  <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-medium text-neutral-700 flex items-center gap-2">
         <svg class="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

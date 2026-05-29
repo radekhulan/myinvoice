@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Dark mode řízený třídou .dark na <html> (nastavuje composable useTheme přes VueUse).
+   :where() drží specificitu na 0, aby utility nebyly přebity. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* ─── Primary — indigo (sladěno s MyWebdesign.cz brand #3B2D83) ─── */
   --color-primary-50:  #F4F2FB;
@@ -24,6 +28,9 @@
   --color-neutral-700: #403B52;
   --color-neutral-800: #2A2638;
   --color-neutral-900: #15131D;   /* text */
+
+  /* ─── Surfaces (hodnoty přepínané v .dark) ─── */
+  --color-surface:   #FFFFFF;   /* karty, panely, modály, topbar, sidebar (light = bílá) */
 
   /* ─── Accent — pastel sky blue ─── */
   --color-accent-50:   #EFF6FC;
@@ -65,6 +72,44 @@
   --radius-xl: 12px;
 }
 
+/* ═══════════════════════ DARK MODE ═══════════════════════
+ * Why: nepřebarvujeme komponenty, jen v .dark přepíšeme HODNOTY tokenů.
+ * Neutral škála se obrací (50 = nejtmavší pozadí … 900 = nejsvětlejší text),
+ * takže ~3400 výskytů bg-neutral-50 / text-neutral-900 / border-neutral-200
+ * se překlopí samo. bg-white se nahrazuje za bg-surface (viz převod komponent).
+ * Laděno k indigo brandu #3B2D83. Light mód zůstává beze změny.
+ * How to apply: .dark třídu na <html> řídí composable useTheme. */
+.dark {
+  /* Neutral — invertovaná, teplá indigo tmavá */
+  --color-neutral-50:  #14121C;   /* page background */
+  --color-neutral-100: #1C1A28;   /* subtle tint / hover */
+  --color-neutral-200: #2C2840;   /* borders */
+  --color-neutral-300: #3B3656;
+  --color-neutral-400: #585173;
+  --color-neutral-500: #837C99;
+  --color-neutral-600: #A8A1BE;   /* sekundární text */
+  --color-neutral-700: #C6C0DA;
+  --color-neutral-800: #E2DEEC;
+  --color-neutral-900: #F3F1F9;   /* hlavní text */
+
+  /* Plochy nad pozadím */
+  --color-surface:   #1E1B2B;   /* karty / panely / topbar / sidebar */
+
+  /* Primary — zesvětlené pro kontrast a sytost na tmavém podkladu */
+  --color-primary-50:  #221C3A;   /* soft pill bg (bg-primary-50) */
+  --color-primary-100: #2C2450;
+  --color-primary-600: #7C68C4;   /* primary button */
+  --color-primary-700: #9C8FDA;   /* accent text (text-primary-700) — čitelný na tmavém */
+  --color-primary-800: #B7AAE8;   /* silnější accent text (text-primary-800) */
+  --color-primary-900: #D4CCF3;   /* nejsilnější accent text (text-primary-900) */
+
+  /* Semantic soft pozadí (-50) → tmavé tinty */
+  --color-success-50: #16261D;
+  --color-warning-50: #2A2113;
+  --color-danger-50:  #2C1717;
+  --color-accent-50:  #122231;
+}
+
 html, body {
   background: var(--color-neutral-50);
   color: var(--color-neutral-900);
@@ -101,6 +146,6 @@ html, body {
      :where() drží specificitu na 0, takže Tailwind utility (bg-warning-50,
      hover:bg-neutral-50, …) na <tr> stále vyhrávají. */
   :where(.table-sticky-first tbody tr) {
-    background-color: white;
+    background-color: var(--color-surface);
   }
 }

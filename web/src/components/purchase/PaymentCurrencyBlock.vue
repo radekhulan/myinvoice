@@ -100,7 +100,7 @@ const otherCurrencies = computed(() => {
           <select
             :value="paymentCurrencyId ?? ''"
             @change="emit('update:paymentCurrencyId', ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
-            class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm"
+            class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm"
           >
             <option value="">—</option>
             <option v-for="c in otherCurrencies" :key="c.id" :value="c.id">{{ c.code }}</option>
@@ -161,7 +161,7 @@ const otherCurrencies = computed(() => {
             :value="exchangeDiffBase ?? ''"
             @input="emit('update:exchangeDiffBase', ($event.target as HTMLInputElement).value ? Number(($event.target as HTMLInputElement).value) : null)"
             class="w-full px-3 py-1.5 border border-neutral-300 rounded-md text-sm font-mono"
-            :class="exchangeDiffBase !== null && exchangeDiffBase < 0 ? 'text-red-700' : 'text-green-700'"
+            :class="exchangeDiffBase !== null && exchangeDiffBase < 0 ? 'text-danger-600' : 'text-success-600'"
           />
         </div>
       </div>

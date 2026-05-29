@@ -1,4 +1,5 @@
 {
+  "theme": { "label": "Motiv", "system": "Systém", "light": "Světlý", "dark": "Tmavý" },
   "app": { "title": "MyInvoice.cz", "subtitle": "Fakturační systém" },
   "documents": {
     "title": "Dokumenty",

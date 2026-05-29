@@ -175,7 +175,7 @@ onMounted(load)
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <!-- Left: preview -->
       <div class="lg:col-span-2 space-y-4">
-        <div v-if="previewTarget" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="previewTarget" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <div class="flex items-center justify-between px-4 py-2 border-b border-neutral-100">
             <span class="text-sm font-medium text-neutral-600">
               {{ t('documents.preview') }}
@@ -199,7 +199,7 @@ onMounted(load)
         </div>
 
         <!-- DMS message panel (ZFO) -->
-        <div v-if="doc.dms_message" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+        <div v-if="doc.dms_message" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
           <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('documents.dms.title') }}</h3>
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><dt class="text-neutral-400 text-xs">{{ t('documents.dms.message_id') }}</dt><dd class="text-neutral-800">{{ doc.dms_message.dm_id || '—' }}</dd></div>
@@ -213,14 +213,14 @@ onMounted(load)
         </div>
 
         <!-- Attachments (ZFO children) -->
-        <div v-if="doc.attachments && doc.attachments.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+        <div v-if="doc.attachments && doc.attachments.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
           <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('documents.attachments') }} ({{ doc.attachments.length }})</h3>
           <ul class="space-y-1">
             <li v-for="a in doc.attachments" :key="a.id" :class="['flex items-center gap-3 px-2 py-1.5 rounded', previewTarget && previewTarget.id === a.id ? 'bg-primary-50' : 'hover:bg-neutral-50']">
               <span :class="['shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold', docTypeBadge(a.doc_type).class]">{{ docTypeBadge(a.doc_type).label }}</span>
               <button type="button" class="min-w-0 flex-1 text-left text-sm text-neutral-700 truncate hover:text-primary-600" @click="router.push({ name: 'document-detail', params: { id: a.id } })">{{ a.title }}</button>
               <span class="text-xs text-neutral-400">{{ formatBytes(a.size_bytes) }}</span>
-              <button v-if="canInline(a.doc_type)" type="button" class="cursor-pointer inline-flex items-center gap-1 h-7 px-2 text-xs rounded-md border border-neutral-300 text-neutral-600 hover:bg-white" @click="showPreview(a)">
+              <button v-if="canInline(a.doc_type)" type="button" class="cursor-pointer inline-flex items-center gap-1 h-7 px-2 text-xs rounded-md border border-neutral-300 text-neutral-600 hover:bg-surface" @click="showPreview(a)">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7z" /><circle cx="12" cy="12" r="3" /></svg>
                 {{ t('documents.show') }}
               </button>
@@ -235,7 +235,7 @@ onMounted(load)
       <!-- Right: metadata + links -->
       <div class="space-y-4">
         <!-- Metadata -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4 space-y-3">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4 space-y-3">
           <h3 class="text-sm font-medium text-neutral-700">{{ t('documents.metadata') }}</h3>
           <div>
             <label class="block text-xs text-neutral-400 mb-1">{{ t('documents.name') }}</label>
@@ -264,7 +264,7 @@ onMounted(load)
         </div>
 
         <!-- Links (oboustranné párování) -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4 space-y-3">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4 space-y-3">
           <h3 class="text-sm font-medium text-neutral-700">{{ t('documents.linked_to') }}</h3>
           <ul v-if="doc.links && doc.links.length" class="space-y-1">
             <li v-for="l in doc.links" :key="l.entity_type + '-' + l.entity_id" class="flex items-start gap-2 text-sm">

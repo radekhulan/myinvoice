@@ -69,7 +69,7 @@ function codeLabel(code: string): string {
 
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <!-- Desktop: tabulka -->
       <div class="hidden md:block overflow-x-auto">
       <table class="w-full text-sm table-sticky-first">
@@ -115,8 +115,8 @@ function codeLabel(code: string): string {
     </div>
 
     <!-- Editor modal -->
-    <div v-if="editing" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5">
+    <div v-if="editing" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-5">
         <h3 class="text-lg font-semibold mb-3">{{ codeLabel(editing.code) }} <span class="text-xs font-mono uppercase text-neutral-500 ml-1">{{ editing.locale }}</span></h3>
 
         <div class="space-y-3">

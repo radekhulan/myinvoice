@@ -502,7 +502,7 @@ async function submit() {
     <div v-if="loading" class="text-center py-12 text-neutral-400">…</div>
     <form v-else @submit.prevent="submit" class="space-y-5">
       <!-- Basics -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.name') }} *</label>
           <input v-model="form.name" type="text" maxlength="200"
@@ -577,12 +577,12 @@ async function submit() {
       </div>
 
       <!-- Periodicity -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('recurring.section_periodicity') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.frequency') }} *</label>
-            <select v-model="form.frequency" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            <select v-model="form.frequency" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option value="monthly">{{ t('recurring.frequency_monthly') }}</option>
               <option value="quarterly">{{ t('recurring.frequency_quarterly') }}</option>
               <option value="semi_annually">{{ t('recurring.frequency_semi_annually') }}</option>
@@ -619,32 +619,32 @@ async function submit() {
       </div>
 
       <!-- Invoice metadata -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('recurring.section_invoice_meta') }}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.invoice_type') }}</label>
-            <select v-model="form.invoice_type" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            <select v-model="form.invoice_type" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option value="invoice">{{ t('type.invoice') }}</option>
               <option value="proforma">{{ t('type.proforma') }}</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.currency') }}</label>
-            <select v-model.number="form.currency_id" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            <select v-model.number="form.currency_id" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option v-for="c in currencies" :key="c.id" :value="c.id">{{ c.label }}</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.language') }}</label>
-            <select v-model="form.language" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            <select v-model="form.language" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option value="cs">CZ</option>
               <option value="en">EN</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('payment_method.label') }}</label>
-            <select v-model="form.payment_method" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            <select v-model="form.payment_method" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option value="bank_transfer">{{ t('payment_method.bank_transfer') }}</option>
               <option value="card">{{ t('payment_method.card') }}</option>
               <option value="cash">{{ t('payment_method.cash') }}</option>
@@ -667,7 +667,7 @@ async function submit() {
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.tax_date_mode') }}</label>
             <select v-model="form.tax_date_mode"
-              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+              class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option value="same_as_issue">{{ t('recurring.tax_date_mode_same_as_issue') }}</option>
               <option value="previous_month_last_day">{{ t('recurring.tax_date_mode_previous_month_last_day') }}</option>
             </select>
@@ -677,7 +677,7 @@ async function submit() {
       </div>
 
       <!-- Items -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('recurring.items') }}</h3>
           <button type="button" @click="addItem"
@@ -704,14 +704,14 @@ async function submit() {
               <td class="py-1.5 pr-2"><input v-model="it.description" type="text" class="w-full h-8 px-2 border border-neutral-200 rounded" /></td>
               <td class="py-1.5 pr-2"><input v-model="it.quantity" v-math type="text" inputmode="decimal" :class="['w-full h-8 px-2 border rounded text-right font-mono', itemHasBothNegative(it) ? 'border-danger-400' : 'border-neutral-200']" /></td>
               <td class="py-1.5 pr-2">
-                <select v-model="it.unit" class="w-full h-8 px-1 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model="it.unit" class="w-full h-8 px-1 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="u in units" :key="u.id" :value="u.code">{{ u.code }}</option>
                   <option v-if="it.unit && !units.some(u => u.code === it.unit)" :value="it.unit">{{ it.unit }}</option>
                 </select>
               </td>
               <td class="py-1.5 pr-2"><input v-model="it.unit_price_without_vat" v-math type="text" inputmode="decimal" :class="['w-full h-8 px-2 border rounded text-right font-mono', itemHasBothNegative(it) ? 'border-danger-400' : 'border-neutral-200']" /></td>
               <td class="py-1.5 pr-2">
-                <select v-model.number="it.vat_rate_id" class="w-full h-8 px-2 border border-neutral-200 rounded bg-white">
+                <select v-model.number="it.vat_rate_id" class="w-full h-8 px-2 border border-neutral-200 rounded bg-surface">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">
                     {{ Number(r.rate_percent) > 0 ? r.rate_percent + ' %' : (r.is_reverse_charge ? 'RC' : '0 %') }}
                   </option>
@@ -743,7 +743,7 @@ async function submit() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.items_table.unit') }}</label>
-                <select v-model="it.unit" class="w-full h-10 px-2 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model="it.unit" class="w-full h-10 px-2 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="u in units" :key="u.id" :value="u.code">{{ u.code }}</option>
                   <option v-if="it.unit && !units.some(u => u.code === it.unit)" :value="it.unit">{{ it.unit }}</option>
                 </select>
@@ -756,7 +756,7 @@ async function submit() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.items_table.vat') ?? 'DPH' }}</label>
-                <select v-model.number="it.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded bg-white text-sm">
+                <select v-model.number="it.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded bg-surface text-sm">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">
                     {{ Number(r.rate_percent) > 0 ? r.rate_percent + ' %' : (r.is_reverse_charge ? 'RC' : '0 %') }}
                   </option>
@@ -781,13 +781,13 @@ async function submit() {
       </div>
 
       <!-- Automation -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-3">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-3">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('recurring.section_automation') }}</h3>
 
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('recurring.draft_open_mode') }}</label>
           <select v-model="form.draft_open_mode"
-            class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+            class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
             <option value="at_issue">{{ t('recurring.draft_open_mode_at_issue') }}</option>
             <option value="period_start" :disabled="form.frequency !== 'monthly'">
               {{ t('recurring.draft_open_mode_period_start') }}

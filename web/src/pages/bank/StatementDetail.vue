@@ -218,25 +218,25 @@ async function rematchStatement() {
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 mb-4">
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 shadow-sm">
         <div class="text-xs text-neutral-500 uppercase">{{ t('bank.prev_balance') }}</div>
         <div class="text-lg font-mono">{{ formatMoney(statement.prev_balance, statement.currency ?? 'CZK') }}</div>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 shadow-sm">
         <div class="text-xs text-neutral-500 uppercase">{{ t('bank.curr_balance') }}</div>
         <div class="text-lg font-mono font-semibold">{{ formatMoney(statement.curr_balance, statement.currency ?? 'CZK') }}</div>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 shadow-sm">
         <div class="text-xs text-neutral-500 uppercase">{{ t('bank.credit_total') }}</div>
         <div class="text-lg font-mono text-success-600">+{{ formatMoney(statement.credit_total, statement.currency ?? 'CZK') }}</div>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 shadow-sm">
         <div class="text-xs text-neutral-500 uppercase">{{ t('bank.debit_total') }}</div>
         <div class="text-lg font-mono text-danger-500">−{{ formatMoney(statement.debit_total, statement.currency ?? 'CZK') }}</div>
       </div>
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between gap-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
           {{ t('bank.transactions') }}
@@ -245,7 +245,7 @@ async function rematchStatement() {
         <div class="flex items-center gap-2">
           <select v-model="statusFilter"
             :title="t('bank.filter_status')"
-            class="h-8 px-2 text-xs border border-neutral-300 rounded-md text-neutral-700 bg-white">
+            class="h-8 px-2 text-xs border border-neutral-300 rounded-md text-neutral-700 bg-surface">
             <option value="">{{ t('bank.filter_all') }}</option>
             <option v-for="s in STATUS_OPTIONS" :key="s" :value="s">{{ statusLabel(s) }}</option>
           </select>
@@ -419,8 +419,8 @@ async function rematchStatement() {
     </div>
 
     <!-- Manual match modal — návrhy dle částky + ruční VS jako druhá možnost -->
-    <div v-if="matchingTx" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="matchingTx" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-1">{{ t('bank.manual_match_title') }}</h3>
         <p v-if="matchCtx" class="text-xs text-neutral-500 mb-3 font-mono">
           {{ matchCtx.amount > 0 ? '+' : '' }}{{ formatMoney(matchCtx.amount, matchCtx.currency ?? statement.currency ?? 'CZK') }}
@@ -484,8 +484,8 @@ async function rematchStatement() {
     </div>
 
     <!-- Vytvoření konceptu přijaté faktury z odchozí platby — výběr dodavatele -->
-    <div v-if="createTx" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="createTx" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-1">{{ t('bank.create_purchase_title') }}</h3>
         <p class="text-xs text-neutral-500 mb-3">
           {{ formatMoney(Math.abs(createTx.amount), createTx.currency ?? 'CZK') }} ·

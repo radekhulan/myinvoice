@@ -232,7 +232,7 @@ async function removeAction() {
 
       <!-- Konfigurace -->
       <div class="grid md:grid-cols-3 gap-4">
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('recurring.section_periodicity') }}</h3>
           <dl class="space-y-1.5 text-sm">
             <div class="flex justify-between"><dt class="text-neutral-500">{{ t('recurring.frequency') }}</dt><dd>{{ freqLabel(tpl.frequency) }}</dd></div>
@@ -245,7 +245,7 @@ async function removeAction() {
           </dl>
         </div>
 
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('recurring.section_invoice_meta') }}</h3>
           <dl class="space-y-1.5 text-sm">
             <div class="flex justify-between">
@@ -267,7 +267,7 @@ async function removeAction() {
           </dl>
         </div>
 
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('recurring.section_automation') }}</h3>
           <dl class="space-y-1.5 text-sm">
             <div class="flex justify-between gap-2">
@@ -286,7 +286,7 @@ async function removeAction() {
       </div>
 
       <!-- Položky šablony -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <div class="px-5 py-3 border-b border-neutral-200">
           <h3 class="font-semibold">{{ t('recurring.items') }}</h3>
         </div>
@@ -333,7 +333,7 @@ async function removeAction() {
       </div>
 
       <!-- Vygenerované faktury -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="font-semibold">
             {{ t('recurring.generated_invoices') }}
@@ -398,7 +398,7 @@ async function removeAction() {
     <!-- Run Now modal — date picker s defaultem dnes; varování pokud uživatel zvolí
          budoucí datum (issue_date = budoucnost je daňově problematické). -->
     <div v-if="runNowModal && tpl" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <div class="bg-surface rounded-lg shadow-xl max-w-md w-full p-6">
         <h2 class="text-lg font-semibold mb-1">{{ runNowMode === 'draft' ? t('recurring.run_now_draft_title') : t('recurring.run_now_title') }}</h2>
         <p class="text-sm text-neutral-600 mb-4">{{ tpl.name }}</p>
         <p v-if="runNowMode === 'draft'" class="text-xs text-neutral-500 mb-3 -mt-2">{{ t('recurring.run_now_draft_hint') }}</p>

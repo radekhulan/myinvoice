@@ -60,7 +60,7 @@ async function submit() {
 <template>
   <AppShell :title="t('auth.reset_title')">
     <div class="w-full max-w-sm">
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-6">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-6">
         <h2 class="text-xl font-semibold mb-1">{{ t('auth.reset_title') }}</h2>
         <p class="text-sm text-neutral-500 mb-6">{{ t('auth.reset_send') }}</p>
 
@@ -80,7 +80,7 @@ async function submit() {
             <div ref="turnstileEl"></div>
           </div>
 
-          <div v-if="error" class="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          <div v-if="error" class="rounded-md bg-danger-50 border border-danger-500/40 p-3 text-sm text-danger-600">
             {{ error }}
           </div>
 

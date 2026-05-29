@@ -477,7 +477,7 @@ onUnmounted(() => {
     <!-- ════ iDoklad tab ════ -->
     <div v-if="tab === 'idoklad'" class="space-y-4">
       <!-- Box: credentials -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-2">{{ t('integrations.idoklad.credentials_title') }}</h2>
         <p class="text-xs text-neutral-500 mb-4">{{ t('integrations.idoklad.credentials_hint') }}</p>
 
@@ -537,7 +537,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Box: import controls -->
-      <div v-if="idokladStatus?.configured" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="idokladStatus?.configured" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-3">{{ t('integrations.idoklad.run_title') }}</h2>
 
         <div v-if="!isJobRunning" class="space-y-3">
@@ -643,7 +643,7 @@ onUnmounted(() => {
 
     <!-- ════ Fakturoid tab ════ -->
     <div v-else-if="tab === 'fakturoid'" class="space-y-4">
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-2">{{ t('integrations.fakturoid.credentials_title') }}</h2>
         <p class="text-xs text-neutral-500 mb-4">{{ t('integrations.fakturoid.credentials_hint') }}</p>
 
@@ -661,14 +661,14 @@ onUnmounted(() => {
                     class="cursor-pointer px-3 py-1.5 text-xs rounded-md border transition"
                     :class="fakAuthMode === 'oauth2'
                       ? 'bg-primary-600 text-white border-primary-600 font-medium'
-                      : 'bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400'">
+                      : 'bg-surface text-neutral-700 border-neutral-300 hover:border-neutral-400'">
               {{ t('integrations.fakturoid.mode_oauth') }}
             </button>
             <button type="button" @click="fakAuthMode = 'basic'"
                     class="cursor-pointer px-3 py-1.5 text-xs rounded-md border transition"
                     :class="fakAuthMode === 'basic'
                       ? 'bg-primary-600 text-white border-primary-600 font-medium'
-                      : 'bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400'">
+                      : 'bg-surface text-neutral-700 border-neutral-300 hover:border-neutral-400'">
               {{ t('integrations.fakturoid.mode_basic') }}
             </button>
           </div>
@@ -755,7 +755,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Box: import controls -->
-      <div v-if="fakStatus?.configured" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="fakStatus?.configured" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-3">{{ t('integrations.idoklad.run_title') }}</h2>
 
         <div v-if="!isJobRunning" class="space-y-3">
@@ -863,7 +863,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-2">{{ t('integrations.ai.credentials_title') }}</h2>
         <p class="text-xs text-neutral-500 mb-4">{{ t('integrations.ai.credentials_hint') }}</p>
 
@@ -890,7 +890,7 @@ onUnmounted(() => {
           </div>
           <div>
             <label class="block text-sm text-neutral-700 mb-1">{{ t('integrations.ai.default_model') }}</label>
-            <select v-model="aiModel" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="aiModel" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option v-for="m in (aiStatus?.allowed_models || ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-7'])" :key="m" :value="m">
                 {{ m }} —
                 {{ m.includes('haiku') ? t('integrations.ai.cost_haiku')
@@ -920,7 +920,7 @@ onUnmounted(() => {
       </div>
 
       <!-- AI PDF extract -->
-      <div v-if="aiStatus?.configured" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="aiStatus?.configured" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-2">{{ t('integrations.ai.extract_title') }}</h2>
         <p class="text-xs text-neutral-500 mb-4">{{ t('integrations.ai.extract_hint') }}</p>
 
@@ -942,7 +942,7 @@ onUnmounted(() => {
 
           <div class="flex items-center gap-2">
             <label class="text-sm text-neutral-700">{{ t('integrations.ai.model_override') }}</label>
-            <select v-model="aiPerRequestModel" class="h-9 px-2 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="aiPerRequestModel" class="h-9 px-2 border border-neutral-300 rounded-md bg-surface text-sm">
               <option value="">{{ t('integrations.ai.use_default') }} ({{ aiStatus.default_model }})</option>
               <option v-for="m in aiStatus.allowed_models" :key="m" :value="m">{{ m }}</option>
             </select>
@@ -1017,7 +1017,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Fallback (žádný tab nevyhovuje) -->
-    <div v-else class="bg-white border border-neutral-200 rounded-lg p-8 shadow-sm text-center text-neutral-500 text-sm">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg p-8 shadow-sm text-center text-neutral-500 text-sm">
       —
     </div>
   </div>

@@ -114,7 +114,7 @@ function openClient(c: Client) {
       </RouterLink>
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <!-- Tabs: Klienti / Dodavatelé / Vše -->
       <div class="px-4 pt-2 border-b border-neutral-100 flex items-center gap-1">
         <button
@@ -148,12 +148,12 @@ function openClient(c: Client) {
           {{ t('client.show_archived') }}
         </label>
         <select v-if="roleFilter === 'vendors'" v-model.number="categoryFilter"
-          class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-white"
+          class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-surface"
           :title="t('client.default_expense_category')">
           <option :value="null">{{ t('client.filter_category_all') }}</option>
           <option v-for="c in expenseCategories" :key="c.id" :value="c.id">{{ c.label }} ({{ c.code }})</option>
         </select>
-        <select v-model="sort" class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-white"
+        <select v-model="sort" class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-surface"
           :title="t('common.sort_by')">
           <option value="name">{{ t('common.sort_name') }}</option>
           <option value="revenue">{{ t('common.sort_revenue') }}</option>
@@ -192,10 +192,10 @@ function openClient(c: Client) {
               <div class="flex items-center gap-2">
                 <div class="font-medium text-neutral-900">{{ c.company_name }}</div>
                 <span v-if="c.is_customer !== false && c.is_vendor === true"
-                      class="inline-block px-1.5 py-0 text-[10px] bg-purple-100 text-purple-700 rounded font-medium uppercase tracking-wide"
+                      class="inline-block px-1.5 py-0 text-[10px] bg-primary-100 text-primary-700 rounded font-medium uppercase tracking-wide"
                       :title="t('client.dual_role_tooltip')">K+D</span>
                 <span v-else-if="c.is_vendor === true"
-                      class="inline-block px-1.5 py-0 text-[10px] bg-amber-100 text-amber-700 rounded font-medium uppercase tracking-wide">{{ t('client.vendor_badge') }}</span>
+                      class="inline-block px-1.5 py-0 text-[10px] bg-warning-50 text-warning-600 rounded font-medium uppercase tracking-wide">{{ t('client.vendor_badge') }}</span>
               </div>
               <div v-if="c.archived_at" class="text-xs text-neutral-400 mt-0.5">{{ t('common.archived') }}</div>
             </td>

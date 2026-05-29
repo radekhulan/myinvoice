@@ -527,7 +527,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
     </div>
 
     <!-- Toolbar: search + view -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
       <div class="flex flex-wrap items-center gap-2">
         <div class="relative flex-1 min-w-48">
           <input
@@ -541,7 +541,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
         <select
           v-if="availableTags.length"
           :value="tagFilter"
-          class="cursor-pointer h-9 px-2 border border-neutral-300 rounded-md bg-white text-sm max-w-44"
+          class="cursor-pointer h-9 px-2 border border-neutral-300 rounded-md bg-surface text-sm max-w-44"
           @change="setTagFilter(($event.target as HTMLSelectElement).value)"
         >
           <option value="">{{ t('documents.all_tags') }}</option>
@@ -580,7 +580,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
 
     <!-- Background jobs (ZIP import / export) -->
     <div v-if="jobs.length" class="mb-4 space-y-2">
-      <div v-for="j in jobs" :key="j.id" class="bg-white border border-neutral-200 rounded-lg p-3">
+      <div v-for="j in jobs" :key="j.id" class="bg-surface border border-neutral-200 rounded-lg p-3">
         <div class="flex items-center gap-2 text-sm flex-wrap">
           <svg class="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path v-if="j.source === 'document_zip_import'" stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M12 4v12m-4-8l4-4 4 4" />
@@ -623,7 +623,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
       </div>
       <p v-if="!trashDocs.length && !trashFolders.length" class="text-sm text-neutral-400">{{ t('documents.trash_is_empty') }}</p>
       <ul class="space-y-1">
-        <li v-for="f in trashFolders" :key="'tf' + f.id" class="flex items-center gap-3 px-3 py-2 bg-white border border-neutral-200 rounded-lg">
+        <li v-for="f in trashFolders" :key="'tf' + f.id" class="flex items-center gap-3 px-3 py-2 bg-surface border border-neutral-200 rounded-lg">
           <svg class="w-5 h-5 text-warning-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
           <span class="flex-1 text-sm text-neutral-700">{{ f.name }}</span>
           <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1 h-8 px-2.5 text-sm rounded-md border border-neutral-300 text-neutral-600 hover:bg-neutral-50" @click="restoreFolder(f)">
@@ -631,7 +631,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
             {{ t('documents.restore') }}
           </button>
         </li>
-        <li v-for="d in trashDocs" :key="'td' + d.id" class="flex items-center gap-3 px-3 py-2 bg-white border border-neutral-200 rounded-lg">
+        <li v-for="d in trashDocs" :key="'td' + d.id" class="flex items-center gap-3 px-3 py-2 bg-surface border border-neutral-200 rounded-lg">
           <span :class="['shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold', docTypeBadge(d.doc_type).class]">{{ docTypeBadge(d.doc_type).label }}</span>
           <span class="flex-1 text-sm text-neutral-700 truncate">{{ d.title }}</span>
           <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1 h-8 px-2.5 text-sm rounded-md border border-neutral-300 text-neutral-600 hover:bg-neutral-50" @click="restoreDoc(d)">
@@ -646,7 +646,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
     <div v-else-if="searchActive">
       <p v-if="!searching && searchResults.length === 0" class="text-sm text-neutral-400">{{ t('documents.search_no_results') }}</p>
       <ul class="space-y-1">
-        <li v-for="d in searchResults" :key="d.id" class="flex items-center gap-3 px-3 py-2 bg-white border border-neutral-200 rounded-lg hover:border-primary-300 cursor-pointer" @click="openDoc(d)">
+        <li v-for="d in searchResults" :key="d.id" class="flex items-center gap-3 px-3 py-2 bg-surface border border-neutral-200 rounded-lg hover:border-primary-300 cursor-pointer" @click="openDoc(d)">
           <span :class="['shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold', docTypeBadge(d.doc_type).class]">{{ docTypeBadge(d.doc_type).label }}</span>
           <span class="flex-1 min-w-0"><span class="block text-sm text-neutral-800 truncate">{{ d.title }}</span><span class="block text-xs text-neutral-400">{{ formatBytes(d.size_bytes) }} · {{ d.created_at.slice(0, 10) }}</span></span>
         </li>
@@ -689,19 +689,19 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
       <div v-if="selCount > 0" class="flex items-center gap-2 mb-3 px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg text-sm flex-wrap">
         <span class="font-medium text-primary-700">{{ t('documents.selected', { n: selCount }) }}</span>
         <div class="flex-1"></div>
-        <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50" @click="openMove">
+        <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-50" @click="openMove">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM13 13l3-3m0 0l-3-3m3 3H8" /></svg>
           {{ t('documents.bulk_move') }}
         </button>
-        <button v-if="auth.canWrite && selDocCount > 0" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50" @click="bulkTag">
+        <button v-if="auth.canWrite && selDocCount > 0" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-50" @click="bulkTag">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a2 2 0 0 1 1.414.586l7 7a2 2 0 0 1 0 2.828l-5 5a2 2 0 0 1-2.828 0l-7-7A2 2 0 0 1 5 8V5a2 2 0 0 1 2-2z" /></svg>
           {{ t('documents.bulk_tag') }}
         </button>
-        <button type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50" @click="bulkDownload">
+        <button type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-50" @click="bulkDownload">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
           {{ t('documents.bulk_download') }}
         </button>
-        <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-danger-300 bg-white text-danger-500 hover:bg-danger-50" @click="bulkDelete">
+        <button v-if="auth.canWrite" type="button" class="cursor-pointer inline-flex items-center gap-1.5 h-8 px-2.5 text-sm font-medium rounded-md border border-danger-300 bg-surface text-danger-500 hover:bg-danger-50" @click="bulkDelete">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" /></svg>
           {{ t('documents.bulk_delete') }}
         </button>
@@ -717,7 +717,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
           <div
             v-for="f in folders"
             :key="f.id"
-            :class="['group flex items-center gap-2 px-3 py-2.5 bg-white border rounded-lg cursor-pointer', selectedFolders.has(f.id) ? 'border-primary-400 ring-2 ring-primary-100' : 'border-neutral-200 hover:border-primary-300']"
+            :class="['group flex items-center gap-2 px-3 py-2.5 bg-surface border rounded-lg cursor-pointer', selectedFolders.has(f.id) ? 'border-primary-400 ring-2 ring-primary-100' : 'border-neutral-200 hover:border-primary-300']"
             @click="openFolder(f.id)"
           >
             <input type="checkbox" class="shrink-0 cursor-pointer" :checked="selectedFolders.has(f.id)" @click.stop="toggleFolderSel(f.id)" />
@@ -754,7 +754,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
           <div
             v-for="d in sortedDocuments"
             :key="d.id"
-            :class="['relative group bg-white border rounded-lg overflow-hidden cursor-pointer', selected.has(d.id) ? 'border-primary-400 ring-2 ring-primary-100' : 'border-neutral-200 hover:border-primary-300']"
+            :class="['relative group bg-surface border rounded-lg overflow-hidden cursor-pointer', selected.has(d.id) ? 'border-primary-400 ring-2 ring-primary-100' : 'border-neutral-200 hover:border-primary-300']"
             @click="openDoc(d)"
           >
             <input type="checkbox" class="absolute top-2 left-2 z-10" :checked="selected.has(d.id)" @click.stop="toggleSel(d.id)" />
@@ -808,12 +808,12 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
 
     <!-- Drag overlay -->
     <div v-if="dragOver && auth.canWrite" class="fixed inset-0 z-40 bg-primary-500/10 border-4 border-dashed border-primary-400 flex items-center justify-center pointer-events-none">
-      <span class="px-4 py-2 bg-white rounded-lg shadow text-primary-700 font-medium">{{ t('documents.drop_here') }}</span>
+      <span class="px-4 py-2 bg-surface rounded-lg shadow text-primary-700 font-medium">{{ t('documents.drop_here') }}</span>
     </div>
 
     <!-- Move modal -->
     <div v-if="moveOpen" class="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" @click.self="moveOpen = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-4 max-h-[70vh] overflow-auto">
+      <div class="bg-surface rounded-lg shadow-xl max-w-md w-full p-4 max-h-[70vh] overflow-auto">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('documents.bulk_move') }} · {{ t('documents.selected', { n: selCount }) }}</h3>
         <ul class="space-y-0.5">
           <li>
@@ -840,7 +840,7 @@ onUnmounted(() => { if (jobTimer) clearInterval(jobTimer) })
 
     <!-- Bulk tag modal (našeptávání tagů) -->
     <div v-if="tagModalOpen" class="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" @click.self="tagModalOpen = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-4">
+      <div class="bg-surface rounded-lg shadow-xl max-w-md w-full p-4">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('documents.bulk_tag') }} · {{ t('documents.selected', { n: selDocCount }) }}</h3>
         <TagInput v-model="bulkTags" :autofocus="true" />
         <div class="flex justify-end gap-2 mt-4">

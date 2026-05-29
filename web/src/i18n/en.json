@@ -1,4 +1,5 @@
 {
+  "theme": { "label": "Theme", "system": "System", "light": "Light", "dark": "Dark" },
   "app": { "title": "MyInvoice.cz", "subtitle": "Invoicing system" },
   "documents": {
     "title": "Documents",

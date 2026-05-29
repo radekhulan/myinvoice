@@ -37,7 +37,7 @@ const isComingSoon = computed(() => false)
     </div>
 
     <!-- Box: nastavení exportu -->
-    <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
+    <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
       <!-- Formát výběr -->
       <div>
         <label class="block text-sm font-medium text-neutral-700 mb-2">{{ t('purchase_invoice.export.format_label') }}</label>
@@ -79,7 +79,7 @@ const isComingSoon = computed(() => false)
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('purchase_invoice.export.date_by_label') }}</label>
-          <select v-model="dateBy" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+          <select v-model="dateBy" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
             <option value="tax">{{ t('purchase_invoice.fields.tax_date') }}</option>
             <option value="issue">{{ t('purchase_invoice.fields.issue_date') }}</option>
             <option value="received">{{ t('purchase_invoice.fields.received_at') }}</option>

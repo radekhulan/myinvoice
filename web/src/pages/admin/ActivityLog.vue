@@ -69,12 +69,12 @@ function goPage(delta: number) {
     </div>
 
     <!-- Filtry -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm mb-4 p-3 flex flex-wrap gap-2 items-center">
-      <select v-model="filter.action" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm mb-4 p-3 flex flex-wrap gap-2 items-center">
+      <select v-model="filter.action" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
         <option value="">{{ t('activity_log.all_actions') }}</option>
         <option v-for="a in actions" :key="a.action" :value="a.action">{{ a.action }} ({{ a.cnt }})</option>
       </select>
-      <select v-model="filter.entity_type" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+      <select v-model="filter.entity_type" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
         <option value="">{{ t('activity_log.all_entities') }}</option>
         <option value="invoice">invoice</option>
         <option value="user">user</option>
@@ -90,11 +90,11 @@ function goPage(delta: number) {
 
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 
-    <div v-else-if="!entries.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-12 text-center text-neutral-500">
+    <div v-else-if="!entries.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-12 text-center text-neutral-500">
       {{ t('activity_log.no_records') }}
     </div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <!-- Desktop: tabulka -->
       <div class="hidden md:block overflow-x-auto">
       <table class="w-full text-sm table-sticky-first">

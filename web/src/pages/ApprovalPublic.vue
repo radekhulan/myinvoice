@@ -126,7 +126,7 @@ async function submit(decision: 'approve' | 'reject') {
 <template>
   <div class="min-h-screen bg-neutral-50 flex flex-col">
     <!-- Hlavička -->
-    <header class="bg-white border-b border-neutral-200 px-4 py-3">
+    <header class="bg-surface border-b border-neutral-200 px-4 py-3">
       <div class="max-w-2xl mx-auto flex items-center gap-3">
         <div class="w-8 h-8 bg-primary-600 rounded-md flex items-center justify-center text-white font-bold">M</div>
         <div class="text-sm">
@@ -145,7 +145,7 @@ async function submit(decision: 'approve' | 'reject') {
         </div>
 
         <!-- Token error -->
-        <div v-else-if="loadError" class="bg-white border border-danger-500/40 rounded-xl p-8 text-center shadow-sm">
+        <div v-else-if="loadError" class="bg-surface border border-danger-500/40 rounded-xl p-8 text-center shadow-sm">
           <div class="text-4xl mb-3">⚠</div>
           <h1 class="text-xl font-semibold mb-2">{{ tt('Odkaz není platný', 'Link not valid') }}</h1>
           <p class="text-neutral-600 text-sm">{{ loadError }}</p>
@@ -155,7 +155,7 @@ async function submit(decision: 'approve' | 'reject') {
         </div>
 
         <!-- Confirmation screen -->
-        <div v-else-if="mode === 'done' && result" class="bg-white border rounded-xl p-8 text-center shadow-sm"
+        <div v-else-if="mode === 'done' && result" class="bg-surface border rounded-xl p-8 text-center shadow-sm"
           :class="result.decision === 'approved' ? 'border-success-500/40' : 'border-warning-500/40'">
           <div class="text-5xl mb-3">{{ result.decision === 'approved' ? '✓' : '✕' }}</div>
           <h1 class="text-2xl font-semibold mb-3"
@@ -176,7 +176,7 @@ async function submit(decision: 'approve' | 'reject') {
         <!-- Review + actions -->
         <div v-else-if="data" class="space-y-4">
           <!-- Header card -->
-          <div class="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
+          <div class="bg-surface border border-neutral-200 rounded-xl p-6 shadow-sm">
             <h1 class="text-xl font-semibold mb-2">
               {{ tt('Žádost o schválení výkazu práce', 'Work report approval request') }}
             </h1>
@@ -197,7 +197,7 @@ async function submit(decision: 'approve' | 'reject') {
           </div>
 
           <!-- Work report card -->
-          <div class="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+          <div class="bg-surface border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
             <header class="px-6 py-3 border-b border-neutral-200 flex items-baseline justify-between gap-3">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
                 {{ tt('Výkaz', 'Report') }}
@@ -232,7 +232,7 @@ async function submit(decision: 'approve' | 'reject') {
           </div>
 
           <!-- Decided by email + actions -->
-          <div class="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
+          <div class="bg-surface border border-neutral-200 rounded-xl p-6 shadow-sm">
             <p class="text-sm text-neutral-600 mb-4">
               {{ mode === 'reject_form'
                   ? tt('Uveďte prosím důvod zamítnutí. Dodavatel ho uvidí v systému.',
@@ -285,7 +285,7 @@ async function submit(decision: 'approve' | 'reject') {
             <!-- Akce: review -->
             <div v-if="mode === 'review'" class="flex flex-col gap-3">
               <button @click="approve" :disabled="submitting"
-                class="cursor-pointer w-full py-4 bg-emerald-700 hover:bg-emerald-800 disabled:bg-neutral-300 text-white text-lg font-bold rounded-lg shadow-sm transition">
+                class="cursor-pointer w-full py-4 bg-success-600 hover:bg-success-500 disabled:bg-neutral-300 text-white text-lg font-bold rounded-lg shadow-sm transition">
                 {{ submitting ? tt('Odesílám…', 'Submitting…') : tt('✓ Schválit vícepráce', '✓ Approve work report') }}
               </button>
               <button @click="startReject" :disabled="submitting"
@@ -310,7 +310,7 @@ async function submit(decision: 'approve' | 'reject') {
       </div>
     </main>
 
-    <footer class="border-t border-neutral-200 bg-white px-4 py-3 text-center text-xs text-neutral-500">
+    <footer class="border-t border-neutral-200 bg-surface px-4 py-3 text-center text-xs text-neutral-500">
       MyInvoice.cz · {{ tt('Automatizovaný systém schvalování', 'Automated approval system') }}
     </footer>
   </div>

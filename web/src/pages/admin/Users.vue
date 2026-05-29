@@ -118,7 +118,7 @@ function roleBadge(role: string): string {
 
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <!-- Desktop: tabulka -->
       <div class="hidden md:block overflow-x-auto">
       <table class="w-full text-sm table-sticky-first">
@@ -206,8 +206,8 @@ function roleBadge(role: string): string {
     </div>
 
     <!-- Modal -->
-    <div v-if="showForm" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="showForm" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">{{ form.id === null ? t('users.new_title') : t('users.edit_title', { email: form.email }) }}</h3>
         <div class="space-y-3">
           <div v-if="form.id === null">
@@ -221,7 +221,7 @@ function roleBadge(role: string): string {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('users.role') }}</label>
-              <select v-model="form.role" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm bg-white">
+              <select v-model="form.role" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm bg-surface">
                 <option value="admin">admin</option>
                 <option value="accountant">accountant</option>
                 <option value="readonly">readonly</option>
@@ -229,7 +229,7 @@ function roleBadge(role: string): string {
             </div>
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('common.language') }}</label>
-              <select v-model="form.locale" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm bg-white">
+              <select v-model="form.locale" class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm bg-surface">
                 <option value="cs">cs</option>
                 <option value="en">en</option>
               </select>

@@ -191,7 +191,7 @@ const hasAnyData = computed(() =>
       {{ error }}
     </div>
 
-    <div v-else-if="!hasAnyData" class="bg-white border border-neutral-200 rounded-lg p-8 text-center">
+    <div v-else-if="!hasAnyData" class="bg-surface border border-neutral-200 rounded-lg p-8 text-center">
       <p class="text-neutral-500">{{ t('stats.no_data') }}</p>
     </div>
 
@@ -199,7 +199,7 @@ const hasAnyData = computed(() =>
       <!-- Plovoucí 12měsíční obrat — KPI tiles per měna -->
       <div v-if="summary.rolling_12m.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div v-for="r in summary.rolling_12m" :key="`r12-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('stats.rolling_12m', { currency: r.currency }) }}
           </div>
@@ -222,7 +222,7 @@ const hasAnyData = computed(() =>
 
         <!-- Obrat pro registraci DPH (kalendářní rok) — relevantní pro neplátce -->
         <div v-if="!isVatPayer && obratCzkThisYear !== null"
-          class="bg-white border rounded-lg p-5 shadow-sm"
+          class="bg-surface border rounded-lg p-5 shadow-sm"
           :class="obratCzkThisYear >= VAT_REG_THRESHOLD ? 'border-danger-500/40 bg-danger-50/30'
                 : obratCzkThisYear >= VAT_REG_NEAR ? 'border-warning-500/50 bg-warning-50/30'
                 : 'border-neutral-200'">
@@ -247,7 +247,7 @@ const hasAnyData = computed(() =>
 
         <!-- Paušální daň — limit příjmů pro zvolené pásmo (§ 7a ZDP) -->
         <div v-if="summary.flat_tax_threshold && summary.flat_tax_threshold.applicable && summary.flat_tax_threshold.limit_czk"
-          class="bg-white border rounded-lg p-5 shadow-sm"
+          class="bg-surface border rounded-lg p-5 shadow-sm"
           :class="summary.flat_tax_threshold.status === 'danger' ? 'border-danger-500/40 bg-danger-50/30'
                 : summary.flat_tax_threshold.status === 'warning' ? 'border-warning-500/50 bg-warning-50/30'
                 : 'border-neutral-200'">
@@ -278,7 +278,7 @@ const hasAnyData = computed(() =>
 
         <!-- Obrat tento rok per měna -->
         <div v-for="r in revenueThisYear" :key="`ty-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('stats.revenue_this_year', { year: summary.year, currency: r.currency }) }}
           </div>
@@ -297,7 +297,7 @@ const hasAnyData = computed(() =>
 
         <!-- Forecast aktuálního roku per měna — growth-adjusted seasonality -->
         <div v-for="f in summary.revenue_forecast" :key="`fc-${f.currency}`"
-          class="bg-white border border-primary-200 rounded-lg p-5 shadow-sm bg-primary-50/30">
+          class="bg-surface border border-primary-200 rounded-lg p-5 shadow-sm bg-primary-50/30">
           <div class="text-xs uppercase tracking-wide text-primary-700 mb-1">
             {{ t('stats.forecast_year', { year: summary.year, currency: f.currency }) }}
           </div>
@@ -320,7 +320,7 @@ const hasAnyData = computed(() =>
 
         <!-- Obrat minulý rok per měna -->
         <div v-for="r in revenuePrevYear" :key="`py-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('stats.revenue_prev_year', { year: summary.prev_year, currency: r.currency }) }}
           </div>
@@ -333,21 +333,21 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Počet vystavených faktur YTD -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('stats.invoices_count_ytd', { year: summary.year }) }}</div>
           <div class="text-2xl font-semibold text-neutral-900">{{ summary.kpi.issued_count_ytd }}</div>
           <div class="text-xs text-neutral-400 mt-1">{{ t('dashboard.invoices_unit') }}</div>
         </div>
 
         <!-- Počet aktivních klientů -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('stats.active_clients') }}</div>
           <div class="text-2xl font-semibold text-neutral-900">{{ summary.active_clients_count }}</div>
           <div class="text-xs text-neutral-400 mt-1">{{ t('stats.active_clients_hint') }}</div>
         </div>
 
         <!-- Ø doba úhrady -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('dashboard.avg_payment') }}</div>
           <div class="text-2xl font-semibold text-neutral-900">
             {{ summary.kpi.avg_payment_days !== null ? summary.kpi.avg_payment_days + ' ' + t('dashboard.days') : '—' }}
@@ -357,7 +357,7 @@ const hasAnyData = computed(() =>
 
         <!-- Obrat posledních 30 dní per měna -->
         <div v-for="r in summary.revenue_last_30d" :key="`r30-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('stats.revenue_last_30d', { currency: r.currency }) }}
           </div>
@@ -368,7 +368,7 @@ const hasAnyData = computed(() =>
 
         <!-- Aktivní pravidelné fakturace -->
         <RouterLink to="/recurring"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm hover:bg-neutral-50 transition cursor-pointer block">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm hover:bg-neutral-50 transition cursor-pointer block">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('stats.active_recurring') }}</div>
           <div class="text-2xl font-semibold text-neutral-900">{{ summary.active_recurring_count }}</div>
           <div class="text-[11px] text-neutral-400 mt-2">{{ t('stats.active_recurring_hint') }}</div>
@@ -378,7 +378,7 @@ const hasAnyData = computed(() =>
       <!-- Měsíční obrat — bar + prev-year linka -->
       <div v-if="summary.revenue_by_month.length" class="space-y-4">
         <div v-for="rev in summary.revenue_by_month" :key="`m-${rev.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('stats.revenue_last_12_months', { currency: rev.currency }) }}
           </h3>
@@ -389,7 +389,7 @@ const hasAnyData = computed(() =>
       <!-- Kumulativní YTD vs loni — per měna -->
       <div v-if="summary.revenue_by_month.length" class="space-y-4">
         <div v-for="rev in summary.revenue_by_month" :key="`c-${rev.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('stats.cumulative_ytd', { currency: rev.currency }) }}
@@ -403,13 +403,13 @@ const hasAnyData = computed(() =>
       <!-- Top klienti pie YTD + loni -->
       <div v-if="(summary.top_clients_ytd.length + summary.top_clients_prev_year.length) > 0"
         class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.top_clients_ytd.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.top_clients_ytd.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('stats.top_clients_year', { year: summary.year }) }}
           </h3>
           <TopClientsPieChart :clients="summary.top_clients_ytd" />
         </div>
-        <div v-if="summary.top_clients_prev_year.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.top_clients_prev_year.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('stats.top_clients_year', { year: summary.prev_year }) }}
           </h3>
@@ -420,7 +420,7 @@ const hasAnyData = computed(() =>
       <!-- Top zakázky bar YTD + loni -->
       <div v-if="projectStats && (projectStats.top_this_year.top.length + projectStats.top_prev_year.top.length) > 0"
         class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="projectStats.top_this_year.top.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="projectStats.top_this_year.top.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('stats.top_projects_year', { year: projectStats.this_year }) }}
@@ -433,7 +433,7 @@ const hasAnyData = computed(() =>
             :greyed-indexes="topProjectChart('this').greyed"
             :currency="'CZK'" />
         </div>
-        <div v-if="projectStats.top_prev_year.top.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="projectStats.top_prev_year.top.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('stats.top_projects_year', { year: projectStats.prev_year }) }}
@@ -451,14 +451,14 @@ const hasAnyData = computed(() =>
       <!-- Status donuty (faktury + zakázky) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div v-if="summary.kpi.status_counts_ytd && Object.keys(summary.kpi.status_counts_ytd).length"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('stats.status_invoices', { year: summary.year }) }}
           </h3>
           <StatusDoughnutChart :counts="summary.kpi.status_counts_ytd" />
         </div>
         <div v-if="projectStats && projectStats.status_breakdown.length"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('stats.status_projects') }}
           </h3>
@@ -469,7 +469,7 @@ const hasAnyData = computed(() =>
       <!-- Číselné tabulky pod grafy -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Obrat po rocích -->
-        <div v-if="summary.revenue_by_year.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="summary.revenue_by_year.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('stats.revenue_by_year_table') }}</h3>
           </header>
@@ -506,7 +506,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Obrat po měsících (12 měsíců) -->
-        <div v-if="monthlyTable.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="monthlyTable.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('stats.revenue_by_month_table') }}</h3>
           </header>
@@ -535,7 +535,7 @@ const hasAnyData = computed(() =>
 
       <!-- Top 12 klientů + Top 12 zakázek za rolling 12 měsíců (smart mix — pie nahoře YTD/loni, tabulky 12m) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.top_clients_12m.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="summary.top_clients_12m.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('stats.top_clients_12m_table') }}</h3>
           </header>
@@ -567,7 +567,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <div v-if="projectStats && projectStats.top_12m.top.length"
-          class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+          class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('stats.top_projects_12m_table') }}</h3>
           </header>
@@ -600,7 +600,7 @@ const hasAnyData = computed(() =>
       </div>
 
       <!-- Concentration risk — % obratu z TOP3/TOP5 klientů (rolling 12m) -->
-      <div v-if="concentration" class="bg-white border rounded-lg p-5 shadow-sm"
+      <div v-if="concentration" class="bg-surface border rounded-lg p-5 shadow-sm"
         :class="concentrationLevel === 'high' ? 'border-danger-500/40 bg-danger-50/30'
               : concentrationLevel === 'medium' ? 'border-warning-500/50 bg-warning-50/30'
               : 'border-neutral-200'">
@@ -655,7 +655,7 @@ const hasAnyData = computed(() =>
 
       <!-- Histogram doby úhrady + DPH rozpad (vedle sebe) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.payment_days_histogram.total > 0" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.payment_days_histogram.total > 0" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('stats.payment_histogram_title') }}</h3>
             <span class="text-xs text-neutral-500">
@@ -666,7 +666,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <div v-if="isVatPayer && summary.vat_breakdown_12m.length"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('stats.vat_breakdown_title') }}</h3>
             <span class="text-xs font-mono text-neutral-500">{{ primaryCurrency }} · {{ t('stats.last_12_months') }}</span>
@@ -678,7 +678,7 @@ const hasAnyData = computed(() =>
       <!-- Cash-flow YTD — kumulativní křivka inkasovaných plateb -->
       <div v-if="summary.cashflow_ytd.length" class="space-y-4">
         <div v-for="cf in summary.cashflow_ytd" :key="`cf-${cf.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('stats.cashflow_title', { currency: cf.currency }) }}</h3>
             <span class="text-xs text-neutral-400">{{ t('stats.cashflow_hint') }}</span>
@@ -688,7 +688,7 @@ const hasAnyData = computed(() =>
       </div>
 
       <!-- Aging report — stáří pohledávek -->
-      <div v-if="agingRows.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="agingRows.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('stats.aging_title') }}</h3>
           <span class="text-xs text-neutral-400">{{ t('stats.aging_hint') }}</span>
@@ -739,7 +739,7 @@ const hasAnyData = computed(() =>
 
       <!-- Distribuce velikosti faktur -->
       <div v-if="summary.invoice_size_histogram.total > 0"
-        class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('stats.invoice_size_title') }}</h3>
           <span class="text-xs text-neutral-400">{{ t('stats.invoice_size_hint', { n: summary.invoice_size_histogram.total }) }}</span>

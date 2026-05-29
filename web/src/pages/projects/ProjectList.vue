@@ -85,10 +85,10 @@ watch([status, clientId, sort], () => load(true))
       </i18n-t>
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <div class="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center gap-2">
         <select v-model="status"
-          class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-white">
+          class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-surface">
           <option value="">{{ t('invoice.all_statuses') }}</option>
           <option value="active">{{ t('common.active') }}</option>
           <option value="paused">{{ t('project.status_paused') }}</option>
@@ -102,7 +102,7 @@ watch([status, clientId, sort], () => load(true))
             :placeholder="t('project.all_clients')"
           />
         </div>
-        <select v-model="sort" class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-white ml-auto"
+        <select v-model="sort" class="h-9 px-3 border border-neutral-300 rounded-md text-sm bg-surface ml-auto"
           :title="t('common.sort_by')">
           <option value="name">{{ t('common.sort_name') }}</option>
           <option value="client">{{ t('common.sort_client') }}</option>
@@ -140,8 +140,8 @@ watch([status, clientId, sort], () => load(true))
             <td class="px-4 py-3">
               <span class="text-xs px-2 py-0.5 rounded"
                 :class="{
-                  'bg-emerald-50 text-emerald-700': p.status === 'active',
-                  'bg-amber-50 text-amber-700': p.status === 'paused',
+                  'bg-success-50 text-success-600': p.status === 'active',
+                  'bg-warning-50 text-warning-600': p.status === 'paused',
                   'bg-neutral-100 text-neutral-600': p.status === 'closed',
                 }">
                 {{ p.status === 'active' ? t('common.active') : p.status === 'paused' ? t('project.status_paused') : t('project.status_closed') }}
@@ -179,8 +179,8 @@ watch([status, clientId, sort], () => load(true))
           <div class="flex items-center justify-between gap-2 mt-2 text-xs">
             <span class="px-2 py-0.5 rounded"
               :class="{
-                'bg-emerald-50 text-emerald-700': p.status === 'active',
-                'bg-amber-50 text-amber-700': p.status === 'paused',
+                'bg-success-50 text-success-600': p.status === 'active',
+                'bg-warning-50 text-warning-600': p.status === 'paused',
                 'bg-neutral-100 text-neutral-600': p.status === 'closed',
               }">
               {{ p.status === 'active' ? t('common.active') : p.status === 'paused' ? t('project.status_paused') : t('project.status_closed') }}

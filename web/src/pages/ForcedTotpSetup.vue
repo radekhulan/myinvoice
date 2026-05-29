@@ -58,14 +58,14 @@ onMounted(() => {
 <template>
   <AppShell :title="t('auth.totp_force_title')">
     <div class="w-full max-w-md">
-      <div class="bg-white border border-warning-300 rounded-lg shadow-sm p-6 space-y-5">
+      <div class="bg-surface border border-warning-300 rounded-lg shadow-sm p-6 space-y-5">
         <div class="flex items-start gap-3">
-          <svg class="w-6 h-6 text-warning-700 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="w-6 h-6 text-warning-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
           <div>
-            <h1 class="text-lg font-semibold text-warning-900">{{ t('auth.totp_force_title') }}</h1>
-            <p class="text-sm text-warning-800 mt-1">{{ t('auth.totp_force_intro') }}</p>
+            <h1 class="text-lg font-semibold text-warning-600">{{ t('auth.totp_force_title') }}</h1>
+            <p class="text-sm text-warning-600 mt-1">{{ t('auth.totp_force_intro') }}</p>
           </div>
         </div>
 

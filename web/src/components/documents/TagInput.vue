@@ -76,7 +76,7 @@ function onKeydown(e: KeyboardEvent) {
         @keydown="onKeydown"
       />
     </div>
-    <ul v-if="open && suggestions.length" class="absolute z-30 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-56 overflow-auto py-1">
+    <ul v-if="open && suggestions.length" class="absolute z-30 mt-1 w-full bg-surface border border-neutral-200 rounded-lg shadow-lg max-h-56 overflow-auto py-1">
       <li
         v-for="(s, i) in suggestions"
         :key="s.id"

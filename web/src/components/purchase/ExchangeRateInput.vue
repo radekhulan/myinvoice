@@ -82,6 +82,6 @@ async function loadFromCnb() {
         {{ loading ? '…' : t('purchase_invoice.fields.exchange_rate_load_cnb') }}
       </button>
     </div>
-    <p v-if="errorMsg" class="text-xs text-red-600">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="text-xs text-danger-600">{{ errorMsg }}</p>
   </div>
 </template>

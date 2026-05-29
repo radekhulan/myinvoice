@@ -160,11 +160,11 @@ async function onFileSelected(e: Event) {
 
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 
-    <div v-else-if="!statements.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-12 text-center text-neutral-500">
+    <div v-else-if="!statements.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-12 text-center text-neutral-500">
       {{ t('bank.no_data') }}
     </div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <!-- Desktop: tabulka -->
       <div class="hidden md:block overflow-x-auto">
       <table class="w-full text-sm table-sticky-first">

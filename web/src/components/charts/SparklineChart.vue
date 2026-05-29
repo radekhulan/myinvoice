@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import {
   Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip,
 } from 'chart.js'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip)
 
@@ -21,6 +22,7 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
 
 function build() {
   if (!canvas.value) return
@@ -33,7 +35,7 @@ function build() {
       labels: props.labels,
       datasets: [{
         data: props.values,
-        backgroundColor: props.color ?? '#5C45A0',
+        backgroundColor: props.color ?? colors.value.primary,
         borderRadius: 1.5,
         barPercentage: 0.85,
         categoryPercentage: 0.95,
@@ -45,7 +47,7 @@ function build() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#15131D',
+          backgroundColor: colors.value.tooltipBg,
           displayColors: false,
           callbacks: { label: (ctx) => ` ${ctx.label}: ${formatter(Number(ctx.parsed.y || 0))}` },
         },
@@ -61,6 +63,7 @@ function build() {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.labels, props.values, props.color], build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

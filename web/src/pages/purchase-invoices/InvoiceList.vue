@@ -380,7 +380,7 @@ async function bulkDelete() {
     </div>
 
     <!-- ═══ Filtry v boxu ═══ -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
       <div class="flex flex-wrap items-center gap-2">
         <input
           v-model="search"
@@ -388,7 +388,7 @@ async function bulkDelete() {
           :placeholder="t('purchase_invoice.filters.search_placeholder')"
           class="flex-1 min-w-48 h-9 px-3 border border-neutral-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
         />
-        <select v-model="statusFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model="statusFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option value="">{{ t('purchase_invoice.filters.all_statuses') }}</option>
           <option value="draft">{{ t('purchase_invoice.status.draft') }}</option>
           <option value="received">{{ t('purchase_invoice.status.received') }}</option>
@@ -396,7 +396,7 @@ async function bulkDelete() {
           <option value="paid">{{ t('purchase_invoice.status.paid') }}</option>
           <option value="cancelled">{{ t('purchase_invoice.status.cancelled') }}</option>
         </select>
-        <select v-model="kindFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model="kindFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option value="">{{ t('purchase_invoice.filters.all_kinds') }}</option>
           <option value="invoice">{{ t('purchase_invoice.document_kind.invoice') }}</option>
           <option value="receipt">{{ t('purchase_invoice.document_kind.receipt') }}</option>
@@ -412,12 +412,12 @@ async function bulkDelete() {
           />
         </div>
         <select v-model="yearFilter" :disabled="!!dateFrom || !!dateTo"
-          class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:opacity-50">
+          class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:opacity-50">
           <option value="">{{ t('invoice.all_years') }}</option>
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <select v-model="monthFilter" :disabled="!!dateFrom || !!dateTo || yearFilter === ''"
-          class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:opacity-50">
+          class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:opacity-50">
           <option :value="''">{{ t('invoice.all_months') }}</option>
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
         </select>
@@ -443,7 +443,7 @@ async function bulkDelete() {
     </div>
 
     <!-- ═══ Loading / Error / Empty / Data ═══ -->
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <TableSkeleton :rows="6" :cols="7" />
     </div>
 
@@ -451,7 +451,7 @@ async function bulkDelete() {
       {{ error }}
     </div>
 
-    <div v-else-if="!groups.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div v-else-if="!groups.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <EmptyState
         :title="search || statusFilter || kindFilter ? t('purchase_invoice.empty_filtered') : t('purchase_invoice.empty')"
         :cta="t('purchase_invoice.new')"
@@ -480,7 +480,7 @@ async function bulkDelete() {
         </header>
 
         <!-- Desktop: tabulka -->
-        <div class="hidden md:block bg-white border border-t-0 border-neutral-200 rounded-b-lg overflow-hidden">
+        <div class="hidden md:block bg-surface border border-t-0 border-neutral-200 rounded-b-lg overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-sm table-sticky-first">
               <thead class="bg-neutral-50 text-neutral-500 text-xs uppercase tracking-wide">
@@ -566,7 +566,7 @@ async function bulkDelete() {
         </div>
 
         <!-- Mobile: karty -->
-        <div class="md:hidden bg-white border border-t-0 border-neutral-200 rounded-b-lg divide-y divide-neutral-100 overflow-hidden">
+        <div class="md:hidden bg-surface border border-t-0 border-neutral-200 rounded-b-lg divide-y divide-neutral-100 overflow-hidden">
           <div
             v-for="inv in g.invoices"
             :key="`m-${inv.id}`"

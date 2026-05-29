@@ -923,12 +923,12 @@ async function deleteDraft() {
     <form @submit.prevent="submit" class="space-y-4">
       <!-- Klient + zakázka + datumy -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('invoice.client') }} &amp; {{ t('invoice.project') }}</h3>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('invoice.doc_type') }} *</label>
-              <select v-model="form.invoice_type" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+              <select v-model="form.invoice_type" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
                 <option value="invoice">{{ t('invoice.doc_invoice') }}</option>
                 <option value="proforma">{{ t('invoice.doc_proforma') }}</option>
                 <option value="credit_note">{{ t('invoice.doc_credit_note') }}</option>
@@ -1005,13 +1005,13 @@ async function deleteDraft() {
               <div>
                 <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('invoice.currency') }}</label>
                 <select v-model.number="form.currency_id" @change="onCurrencyChange"
-                  class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+                  class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
                   <option v-for="c in currencies" :key="c.id" :value="c.id">{{ c.label }}</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('invoice.language') }}</label>
-                <select v-model="form.language" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+                <select v-model="form.language" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
                   <option value="cs">CZ</option>
                   <option value="en">EN</option>
                 </select>
@@ -1019,7 +1019,7 @@ async function deleteDraft() {
             </div>
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('payment_method.label') }}</label>
-              <select v-model="form.payment_method" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+              <select v-model="form.payment_method" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
                 <option value="bank_transfer">{{ t('payment_method.bank_transfer') }}</option>
                 <option value="card">{{ t('payment_method.card') }}</option>
                 <option value="cash">{{ t('payment_method.cash') }}</option>
@@ -1036,7 +1036,7 @@ async function deleteDraft() {
           </div>
         </div>
 
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('invoice.dates_section') }}</h3>
           <div class="space-y-3">
             <!-- Ruční override čísla faktury — jen u draftu; prázdné = vygeneruje se při Vystavení.
@@ -1086,7 +1086,7 @@ async function deleteDraft() {
       </div>
 
       <!-- Položky -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
         <div class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.items') }}</h3>
           <button type="button" @click="addItem" class="px-3 h-8 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-md">
@@ -1126,7 +1126,7 @@ async function deleteDraft() {
                   :class="['w-full h-9 px-2 border rounded text-right font-mono text-sm', itemHasBothNegative(item) ? 'border-danger-400' : 'border-neutral-200']" />
               </td>
               <td class="px-3 py-2">
-                <select v-model="item.unit" class="w-full h-9 px-1 border border-neutral-200 rounded text-sm bg-white">
+                <select v-model="item.unit" class="w-full h-9 px-1 border border-neutral-200 rounded text-sm bg-surface">
                   <option v-for="u in units" :key="u.id" :value="u.code">{{ u.code }}</option>
                   <option v-if="item.unit && !units.some(u => u.code === item.unit)" :value="item.unit">{{ item.unit }}</option>
                 </select>
@@ -1136,7 +1136,7 @@ async function deleteDraft() {
                   :class="['w-full h-9 px-2 border rounded text-right font-mono text-sm', itemHasBothNegative(item) ? 'border-danger-400' : 'border-neutral-200']" />
               </td>
               <td v-if="supplierIsVatPayer" class="px-3 py-2">
-                <select v-model.number="item.vat_rate_id" class="w-full h-9 px-1 border border-neutral-200 rounded text-sm bg-white">
+                <select v-model.number="item.vat_rate_id" class="w-full h-9 px-1 border border-neutral-200 rounded text-sm bg-surface">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">{{ vatRateLabel(r) }}</option>
                 </select>
               </td>
@@ -1185,7 +1185,7 @@ async function deleteDraft() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.items_table.unit') }}</label>
-                <select v-model="item.unit" class="w-full h-10 px-2 border border-neutral-200 rounded text-sm bg-white">
+                <select v-model="item.unit" class="w-full h-10 px-2 border border-neutral-200 rounded text-sm bg-surface">
                   <option v-for="u in units" :key="u.id" :value="u.code">{{ u.code }}</option>
                   <option v-if="item.unit && !units.some(u => u.code === item.unit)" :value="item.unit">{{ item.unit }}</option>
                 </select>
@@ -1199,7 +1199,7 @@ async function deleteDraft() {
               </div>
               <div v-if="supplierIsVatPayer">
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.totals.vat') }}</label>
-                <select v-model.number="item.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded text-sm bg-white">
+                <select v-model.number="item.vat_rate_id" class="w-full h-10 px-2 border border-neutral-200 rounded text-sm bg-surface">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">{{ vatRateLabel(r) }}</option>
                 </select>
               </div>
@@ -1215,12 +1215,12 @@ async function deleteDraft() {
       </div>
 
       <!-- Klasifikace (VAT pro DPH přiznání + volitelný revenue tag) -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-3">{{ t('invoice.classification.title') }}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">{{ t('invoice.classification.vat_classification') }}</label>
-            <select v-model="form.vat_classification_code" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="form.vat_classification_code" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option :value="null">— {{ t('invoice.classification.no_vat_class') }} —</option>
               <option v-for="vc in vatClassifications" :key="vc.id" :value="vc.code">
                 {{ vc.code }} — {{ vc.label.length > 60 ? vc.label.slice(0, 60) + '…' : vc.label }}
@@ -1241,17 +1241,17 @@ async function deleteDraft() {
       <!-- Sumace + poznámky -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="md:col-span-2 space-y-4">
-          <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('invoice.note_above') }}</label>
             <textarea v-model="form.note_above_items" rows="2" class="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"></textarea>
           </div>
-          <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
             <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('invoice.note_below') }}</label>
             <textarea v-model="form.note_below_items" rows="2" class="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"></textarea>
           </div>
         </div>
 
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('invoice.summary') }}</h3>
           <div class="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-neutral-100">
             <label for="discount_percent" class="text-sm text-neutral-700">{{ t('invoice.discount.label') }}</label>
@@ -1311,7 +1311,7 @@ async function deleteDraft() {
       </div>
 
       <!-- Výkaz víceprací -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.work_report') }}</h3>
           <div class="flex items-center gap-2">
@@ -1321,7 +1321,7 @@ async function deleteDraft() {
               {{ t('invoice.wr_add') }}
             </button>
             <button v-if="wrOpen && wrItems.length > 0" type="button" @click="pushWrToInvoiceItem"
-              class="cursor-pointer px-4 h-9 text-sm bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-md inline-flex items-center gap-1.5 shadow-sm">
+              class="cursor-pointer px-4 h-9 text-sm bg-success-600 hover:bg-success-600 text-white font-semibold rounded-md inline-flex items-center gap-1.5 shadow-sm">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
               {{ t('invoice.wr_push_to_item') }}
             </button>
@@ -1424,22 +1424,22 @@ async function deleteDraft() {
               </div>
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.wr_description') }}</label>
-                <input v-model="it.description" type="text" class="w-full h-10 px-3 border border-neutral-200 rounded text-sm bg-white" />
+                <input v-model="it.description" type="text" class="w-full h-10 px-3 border border-neutral-200 rounded text-sm bg-surface" />
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.wr_date') }}</label>
-                  <input v-model="it.work_date" type="date" class="w-full h-10 px-3 border border-neutral-200 rounded text-sm font-mono bg-white" />
+                  <input v-model="it.work_date" type="date" class="w-full h-10 px-3 border border-neutral-200 rounded text-sm font-mono bg-surface" />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.wr_hours') }}</label>
-                  <input v-model.number="it.hours" type="number" inputmode="decimal" step="0.25" min="0" class="w-full h-10 px-3 border border-neutral-200 rounded text-right font-mono text-sm bg-white" />
+                  <input v-model.number="it.hours" type="number" inputmode="decimal" step="0.25" min="0" class="w-full h-10 px-3 border border-neutral-200 rounded text-right font-mono text-sm bg-surface" />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2 items-end">
                 <div>
                   <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.wr_rate') }}</label>
-                  <input v-model.number="it.rate" type="number" inputmode="decimal" step="1" min="0" class="w-full h-10 px-3 border border-neutral-200 rounded text-right font-mono text-sm bg-white" />
+                  <input v-model.number="it.rate" type="number" inputmode="decimal" step="1" min="0" class="w-full h-10 px-3 border border-neutral-200 rounded text-right font-mono text-sm bg-surface" />
                 </div>
                 <div class="text-right pb-2">
                   <div class="text-xs font-medium text-neutral-500 uppercase tracking-wide">{{ t('invoice.wr_total') }}</div>
@@ -1471,7 +1471,7 @@ async function deleteDraft() {
       </div>
 
       <!-- Action bar -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-4 flex justify-between items-center sticky bottom-3 shadow-md">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-4 flex justify-between items-center sticky bottom-3 shadow-md">
         <RouterLink to="/invoices" class="text-sm text-neutral-600 hover:text-neutral-900">{{ t('common.cancel') }}</RouterLink>
         <button type="submit" :disabled="submitting"
           class="px-5 h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white text-sm font-medium rounded-md">

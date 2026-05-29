@@ -158,7 +158,7 @@ const hasAnyData = computed(() =>
       {{ error }}
     </div>
 
-    <div v-else-if="!hasAnyData" class="bg-white border border-neutral-200 rounded-lg p-8 text-center">
+    <div v-else-if="!hasAnyData" class="bg-surface border border-neutral-200 rounded-lg p-8 text-center">
       <p class="text-neutral-500">{{ t('costs.no_data') }}</p>
     </div>
 
@@ -167,7 +167,7 @@ const hasAnyData = computed(() =>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Plovoucí 12měsíční náklady per měna -->
         <div v-for="r in summary.rolling_12m" :key="`r12-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('costs.rolling_12m', { currency: r.currency }) }}
           </div>
@@ -187,7 +187,7 @@ const hasAnyData = computed(() =>
 
         <!-- Náklady tento rok per měna -->
         <div v-for="r in costsThisYear" :key="`ty-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('costs.costs_this_year', { year: summary.year, currency: r.currency }) }}
           </div>
@@ -205,7 +205,7 @@ const hasAnyData = computed(() =>
 
         <!-- Forecast nákladů aktuálního roku per měna -->
         <div v-for="f in summary.costs_forecast" :key="`fc-${f.currency}`"
-          class="bg-white border border-primary-200 rounded-lg p-5 shadow-sm bg-primary-50/30">
+          class="bg-surface border border-primary-200 rounded-lg p-5 shadow-sm bg-primary-50/30">
           <div class="text-xs uppercase tracking-wide text-primary-700 mb-1">
             {{ t('costs.forecast_year', { year: summary.year, currency: f.currency }) }}
           </div>
@@ -228,7 +228,7 @@ const hasAnyData = computed(() =>
 
         <!-- Náklady minulý rok per měna -->
         <div v-for="r in costsPrevYear" :key="`py-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('costs.costs_prev_year', { year: summary.prev_year, currency: r.currency }) }}
           </div>
@@ -240,21 +240,21 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Počet přijatých faktur YTD -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('costs.purchases_count_ytd', { year: summary.year }) }}</div>
           <div class="text-2xl font-semibold text-neutral-900">{{ summary.kpi.purchase_count_ytd }}</div>
           <div class="text-xs text-neutral-400 mt-1">{{ t('costs.invoices_unit') }}</div>
         </div>
 
         <!-- Aktivní dodavatelé -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('costs.active_vendors') }}</div>
           <div class="text-2xl font-semibold text-neutral-900">{{ summary.active_vendors_count }}</div>
           <div class="text-xs text-neutral-400 mt-1">{{ t('costs.active_vendors_hint') }}</div>
         </div>
 
         <!-- Ø doba úhrady dodavatelům -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('costs.avg_payment') }}</div>
           <div class="text-2xl font-semibold text-neutral-900">
             {{ summary.kpi.avg_payment_days !== null ? summary.kpi.avg_payment_days + ' ' + t('common.days') : '—' }}
@@ -264,7 +264,7 @@ const hasAnyData = computed(() =>
 
         <!-- Náklady posledních 30 dní per měna -->
         <div v-for="r in summary.costs_last_30d" :key="`c30-${r.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
             {{ t('costs.costs_last_30d', { currency: r.currency }) }}
           </div>
@@ -275,7 +275,7 @@ const hasAnyData = computed(() =>
 
         <!-- Nezaplacené závazky -->
         <RouterLink to="/purchase-invoices"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm hover:bg-neutral-50 transition cursor-pointer block">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm hover:bg-neutral-50 transition cursor-pointer block">
           <div class="text-xs uppercase tracking-wide text-neutral-500 mb-1">{{ t('costs.unpaid_payables') }}</div>
           <div class="text-2xl font-semibold" :class="summary.kpi.overdue_count > 0 ? 'text-danger-500' : 'text-neutral-900'">
             {{ summary.kpi.unpaid_count }}
@@ -295,7 +295,7 @@ const hasAnyData = computed(() =>
       <!-- Měsíční náklady — bar + prev-year linka -->
       <div v-if="summary.costs_by_month.length" class="space-y-4">
         <div v-for="rev in summary.costs_by_month" :key="`m-${rev.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('costs.costs_last_12_months', { currency: rev.currency }) }}
           </h3>
@@ -306,7 +306,7 @@ const hasAnyData = computed(() =>
       <!-- Kumulativní cash-outflow YTD vs loni — per měna -->
       <div v-if="summary.cashflow_out_ytd.length" class="space-y-4">
         <div v-for="cf in summary.cashflow_out_ytd" :key="`cf-${cf.currency}`"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('costs.cumulative_outflow', { currency: cf.currency }) }}
@@ -320,13 +320,13 @@ const hasAnyData = computed(() =>
       <!-- Top dodavatelé pie YTD + loni -->
       <div v-if="(summary.top_vendors_ytd.length + summary.top_vendors_prev_year.length) > 0"
         class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.top_vendors_ytd.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.top_vendors_ytd.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('costs.top_vendors_year', { year: summary.year }) }}
           </h3>
           <TopClientsPieChart :clients="vendorsToPie(summary.top_vendors_ytd)" />
         </div>
-        <div v-if="summary.top_vendors_prev_year.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.top_vendors_prev_year.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('costs.top_vendors_year', { year: summary.prev_year }) }}
           </h3>
@@ -337,14 +337,14 @@ const hasAnyData = computed(() =>
       <!-- Status donut + rozpad DPH na vstupu -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div v-if="summary.kpi.status_counts_ytd && Object.keys(summary.kpi.status_counts_ytd).length"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500 mb-4">
             {{ t('costs.status_purchases', { year: summary.year }) }}
           </h3>
           <PurchaseStatusChart :counts="summary.kpi.status_counts_ytd" />
         </div>
         <div v-if="isVatPayer && summary.vat_breakdown_12m.length"
-          class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+          class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('costs.vat_input_breakdown_title') }}</h3>
             <span class="text-xs font-mono text-neutral-500">{{ t('costs.last_12_months') }}</span>
@@ -356,7 +356,7 @@ const hasAnyData = computed(() =>
       <!-- Číselné tabulky: náklady po rocích + po měsících -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Náklady po rocích -->
-        <div v-if="summary.costs_by_year.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="summary.costs_by_year.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('costs.costs_by_year_table') }}</h3>
           </header>
@@ -389,7 +389,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Náklady po měsících -->
-        <div v-if="monthlyTable.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="monthlyTable.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('costs.costs_by_month_table') }}</h3>
           </header>
@@ -418,7 +418,7 @@ const hasAnyData = computed(() =>
 
       <!-- Top 12 dodavatelů (12m) + rozpad nákladů po kategoriích -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.top_vendors_12m.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="summary.top_vendors_12m.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('costs.top_vendors_12m_table') }}</h3>
           </header>
@@ -450,7 +450,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Rozpad nákladů po kategoriích -->
-        <div v-if="expenseRows.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="expenseRows.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="font-semibold">{{ t('costs.expense_breakdown_title') }}</h3>
           </header>
@@ -480,7 +480,7 @@ const hasAnyData = computed(() =>
       </div>
 
       <!-- Vendor concentration risk -->
-      <div v-if="concentration" class="bg-white border rounded-lg p-5 shadow-sm"
+      <div v-if="concentration" class="bg-surface border rounded-lg p-5 shadow-sm"
         :class="concentrationLevel === 'high' ? 'border-danger-500/40 bg-danger-50/30'
               : concentrationLevel === 'medium' ? 'border-warning-500/50 bg-warning-50/30'
               : 'border-neutral-200'">
@@ -527,7 +527,7 @@ const hasAnyData = computed(() =>
 
       <!-- Histogram doby úhrady + plán plateb dodavatelům -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div v-if="summary.payment_days_histogram.total > 0" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="summary.payment_days_histogram.total > 0" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('costs.payment_histogram_title') }}</h3>
             <span class="text-xs text-neutral-500">
@@ -538,7 +538,7 @@ const hasAnyData = computed(() =>
         </div>
 
         <!-- Plán plateb (cash-outflow 30/60/90) -->
-        <div v-if="outflowForecast.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        <div v-if="outflowForecast.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
           <div class="flex items-baseline justify-between mb-3">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('costs.outflow_forecast_title') }}</h3>
             <span class="text-xs text-neutral-400">{{ t('costs.outflow_forecast_hint') }}</span>
@@ -569,7 +569,7 @@ const hasAnyData = computed(() =>
       </div>
 
       <!-- Aging report — stáří závazků -->
-      <div v-if="agingRows.length" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="agingRows.length" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('costs.aging_title') }}</h3>
           <span class="text-xs text-neutral-400">{{ t('costs.aging_hint') }}</span>
@@ -619,7 +619,7 @@ const hasAnyData = computed(() =>
 
       <!-- Distribuce velikosti přijatých faktur -->
       <div v-if="summary.invoice_size_histogram.total > 0"
-        class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+        class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <div class="flex items-baseline justify-between mb-3">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('costs.invoice_size_title') }}</h3>
           <span class="text-xs text-neutral-400">{{ t('costs.invoice_size_hint', { n: summary.invoice_size_histogram.total }) }}</span>

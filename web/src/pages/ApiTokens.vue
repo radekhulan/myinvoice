@@ -153,7 +153,7 @@ onMounted(load)
       </button>
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4 mb-4 text-sm text-neutral-700">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4 mb-4 text-sm text-neutral-700">
       <p>
         {{ t('api_tokens.intro') }}
         <a href="/api/docs" target="_blank" class="text-primary-600 hover:underline">{{ t('api_tokens.docs_link') }}</a>
@@ -164,7 +164,7 @@ onMounted(load)
       {{ error }}
     </div>
 
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-neutral-50 text-neutral-600 text-xs uppercase">
           <tr>
@@ -203,7 +203,7 @@ onMounted(load)
               <button
                 v-if="!tk.is_revoked"
                 @click="revoke(tk.id, tk.name)"
-                class="cursor-pointer text-danger-500 hover:text-danger-700 text-sm"
+                class="cursor-pointer text-danger-500 hover:text-danger-600 text-sm"
               >
                 {{ t('api_tokens.revoke') }}
               </button>
@@ -215,7 +215,7 @@ onMounted(load)
 
     <!-- Create modal -->
     <div v-if="showCreate" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <div class="bg-surface rounded-lg shadow-xl max-w-md w-full p-6">
         <h2 class="text-xl font-semibold mb-4">{{ t('api_tokens.new') }}</h2>
 
         <div class="space-y-3">
@@ -229,7 +229,7 @@ onMounted(load)
           <label class="block text-sm">
             <span class="text-neutral-700 font-medium">{{ t('api_tokens.col_supplier') }}</span>
             <select v-model="form.supplier_id"
-              class="mt-1 w-full h-10 px-3 border border-neutral-300 rounded-md bg-white">
+              class="mt-1 w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
               <option :value="null">{{ t('api_tokens.supplier_all') }}</option>
               <option v-for="s in suppliers.availableSuppliers" :key="s.id" :value="s.id">{{ s.company_name }}</option>
             </select>
@@ -291,7 +291,7 @@ onMounted(load)
 
     <!-- Reveal modal — plaintext shown ONCE -->
     <div v-if="revealed" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+      <div class="bg-surface rounded-lg shadow-xl max-w-lg w-full p-6">
         <h2 class="text-xl font-semibold mb-2 text-success-600">{{ t('api_tokens.created_title') }}</h2>
         <p class="text-sm text-warning-600 font-medium mb-3">⚠ {{ t('api_tokens.created_warning') }}</p>
 
@@ -311,7 +311,7 @@ onMounted(load)
 
         <div class="mt-4 flex justify-end">
           <button @click="closeReveal" :disabled="!confirmCopied"
-            class="cursor-pointer h-10 px-4 bg-neutral-900 hover:bg-black disabled:bg-neutral-300 text-white font-medium rounded-md">
+            class="cursor-pointer h-10 px-4 bg-neutral-700 hover:bg-neutral-800 disabled:bg-neutral-300 text-neutral-50 font-medium rounded-md">
             {{ t('common.close') }}
           </button>
         </div>

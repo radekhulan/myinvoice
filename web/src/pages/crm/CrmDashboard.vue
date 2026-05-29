@@ -243,7 +243,7 @@ onMounted(loadAll)
         <p class="text-sm text-neutral-500 mt-0.5">{{ t('crm.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <select v-if="availableCurrencies.length > 1" v-model="currencyFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-if="availableCurrencies.length > 1" v-model="currencyFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="c in availableCurrencies" :key="c" :value="c">{{ c }}</option>
         </select>
         <button
@@ -259,11 +259,11 @@ onMounted(loadAll)
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
       {{ t('common.loading') }}…
     </div>
 
-    <div v-else-if="!overview || overview.currencies.length === 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center">
+    <div v-else-if="!overview || overview.currencies.length === 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center">
       <p class="text-neutral-600 mb-2">{{ t('crm.no_data') }}</p>
       <p class="text-sm text-neutral-500 mb-4">{{ t('crm.no_data_hint') }}</p>
       <button v-if="auth.user?.role === 'admin'" type="button" @click="recompute" :disabled="recomputing"
@@ -274,7 +274,7 @@ onMounted(loadAll)
 
     <div v-else class="space-y-4">
       <!-- ═══ Action items widget (daily TODO) ═══ -->
-      <div v-if="actionItems && actionItems.total > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+      <div v-if="actionItems && actionItems.total > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-primary-50 to-white rounded-t-lg">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-primary-700">
             ⚡ {{ t('crm.action_items.title') }}
@@ -307,7 +307,7 @@ onMounted(loadAll)
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
               </button>
               <div v-if="(openMenuIdx === idx) && auth.canWrite"
-                class="absolute right-3 top-12 z-20 bg-white border border-neutral-200 rounded-md shadow-lg py-1 w-[280px]"
+                class="absolute right-3 top-12 z-20 bg-surface border border-neutral-200 rounded-md shadow-lg py-1 w-[280px]"
                 @click.stop>
                 <div class="px-3 py-1.5 text-xs uppercase tracking-wide text-neutral-500 font-semibold border-b border-neutral-100">
                   {{ t('crm.action_items.dismiss_title') }}
@@ -355,7 +355,7 @@ onMounted(loadAll)
         <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-600 mb-2">{{ t('crm.kpi_section') }}</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- Revenue -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="flex items-center justify-between mb-1">
             <span class="text-xs uppercase tracking-wide text-neutral-500 font-medium">{{ t('crm.kpi.revenue') }}</span>
             <svg class="w-5 h-5 text-success-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -380,7 +380,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Costs -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="flex items-center justify-between mb-1">
             <span class="text-xs uppercase tracking-wide text-neutral-500 font-medium">{{ t('crm.kpi.costs') }}</span>
             <svg class="w-5 h-5 text-danger-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -405,7 +405,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Profit -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="flex items-center justify-between mb-1">
             <span class="text-xs uppercase tracking-wide text-neutral-500 font-medium">{{ t('crm.kpi.profit') }}</span>
             <svg class="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -437,7 +437,7 @@ onMounted(loadAll)
         </div>
         <label class="flex items-center gap-2 text-sm shrink-0">
           <span class="text-neutral-500">{{ t('crm.period_label') }}</span>
-          <select v-model.number="periodMonths" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+          <select v-model.number="periodMonths" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
             <option :value="3">{{ t('crm.last_n_months', { n: 3 }) }}</option>
             <option :value="6">{{ t('crm.last_n_months', { n: 6 }) }}</option>
             <option :value="12">{{ t('crm.last_n_months', { n: 12 }) }}</option>
@@ -447,7 +447,7 @@ onMounted(loadAll)
       </div>
 
       <!-- ═══ Monthly trend chart (HTML/CSS bars — no chart.js dependency) ═══ -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
             {{ t('crm.monthly_trend') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -490,7 +490,7 @@ onMounted(loadAll)
       <!-- ═══ Top klienti + Top vendoři side by side ═══ -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Top clients -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.top_clients') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -521,7 +521,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Top vendors -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.top_vendors') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -555,7 +555,7 @@ onMounted(loadAll)
       <!-- ═══ Aging buckets (pohledávky + závazky) ═══ -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Receivables -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.aging.receivables_title') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ t('crm.snapshot_now') }})</span>
@@ -583,7 +583,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Payables -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.aging.payables_title') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ t('crm.snapshot_now') }})</span>
@@ -614,7 +614,7 @@ onMounted(loadAll)
       <!-- ═══ Health metrics row: DSO + Punctuality + Concentration ═══ -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- DSO -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.dso.title') }} <span class="normal-case font-normal text-neutral-400">· {{ periodChip }}</span>
           </div>
@@ -625,7 +625,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Punctuality -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.punctuality.title') }} <span class="normal-case font-normal text-neutral-400">· {{ periodChip }}</span>
           </div>
@@ -639,7 +639,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Concentration risk -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.concentration.title') }} <span class="normal-case font-normal text-neutral-400">· {{ periodChip }}</span>
           </div>
@@ -659,7 +659,7 @@ onMounted(loadAll)
       <!-- ═══ Health metrics row 2: DPO + Vendor concentration + Working capital cycle ═══ -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- DPO -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.dpo.title') }} <span class="normal-case font-normal text-neutral-400">· {{ periodChip }}</span>
           </div>
@@ -670,7 +670,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Vendor concentration risk -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.vendor_concentration.title') }} <span class="normal-case font-normal text-neutral-400">· {{ periodChip }}</span>
           </div>
@@ -687,7 +687,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Working capital cycle (DSO − DPO) -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ t('crm.wc_cycle.title') }}
           </div>
@@ -707,7 +707,7 @@ onMounted(loadAll)
       <!-- ═══ Expense breakdown + Churn risk side-by-side ═══ -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Expense breakdown -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.expense_breakdown.title') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -742,7 +742,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Churn risk -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               {{ t('crm.churn.title') }}
@@ -778,7 +778,7 @@ onMounted(loadAll)
       <!-- ═══ Náklady po rocích + Náklady po měsících (obdoba Stats) ═══ -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Náklady po rocích -->
-        <div v-if="yearly.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="yearly.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               📅 {{ t('crm.costs_by_year_table') }}
@@ -805,7 +805,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Náklady po měsících (posledních N podle periodMonths) -->
-        <div v-if="monthly.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div v-if="monthly.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               📊 {{ t('crm.costs_by_month_table') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -833,7 +833,7 @@ onMounted(loadAll)
       </div>
 
       <!-- ═══ Cash flow forecast (4 týdny) ═══ -->
-      <div v-if="cashFlow && cashFlow.weeks.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-if="cashFlow && cashFlow.weeks.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
             💰 {{ t('crm.cash_flow.title') }} ({{ cashFlow.currency }})
@@ -884,7 +884,7 @@ onMounted(loadAll)
       <!-- ═══ Late payment risk + Payment time histogram side-by-side ═══ -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Late risk -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               ⚠️ {{ t('crm.late_risk.title') }}
@@ -925,7 +925,7 @@ onMounted(loadAll)
         </div>
 
         <!-- Payment time histogram -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
           <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
               ⏱️ {{ t('crm.payment_time.title') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>
@@ -957,7 +957,7 @@ onMounted(loadAll)
       </div>
 
       <!-- ═══ Reminder effectiveness funnel ═══ -->
-      <div v-if="reminderEff && reminderEff.total_paid > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-if="reminderEff && reminderEff.total_paid > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">
             📧 {{ t('crm.reminder.title') }} <span class="normal-case font-normal text-[10px] text-neutral-400">({{ periodChip }})</span>

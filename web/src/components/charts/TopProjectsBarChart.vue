@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import {
   Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip,
 } from 'chart.js'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip)
 
@@ -16,13 +17,14 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
 
 function build() {
   if (!canvas.value) return
   if (chart) chart.destroy()
 
   const greyed = new Set(props.greyedIndexes ?? [])
-  const colors = props.values.map((_, i) => greyed.has(i) ? '#A99CD8' : '#5C45A0')
+  const barColors = props.values.map((_, i) => greyed.has(i) ? colors.value.primarySoft : colors.value.primary)
 
   chart = new Chart(canvas.value, {
     type: 'bar',
@@ -30,7 +32,7 @@ function build() {
       labels: props.labels,
       datasets: [{
         data: props.values,
-        backgroundColor: colors,
+        backgroundColor: barColors,
         borderRadius: 4,
       }],
     },
@@ -41,7 +43,7 @@ function build() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#15131D',
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => `${formatVal(ctx.parsed.x ?? 0)} ${props.currency}`,
           },
@@ -50,11 +52,11 @@ function build() {
       scales: {
         x: {
           beginAtZero: true,
-          ticks: { color: '#7A748C', font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
-          grid: { color: '#E7E3EE' },
+          ticks: { color: colors.value.tick, font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
+          grid: { color: colors.value.grid },
         },
         y: {
-          ticks: { color: '#403B52', font: { size: 11 }, autoSkip: false },
+          ticks: { color: colors.value.tick, font: { size: 11 }, autoSkip: false },
           grid: { display: false },
         },
       },
@@ -74,6 +76,7 @@ function formatTick(n: number): string {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.labels, props.values, props.currency], build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

@@ -97,13 +97,13 @@ function daysSince(date: string | null): number | null {
     </div>
 
     <!-- Filtry -->
-    <div class="bg-white border border-neutral-200 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
+    <div class="bg-surface border border-neutral-200 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
       <button v-for="opt in (['requested','approved','rejected','all'] as const)" :key="opt"
         @click="statusFilter = opt"
         class="cursor-pointer px-3 h-8 text-xs rounded-md font-medium border inline-flex items-center gap-1.5"
         :class="statusFilter === opt
           ? 'bg-primary-600 text-white border-primary-600'
-          : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'">
+          : 'bg-surface text-neutral-700 border-neutral-300 hover:bg-neutral-50'">
         {{ t('approval_inbox.filter_' + opt) }}
         <span class="text-xs opacity-80">({{ counts[opt] }})</span>
       </button>
@@ -118,11 +118,11 @@ function daysSince(date: string | null): number | null {
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 
     <div v-else-if="filteredItems.length === 0"
-      class="bg-white border border-neutral-200 rounded-lg p-12 text-center text-sm text-neutral-500">
+      class="bg-surface border border-neutral-200 rounded-lg p-12 text-center text-sm text-neutral-500">
       {{ t('approval_inbox.empty') }}
     </div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <!-- Desktop: tabulka -->
       <div class="hidden md:block overflow-x-auto">
       <table class="w-full text-sm table-sticky-first">

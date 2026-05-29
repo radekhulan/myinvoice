@@ -496,7 +496,7 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
     </div>
 
     <!-- Filtry -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm mb-4 p-3">
       <div class="flex flex-wrap items-center gap-2">
         <input
           v-model="search"
@@ -504,7 +504,7 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
           :placeholder="t('invoice.search_placeholder')"
           class="flex-1 min-w-48 h-9 px-3 border border-neutral-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
         />
-        <select v-model="statusFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model="statusFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option value="">{{ t('invoice.all_statuses') }}</option>
           <option value="draft">{{ t('status.draft') }}</option>
           <option value="issued">{{ t('status.issued') }}</option>
@@ -513,7 +513,7 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
           <option value="paid">{{ t('status.paid') }}</option>
           <option value="cancelled">{{ t('status.cancelled') }}</option>
         </select>
-        <select v-model="typeFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model="typeFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option value="">{{ t('invoice.all_types') }}</option>
           <option value="invoice">{{ t('type.invoice') }}</option>
           <option value="proforma">{{ t('type.proforma') }}</option>
@@ -527,17 +527,17 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
             :placeholder="t('project.all_clients')"
           />
         </div>
-        <select v-model="currencyFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model="currencyFilter" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option value="">{{ t('invoice.all_currencies') }}</option>
           <option v-for="c in currencies" :key="c.id" :value="c.code">{{ c.code }}</option>
         </select>
         <select v-model="yearFilter" :disabled="!!dateFrom || !!dateTo"
-          class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:opacity-50">
+          class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:opacity-50">
           <option value="">{{ t('invoice.all_years') }}</option>
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <select v-model="monthFilter" :disabled="!!dateFrom || !!dateTo || yearFilter === ''"
-          class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm disabled:opacity-50"
+          class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm disabled:opacity-50"
           :title="t('invoice.month_filter')">
           <option :value="''">{{ t('invoice.all_months') }}</option>
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
@@ -564,11 +564,11 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <TableSkeleton :rows="8" :cols="7" />
     </div>
 
-    <div v-else-if="!groups.length" class="bg-white border border-neutral-200 rounded-lg shadow-sm">
+    <div v-else-if="!groups.length" class="bg-surface border border-neutral-200 rounded-lg shadow-sm">
       <EmptyState :title="t('invoice.no_data')" :cta="t('invoice.issue_first')" to="/invoices/new" />
     </div>
 
@@ -594,7 +594,7 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
         </header>
 
         <!-- Desktop: tabulka -->
-        <div class="hidden md:block bg-white border border-t-0 border-neutral-200 rounded-b-lg overflow-hidden">
+        <div class="hidden md:block bg-surface border border-t-0 border-neutral-200 rounded-b-lg overflow-hidden">
           <div class="overflow-x-auto">
           <table class="w-full text-sm table-sticky-first">
             <thead class="bg-neutral-50 text-neutral-500 text-xs uppercase tracking-wide">
@@ -670,7 +670,7 @@ const monthOptions = computed(() => (tm('common.months_short') as unknown as str
         </div>
 
         <!-- Mobile: karty -->
-        <div class="md:hidden bg-white border border-t-0 border-neutral-200 rounded-b-lg divide-y divide-neutral-100 overflow-hidden">
+        <div class="md:hidden bg-surface border border-t-0 border-neutral-200 rounded-b-lg divide-y divide-neutral-100 overflow-hidden">
           <div
             v-for="inv in g.invoices"
             :key="`m-${inv.id}`"

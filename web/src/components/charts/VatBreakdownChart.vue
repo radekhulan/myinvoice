@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import { Chart, DoughnutController, ArcElement, Tooltip, Legend } from 'chart.js'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend)
 
@@ -15,6 +16,7 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
 
 // Barevné mapování podle obvyklých CZ sazeb (21 % red, 12 % blue, 0 % grey, RC purple).
 const palette: Record<string, string> = {
@@ -41,17 +43,18 @@ function build() {
   const total = items.reduce((s, i) => s + i.base, 0)
   const labels = items.map(i => i.label)
   const data = items.map(i => i.base)
-  const colors = items.map(i => palette[i.label] ?? '#5C45A0')
+  const segmentColors = items.map(i => palette[i.label] ?? '#5C45A0')
 
   chart = new Chart(canvas.value, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 1, borderColor: '#FFFFFF' }] },
+    data: { labels, datasets: [{ data, backgroundColor: segmentColors, borderWidth: 1, borderColor: colors.value.border }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: colors.value.tick } },
         tooltip: {
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => {
               const v = ctx.parsed as number
@@ -69,6 +72,7 @@ function build() {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.items, props.currency], build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

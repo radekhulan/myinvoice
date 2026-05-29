@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -26,6 +27,7 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 
 const { locale } = useI18n()
+const colors = useChartColors()
 
 /** Label „04/2026" — měsíc/rok podle aktuální řady (months). */
 function labelFor(ym: string): string {
@@ -49,19 +51,19 @@ function build() {
         {
           label: `${props.currency}`,
           data,
-          backgroundColor: '#5C45A0',
+          backgroundColor: colors.value.primary,
           borderRadius: 4,
         },
         {
           label: `${props.currency} (-1y)`,
           data: prevData,
           type: 'line',
-          borderColor: '#A99CD8',
+          borderColor: colors.value.primarySoft,
           backgroundColor: 'transparent',
           borderWidth: 2,
           tension: 0.3,
           pointRadius: 3,
-          pointBackgroundColor: '#A99CD8',
+          pointBackgroundColor: colors.value.primarySoft,
         },
       ],
     },
@@ -72,10 +74,10 @@ function build() {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { font: { size: 11 }, boxWidth: 12, color: '#5A5470' },
+          labels: { font: { size: 11 }, boxWidth: 12, color: colors.value.tick },
         },
         tooltip: {
-          backgroundColor: '#15131D',
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             // Prev-year tooltip ukazuje, ze kterého měsíce předchozího roku hodnota pochází.
             title: (items) => {
@@ -92,11 +94,11 @@ function build() {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { color: '#7A748C', font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
-          grid: { color: '#E7E3EE' },
+          ticks: { color: colors.value.tick, font: { size: 11 }, callback: (v) => formatTick(Number(v)) },
+          grid: { color: colors.value.grid },
         },
         x: {
-          ticks: { color: '#7A748C', font: { size: 11 } },
+          ticks: { color: colors.value.tick, font: { size: 11 } },
           grid: { display: false },
         },
       },
@@ -117,6 +119,7 @@ function formatTick(n: number): string {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => [props.months, props.prevYear, props.currency, locale.value], build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

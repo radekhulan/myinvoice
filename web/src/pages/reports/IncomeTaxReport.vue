@@ -65,13 +65,13 @@ onMounted(loadPreview)
       <div class="flex items-center gap-2">
         <div class="flex rounded-md border border-neutral-300 overflow-hidden text-sm">
           <button type="button" @click="taxpayerType = 'fo'"
-            :class="taxpayerType === 'fo' ? 'bg-primary-600 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'"
+            :class="taxpayerType === 'fo' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
             class="px-3 h-9 cursor-pointer">DPFO</button>
           <button type="button" @click="taxpayerType = 'po'"
-            :class="taxpayerType === 'po' ? 'bg-primary-600 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'"
+            :class="taxpayerType === 'po' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
             class="px-3 h-9 cursor-pointer border-l border-neutral-300">DPPO</button>
         </div>
-        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <button type="button" @click="downloadXml" :disabled="loading || !preview"
@@ -82,7 +82,7 @@ onMounted(loadPreview)
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">{{ t('common.loading') }}…</div>
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">{{ t('common.loading') }}…</div>
     <div v-else-if="error" class="bg-danger-50 border border-danger-500/40 text-danger-500 rounded-md p-3 text-sm">{{ error }}</div>
 
     <div v-else-if="preview" class="space-y-4">
@@ -96,7 +96,7 @@ onMounted(loadPreview)
 
       <!-- Orientační čísla -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.income_tax.revenue_orientacni') }}</div>
           <div class="text-xl font-bold font-mono text-neutral-900">
             {{ formatMoney(preview.summary.revenue_orientacni, 'CZK') }}
@@ -106,7 +106,7 @@ onMounted(loadPreview)
             {{ preview.summary.is_vat_payer ? t('reports.income_tax.vat_base_excl') : t('reports.income_tax.vat_base_incl') }}
           </div>
         </div>
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.income_tax.costs_orientacni') }}</div>
           <div class="text-xl font-bold font-mono text-neutral-900">
             {{ formatMoney(preview.summary.costs_orientacni, 'CZK') }}
@@ -116,7 +116,7 @@ onMounted(loadPreview)
             {{ preview.summary.is_vat_payer ? t('reports.income_tax.vat_base_excl') : t('reports.income_tax.vat_base_incl') }}
           </div>
         </div>
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.income_tax.profit_orientacni') }}</div>
           <div class="text-xl font-bold font-mono"
             :class="preview.summary.profit_orientacni >= 0 ? 'text-success-600' : 'text-danger-500'">
@@ -124,7 +124,7 @@ onMounted(loadPreview)
           </div>
           <div class="text-xs text-neutral-500 mt-1">{{ t('reports.income_tax.profit_hint') }}</div>
         </div>
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.dph.deadline') }}</div>
           <div class="text-xl font-bold font-mono text-neutral-900">
             {{ preview.summary.submission_deadline }}

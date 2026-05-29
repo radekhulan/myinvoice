@@ -35,9 +35,9 @@ void props
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/50"
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       @click.self="emit('close')">
-      <div class="bg-white rounded-lg shadow-xl w-full flex flex-col max-h-[90vh]" :class="widthClass">
+      <div class="bg-surface rounded-lg shadow-xl w-full flex flex-col max-h-[90vh]" :class="widthClass">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between shrink-0">
           <h2 class="text-lg font-semibold">{{ title }}</h2>
           <button type="button" @click="emit('close')" aria-label="Close"

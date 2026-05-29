@@ -202,7 +202,7 @@ async function submit() {
 <template>
   <AppShell :title="t('setup.title')">
     <div class="w-full max-w-xl">
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-6">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-6">
         <!-- Progress -->
         <div class="flex items-center mb-6 text-sm">
           <span :class="step >= 1 ? 'text-primary-600 font-medium' : 'text-neutral-400'">1. {{ t('setup.step_admin') }}</span>
@@ -293,7 +293,7 @@ async function submit() {
               <div v-if="aresMessage" class="mt-2 text-xs px-2 py-1 rounded"
                 :class="aresMessage.type === 'success' ? 'bg-success-50 text-success-600' : 'bg-danger-50 text-danger-500'">
                 {{ aresMessage.text }}
-                <span v-if="aresMessage.type === 'success' && !supplier.email" class="block mt-0.5 text-warning-700">
+                <span v-if="aresMessage.type === 'success' && !supplier.email" class="block mt-0.5 text-warning-600">
                   {{ t('supplier.ares_loaded_email_hint') }}
                 </span>
               </div>
@@ -336,7 +336,7 @@ async function submit() {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('common.currency') }}</label>
-                  <select v-model="supplier.bank_currency" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
+                  <select v-model="supplier.bank_currency" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none">
                     <option value="CZK">CZK</option>
                     <option value="EUR">EUR</option>
                   </select>
@@ -402,7 +402,7 @@ async function submit() {
           <h2 class="text-xl font-semibold mb-2">{{ t('common.success') }}</h2>
           <p class="text-neutral-500 mb-2">{{ locale === 'cs' ? 'Admin účet byl vytvořen a jste přihlášen.' : 'Admin account created and you are signed in.' }}</p>
 
-          <div v-if="requireTotp" class="mb-6 inline-block bg-warning-50 border border-warning-500/40 rounded-md px-4 py-2 text-sm text-warning-700 text-left">
+          <div v-if="requireTotp" class="mb-6 inline-block bg-warning-50 border border-warning-500/40 rounded-md px-4 py-2 text-sm text-warning-600 text-left">
             {{ locale === 'cs'
               ? 'Vynucení 2FA je aktivní. Po pokračování budeš přesměrován na nastavení TOTP.'
               : '2FA enforcement is active. You will be redirected to TOTP setup next.' }}

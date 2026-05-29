@@ -103,14 +103,14 @@ onMounted(load)
       </button>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg p-8 text-center text-sm text-neutral-400">{{ t('common.loading') }}…</div>
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg p-8 text-center text-sm text-neutral-400">{{ t('common.loading') }}…</div>
     <div v-else-if="error" class="bg-danger-50 border border-danger-500/40 text-danger-500 rounded-md p-3 text-sm">{{ error }}</div>
 
-    <div v-else-if="items.length === 0" class="bg-white border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
+    <div v-else-if="items.length === 0" class="bg-surface border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
       {{ t('reports.submissions.empty') }}
     </div>
 
-    <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-neutral-50 text-xs text-neutral-500 uppercase tracking-wide">
           <tr>

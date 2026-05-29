@@ -207,8 +207,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-xl shadow-lg max-w-4xl w-full my-4">
+  <div v-if="modelValue" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+    <div class="bg-surface rounded-xl shadow-lg max-w-4xl w-full my-4">
       <header class="px-5 py-4 border-b border-neutral-200 flex items-baseline justify-between gap-3">
         <h3 class="text-lg font-semibold">{{ t('invoice.work_report') }}</h3>
         <button @click="close" class="cursor-pointer text-neutral-400 hover:text-neutral-700 text-2xl leading-none">&times;</button>
@@ -267,7 +267,7 @@ onMounted(() => {
                 </td>
                 <td class="px-2 py-1.5 text-center">
                   <button type="button" @click="removeItem(i)" :title="t('common.delete')"
-                          class="cursor-pointer text-danger-500 hover:text-danger-700 text-lg leading-none">&times;</button>
+                          class="cursor-pointer text-danger-500 hover:text-danger-600 text-lg leading-none">&times;</button>
                 </td>
               </tr>
             </tbody>

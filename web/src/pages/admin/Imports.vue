@@ -121,7 +121,7 @@ async function runScan() {
     </div>
 
     <!-- Tabs: Vystavené / Přijaté -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm max-w-3xl">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm max-w-3xl">
       <div class="px-4 pt-2 border-b border-neutral-100 flex items-center gap-1">
         <button
           type="button"
@@ -327,7 +327,7 @@ async function runScan() {
         </div>
 
         <!-- Scan result -->
-        <div v-if="scanResult" class="mt-4 bg-white border border-neutral-200 rounded-lg p-4">
+        <div v-if="scanResult" class="mt-4 bg-surface border border-neutral-200 rounded-lg p-4">
           <div class="flex flex-wrap items-center gap-4 mb-3 text-sm">
             <div><span class="font-semibold text-success-600">{{ scanResult.created }}</span> {{ t('imports.summary_created') }}</div>
             <div><span class="font-semibold text-warning-600">{{ scanResult.skipped }}</span> {{ t('imports.summary_skipped') }}</div>
@@ -369,7 +369,7 @@ async function runScan() {
     </div>
 
     <!-- Report — pro oba tabs (issued / purchase) -->
-    <div v-if="report" class="mt-6 bg-white border border-neutral-200 rounded-lg p-5 shadow-sm max-w-3xl">
+    <div v-if="report" class="mt-6 bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm max-w-3xl">
       <div class="flex items-center gap-4 mb-4 text-sm">
         <div><span class="font-semibold text-success-600">{{ report.summary.created }}</span> {{ t('imports.summary_created') }}</div>
         <div><span class="font-semibold text-warning-600">{{ report.summary.skipped }}</span> {{ t('imports.summary_skipped') }}</div>

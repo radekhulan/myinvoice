@@ -73,10 +73,10 @@ onMounted(loadPreview)
         <p class="text-sm text-neutral-500 mt-0.5">{{ t('reports.kh.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
         </select>
-        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <button type="button" @click="downloadXml" :disabled="loading || !preview"
@@ -87,7 +87,7 @@ onMounted(loadPreview)
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">{{ t('common.loading') }}…</div>
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">{{ t('common.loading') }}…</div>
     <div v-else-if="error" class="bg-danger-50 border border-danger-500/40 text-danger-500 rounded-md p-3 text-sm">{{ error }}</div>
 
     <div v-else-if="preview" class="space-y-4">
@@ -100,7 +100,7 @@ onMounted(loadPreview)
       </div>
 
       <!-- Deadline card -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
         <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.dph.deadline') }}</div>
         <div class="text-xl font-bold font-mono"
           :class="(daysToDeadline ?? 999) < 0 ? 'text-danger-500' : (daysToDeadline ?? 999) <= 7 ? 'text-warning-600' : 'text-neutral-900'">
@@ -114,7 +114,7 @@ onMounted(loadPreview)
       </div>
 
       <!-- Sekce A — vystavené -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 bg-neutral-50">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-700">{{ t('reports.kh.section_a_title') }}</h3>
         </header>
@@ -143,7 +143,7 @@ onMounted(loadPreview)
       </div>
 
       <!-- Sekce B — přijaté -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 bg-neutral-50">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-700">{{ t('reports.kh.section_b_title') }}</h3>
         </header>

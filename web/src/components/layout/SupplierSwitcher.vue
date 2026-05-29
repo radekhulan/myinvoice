@@ -47,7 +47,7 @@ function pick(id: number) {
       leave-from-class="opacity-100 scale-100"
       leave-to-class="opacity-0 scale-95"
     >
-      <div v-if="open" class="absolute right-0 mt-1 w-72 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-40">
+      <div v-if="open" class="absolute right-0 mt-1 w-72 bg-surface border border-neutral-200 rounded-lg shadow-lg py-1 z-40">
         <button v-for="s in list" :key="s.id" type="button" @click="pick(s.id)"
           class="cursor-pointer w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 flex items-start gap-2"
           :class="s.id === supplierStore.currentSupplierId ? 'bg-primary-50' : ''">

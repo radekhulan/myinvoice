@@ -510,7 +510,7 @@ watch(tab, (newTab) => {
       </div>
 
       <!-- Desktop tabulka -->
-      <div class="hidden md:block bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="hidden md:block bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-sm table-sticky-first">
             <thead class="bg-neutral-50 text-xs text-neutral-500 uppercase tracking-wide">
@@ -557,7 +557,7 @@ watch(tab, (newTab) => {
       </div>
 
       <!-- Mobile karty -->
-      <div class="md:hidden bg-white border border-neutral-200 rounded-lg shadow-sm divide-y divide-neutral-100 overflow-hidden">
+      <div class="md:hidden bg-surface border border-neutral-200 rounded-lg shadow-sm divide-y divide-neutral-100 overflow-hidden">
         <div v-for="s in suppliers" :key="`m-${s.id}`" class="px-4 py-3">
           <div class="flex items-baseline justify-between gap-2">
             <div class="font-medium text-neutral-900 flex items-center gap-1.5 min-w-0 truncate">
@@ -595,7 +595,7 @@ watch(tab, (newTab) => {
           {{ t('codebooks.new_currency') }}
         </button>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <!-- Desktop: tabulka -->
         <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm table-sticky-first">
@@ -687,7 +687,7 @@ watch(tab, (newTab) => {
           {{ t('codebooks.new_vat') }}
         </button>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <!-- Desktop: tabulka -->
         <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm table-sticky-first">
@@ -766,7 +766,7 @@ watch(tab, (newTab) => {
           {{ t('codebooks.new_country') }}
         </button>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <!-- Desktop: tabulka -->
         <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm table-sticky-first">
@@ -836,7 +836,7 @@ watch(tab, (newTab) => {
           {{ t('codebooks.new_unit') }}
         </button>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <!-- Desktop: tabulka -->
         <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm table-sticky-first">
@@ -905,11 +905,11 @@ watch(tab, (newTab) => {
         </button>
       </div>
 
-      <div v-if="expenseCategories.length === 0" class="bg-white border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
+      <div v-if="expenseCategories.length === 0" class="bg-surface border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
         {{ t('expense_categories.empty') }}
       </div>
 
-      <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-neutral-50 text-xs text-neutral-500 uppercase tracking-wide">
             <tr>
@@ -958,11 +958,11 @@ watch(tab, (newTab) => {
         </button>
       </div>
 
-      <div v-if="vatClassifications.length === 0" class="bg-white border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
+      <div v-if="vatClassifications.length === 0" class="bg-surface border border-dashed border-neutral-300 rounded-lg p-8 text-center text-sm text-neutral-500">
         {{ t('vat_classifications.empty') }}
       </div>
 
-      <div v-else class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-else class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-neutral-50 text-xs text-neutral-500 uppercase tracking-wide">
             <tr>
@@ -1015,8 +1015,8 @@ watch(tab, (newTab) => {
     <!-- ====== Modals ====== -->
 
     <!-- VAT classification modal -->
-    <div v-if="vatClsOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-xl w-full p-5">
+    <div v-if="vatClsOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-xl w-full p-5">
         <h3 class="text-lg font-semibold mb-3">
           {{ vatClsEditMode === 'edit' ? t('vat_classifications.edit_title') : t('vat_classifications.new_title') }}
         </h3>
@@ -1030,7 +1030,7 @@ watch(tab, (newTab) => {
             </div>
             <div>
               <label class="block text-xs font-medium text-neutral-700 mb-1">{{ t('vat_classifications.direction') }}</label>
-              <select v-model="vatClsDraft.direction" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+              <select v-model="vatClsDraft.direction" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
                 <option value="sale">{{ t('vat_classifications.direction_sale') }}</option>
                 <option value="purchase">{{ t('vat_classifications.direction_purchase') }}</option>
                 <option value="both">{{ t('vat_classifications.direction_both') }}</option>
@@ -1081,8 +1081,8 @@ watch(tab, (newTab) => {
     </div>
 
     <!-- Expense category modal -->
-    <div v-if="expenseOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="expenseOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">
           {{ expenseDraft.id ? t('expense_categories.edit_title') : t('expense_categories.new_title') }}
         </h3>
@@ -1100,7 +1100,7 @@ watch(tab, (newTab) => {
           </div>
           <div>
             <label class="block text-xs font-medium text-neutral-700 mb-1">{{ t('expense_categories.fixed_or_var') }}</label>
-            <select v-model="expenseDraft.fixed_or_var" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+            <select v-model="expenseDraft.fixed_or_var" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
               <option value="variable">{{ t('expense_categories.variable') }}</option>
               <option value="fixed">{{ t('expense_categories.fixed') }}</option>
             </select>
@@ -1123,8 +1123,8 @@ watch(tab, (newTab) => {
     </div>
 
     <!-- Supplier create modal (multi-tenant firma) -->
-    <div v-if="supplierCreateOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-xl w-full p-5">
+    <div v-if="supplierCreateOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-xl w-full p-5">
         <h3 class="text-lg font-semibold mb-1">{{ t('supplier.create_title') }}</h3>
         <p class="text-xs text-neutral-500 mb-4">{{ t('supplier.create_hint') }}</p>
         <form @submit.prevent="saveSupplier">
@@ -1183,8 +1183,8 @@ watch(tab, (newTab) => {
       </div>
     </div>
 
-    <div v-if="currencyOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="currencyOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">{{ currencyDraft._new ? t('codebooks.new_currency') : t('settings.edit_currency', { code: currencyDraft.code }) }}</h3>
         <div class="space-y-3">
           <div class="grid grid-cols-3 gap-3" v-if="currencyDraft._new">
@@ -1232,8 +1232,8 @@ watch(tab, (newTab) => {
       </div>
     </div>
 
-    <div v-if="vatOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="vatOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">{{ vatDraft._new ? t('codebooks.new_vat') : vatDraft.code }}</h3>
         <div class="space-y-3">
           <div class="grid grid-cols-3 gap-3">
@@ -1270,8 +1270,8 @@ watch(tab, (newTab) => {
       </div>
     </div>
 
-    <div v-if="unitOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="unitOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">{{ unitDraft._new ? t('codebooks.new_unit') : unitDraft.code }}</h3>
         <div class="space-y-3">
           <div>
@@ -1301,8 +1301,8 @@ watch(tab, (newTab) => {
       </div>
     </div>
 
-    <div v-if="countryOpen" class="fixed inset-0 bg-neutral-900/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+    <div v-if="countryOpen" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div class="bg-surface rounded-xl shadow-lg max-w-md w-full p-5">
         <h3 class="text-lg font-semibold mb-3">{{ countryDraft._new ? t('codebooks.new_country') : countryDraft.iso2 }}</h3>
         <div class="space-y-3">
           <div class="grid grid-cols-2 gap-3">

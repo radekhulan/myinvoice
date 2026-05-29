@@ -7,6 +7,7 @@ import { useSupplierStore } from '@/stores/supplier'
 import { updateApi, type PublicVersion } from '@/api/update'
 import SupplierSwitcher from './SupplierSwitcher.vue'
 import GlobalSearch from './GlobalSearch.vue'
+import ThemeToggle from './ThemeToggle.vue'
 
 const { t, locale } = useI18n()
 function setLocale(l: 'cs' | 'en') {
@@ -249,7 +250,7 @@ onMounted(async () => {
   <div class="min-h-screen flex flex-col bg-neutral-50">
 
     <!-- ═════════════════════ TOPBAR ═════════════════════ -->
-    <header class="sticky top-0 z-30 bg-white border-b border-neutral-200">
+    <header class="sticky top-0 z-30 bg-surface border-b border-neutral-200">
       <div class="h-14 px-4 flex items-center justify-between gap-3">
         <!-- Logo -->
         <RouterLink to="/" class="flex items-center gap-2.5 shrink-0" @click="mobileOpen = false">
@@ -296,6 +297,9 @@ onMounted(async () => {
               </svg>
             </button>
           </div>
+
+          <!-- Přepínač motivu (System / Light / Dark) -->
+          <ThemeToggle />
 
           <!-- Nápověda -->
           <a
@@ -352,7 +356,7 @@ onMounted(async () => {
       <!-- Mobile backdrop -->
       <div
         v-if="mobileOpen" @click="mobileOpen = false"
-        class="lg:hidden fixed inset-0 bg-neutral-900/30 z-20"
+        class="lg:hidden fixed inset-0 bg-black/50 z-20"
         aria-hidden="true"
       ></div>
 
@@ -361,7 +365,7 @@ onMounted(async () => {
         :class="[
           'fixed lg:sticky top-14 z-30 lg:z-auto',
           'h-[calc(100vh-3.5rem)] w-60 shrink-0',
-          'bg-white border-r border-neutral-200',
+          'bg-surface border-r border-neutral-200',
           'flex flex-col',
           'transition-transform duration-200 ease-in-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
@@ -448,7 +452,7 @@ onMounted(async () => {
             </div>
             <a
               href="/manual" target="_blank" rel="noopener"
-              class="inline-flex w-9 h-9 items-center justify-center rounded-md text-neutral-600 hover:bg-white"
+              class="inline-flex w-9 h-9 items-center justify-center rounded-md text-neutral-600 hover:bg-surface"
               :title="t('nav.help')"
             >
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -457,7 +461,7 @@ onMounted(async () => {
             </a>
           </div>
           <div class="flex items-center justify-between gap-3">
-            <div class="inline-flex items-center border border-neutral-200 bg-white rounded-md overflow-hidden">
+            <div class="inline-flex items-center border border-neutral-200 bg-surface rounded-md overflow-hidden">
               <button
                 @click="setLocale('cs')" title="Čeština"
                 class="cursor-pointer h-9 px-3 inline-flex items-center"
@@ -486,7 +490,7 @@ onMounted(async () => {
             </div>
             <button
               @click="logout"
-              class="cursor-pointer px-4 h-9 text-sm border border-neutral-300 rounded-md text-neutral-700 hover:bg-white"
+              class="cursor-pointer px-4 h-9 text-sm border border-neutral-300 rounded-md text-neutral-700 hover:bg-surface"
             >{{ t('nav.logout') }}</button>
           </div>
         </div>

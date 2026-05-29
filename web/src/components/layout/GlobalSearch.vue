@@ -137,7 +137,7 @@ onBeforeUnmount(() => clearTimeout(debounceTimer))
         v-model="q"
         type="text"
         :placeholder="t('search.placeholder')"
-        class="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-neutral-200 bg-neutral-50 focus:bg-white focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
+        class="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-neutral-200 bg-neutral-50 focus:bg-surface focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
         autocomplete="off"
         spellcheck="false"
         @focus="open = q.trim().length > 0"
@@ -149,7 +149,7 @@ onBeforeUnmount(() => clearTimeout(debounceTimer))
     <!-- Dropdown výsledků -->
     <div
       v-if="showDropdown"
-      class="absolute left-0 right-0 mt-1 z-40 bg-white border border-neutral-200 rounded-md shadow-lg max-h-[70vh] overflow-y-auto"
+      class="absolute left-0 right-0 mt-1 z-40 bg-surface border border-neutral-200 rounded-md shadow-lg max-h-[70vh] overflow-y-auto"
     >
       <div v-if="loading && !hasResults" class="px-3 py-2 text-xs text-neutral-500">{{ t('common.loading') }}</div>
       <div v-else-if="!hasResults" class="px-3 py-2 text-xs text-neutral-500">{{ t('search.no_results') }}</div>

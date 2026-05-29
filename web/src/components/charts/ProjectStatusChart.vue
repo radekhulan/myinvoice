@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import { Chart, DoughnutController, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useI18n } from 'vue-i18n'
+import { useChartColors } from '@/composables/useTheme'
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend)
 
@@ -9,6 +10,7 @@ const { t } = useI18n()
 const props = defineProps<{ counts: Record<string, number> }>()
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
 
 const palette: Record<string, string> = {
   active: '#4CAF7A',
@@ -40,13 +42,14 @@ function build() {
   const total = valueArr.reduce((s, v) => s + v, 0)
   chart = new Chart(canvas.value, {
     type: 'doughnut',
-    data: { labels: labelArr, datasets: [{ data: valueArr, backgroundColor: colorArr, borderWidth: 1, borderColor: '#FFFFFF' }] },
+    data: { labels: labelArr, datasets: [{ data: valueArr, backgroundColor: colorArr, borderWidth: 1, borderColor: colors.value.border }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: colors.value.tick } },
         tooltip: {
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => {
               const v = ctx.parsed as number
@@ -64,6 +67,7 @@ function build() {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => props.counts, build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

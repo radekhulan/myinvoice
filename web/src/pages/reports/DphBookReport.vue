@@ -79,10 +79,10 @@ onMounted(loadPreview)
         <p class="text-sm text-neutral-500 mt-0.5">{{ t('reports.dph_book.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
         </select>
-        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <button type="button" @click="downloadPdf" :disabled="loading || !preview"
@@ -95,7 +95,7 @@ onMounted(loadPreview)
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
       {{ t('common.loading') }}…
     </div>
     <div v-else-if="error" class="bg-danger-50 border border-danger-500/40 text-danger-500 rounded-md p-3 text-sm">
@@ -104,7 +104,7 @@ onMounted(loadPreview)
 
     <div v-else-if="preview" class="space-y-4">
       <!-- Period info -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
         <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
           {{ t('reports.dph_book.period_label') }}
         </div>
@@ -113,13 +113,13 @@ onMounted(loadPreview)
 
       <!-- No data -->
       <div v-if="preview.sections.length === 0"
-        class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-500">
+        class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-500">
         {{ t('reports.dph_book.no_data') }}
       </div>
 
       <!-- Sections -->
       <div v-for="section in preview.sections" :key="section.key"
-        class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+        class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="sticky top-0 px-5 py-3 border-b border-neutral-200 bg-neutral-50">
           <h3 class="text-sm font-semibold text-neutral-800">
             <span class="font-mono">{{ section.key }}</span>
@@ -186,7 +186,7 @@ onMounted(loadPreview)
       <!-- Total summary — odděleně uskutečněná (daň na výstupu) a přijatá (odpočet) -->
       <div v-if="preview.sections.length > 0" class="grid gap-4 md:grid-cols-2">
         <!-- Uskutečněná plnění -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-3">
             {{ t('reports.dph_book.summary_issued') }}
           </div>
@@ -206,7 +206,7 @@ onMounted(loadPreview)
           </div>
         </div>
         <!-- Přijatá plnění -->
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-4">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-4">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-3">
             {{ t('reports.dph_book.summary_received') }}
           </div>

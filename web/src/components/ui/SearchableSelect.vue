@@ -146,7 +146,7 @@ onUnmounted(() => {
         :disabled="disabled"
         autocomplete="off"
         :class="[
-          'w-full h-10 pl-3 pr-16 border border-neutral-300 rounded-md text-sm bg-white',
+          'w-full h-10 pl-3 pr-16 border border-neutral-300 rounded-md text-sm bg-surface',
           'focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none',
           'disabled:bg-neutral-50 disabled:text-neutral-400',
         ]"
@@ -168,7 +168,7 @@ onUnmounted(() => {
       ref="listbox"
       id="searchable-select-listbox"
       role="listbox"
-      class="absolute z-50 left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-md shadow-lg max-h-72 overflow-y-auto"
+      class="absolute z-50 left-0 right-0 mt-1 bg-surface border border-neutral-200 rounded-md shadow-lg max-h-72 overflow-y-auto"
     >
       <div v-if="filtered.length === 0" class="px-3 py-2 text-sm text-neutral-400">
         {{ noResultsLabel }}

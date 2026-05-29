@@ -105,7 +105,7 @@ onBeforeUnmount(() => { if (debounce) clearTimeout(debounce) })
 
     <div
       v-if="open"
-      class="absolute z-30 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-80 overflow-auto"
+      class="absolute z-30 mt-1 w-full bg-surface border border-neutral-200 rounded-lg shadow-lg max-h-80 overflow-auto"
     >
       <div v-if="query.trim().length < 2" class="px-3 py-3 text-sm text-neutral-400">
         {{ t('documents.search_hint') }}

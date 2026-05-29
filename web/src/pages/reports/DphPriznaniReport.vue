@@ -149,12 +149,12 @@ onMounted(loadAll)
         <!-- Period toggle (override settings.vat_period) -->
         <div class="flex rounded-md border border-neutral-300 overflow-hidden text-sm">
           <button type="button" @click="periodOverride = 'monthly'"
-            :class="effectivePeriod === 'monthly' ? 'bg-primary-600 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'"
+            :class="effectivePeriod === 'monthly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
             class="px-3 h-9 cursor-pointer">
             {{ t('reports.dph.monthly') }}
           </button>
           <button type="button" @click="periodOverride = 'quarterly'"
-            :class="effectivePeriod === 'quarterly' ? 'bg-primary-600 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'"
+            :class="effectivePeriod === 'quarterly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
             class="px-3 h-9 cursor-pointer border-l border-neutral-300">
             {{ t('reports.dph.quarterly') }}
           </button>
@@ -162,13 +162,13 @@ onMounted(loadAll)
 
         <!-- Quarter picker pokud quarterly, jinak month -->
         <select v-if="isQuarterly" :value="currentQuarter" @change="setQuarter(Number(($event.target as HTMLSelectElement).value))"
-          class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+          class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="q in quarterOptions" :key="q" :value="q">Q{{ q }}</option>
         </select>
-        <select v-else v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-else v-model.number="month" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
         </select>
-        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-white text-sm">
+        <select v-model.number="year" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
           <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
         </select>
         <button type="button" @click="downloadXml" :disabled="loading || !preview"
@@ -179,7 +179,7 @@ onMounted(loadAll)
       </div>
     </div>
 
-    <div v-if="loading" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
+    <div v-if="loading" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-8 text-center text-neutral-400">
       {{ t('common.loading') }}…
     </div>
 
@@ -198,21 +198,21 @@ onMounted(loadAll)
 
       <!-- Rekapitulace KPI cards (4 — přidán Termín) -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.dph.vat_output') }}</div>
           <div class="text-xl font-bold font-mono text-neutral-900">
             {{ formatMoney(preview.summary.total_vat_output, 'CZK') }}
           </div>
           <div class="text-xs text-neutral-500 mt-1">{{ t('reports.dph.vat_output_hint') }}</div>
         </div>
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.dph.vat_input') }}</div>
           <div class="text-xl font-bold font-mono text-neutral-900">
             {{ formatMoney(preview.summary.total_vat_input, 'CZK') }}
           </div>
           <div class="text-xs text-neutral-500 mt-1">{{ t('reports.dph.vat_input_hint') }}</div>
         </div>
-        <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">
             {{ preview.summary.is_excess_deduction ? t('reports.dph.excess_deduction') : t('reports.dph.tax_due') }}
           </div>
@@ -225,7 +225,7 @@ onMounted(loadAll)
           </div>
         </div>
         <!-- Deadline countdown -->
-        <div v-if="preview.summary.submission_deadline" class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+        <div v-if="preview.summary.submission_deadline" class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
           <div class="text-xs uppercase tracking-wide text-neutral-500 font-medium mb-1">{{ t('reports.dph.deadline') }}</div>
           <div class="text-xl font-bold font-mono"
             :class="(daysToDeadline ?? 999) < 0 ? 'text-danger-500' : (daysToDeadline ?? 999) <= 7 ? 'text-warning-600' : 'text-neutral-900'">
@@ -280,7 +280,7 @@ onMounted(loadAll)
       </div>
 
       <!-- Monthly DPH trend chart — tabulkový layout, čísla zarovnaná doprava -->
-      <div v-if="trend.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div v-if="trend.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('reports.dph.monthly_trend') }}</h3>
           <div class="flex items-center gap-3 text-xs">
@@ -320,7 +320,7 @@ onMounted(loadAll)
       </div>
 
       <!-- DPH na výstupu -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 bg-neutral-50">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-700">{{ t('reports.dph.output_section') }}</h3>
         </header>
@@ -348,7 +348,7 @@ onMounted(loadAll)
       </div>
 
       <!-- DPH na vstupu -->
-      <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
         <header class="px-5 py-3 border-b border-neutral-200 bg-neutral-50">
           <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-700">{{ t('reports.dph.input_section') }}</h3>
         </header>

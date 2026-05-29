@@ -314,7 +314,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
             {{ t('purchase_invoice.export.menu') }}
             <svg class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
           </summary>
-          <div class="absolute right-0 top-full mt-1 z-20 bg-white border border-neutral-200 rounded-md shadow-lg min-w-[220px]">
+          <div class="absolute right-0 top-full mt-1 z-20 bg-surface border border-neutral-200 rounded-md shadow-lg min-w-[220px]">
             <a :href="purchaseInvoicesApi.ourPdfUrl(invoice.id)" target="_blank"
               class="cursor-pointer block px-4 py-2 text-sm hover:bg-neutral-50 text-neutral-700">
               <svg class="inline w-4 h-4 mr-1" viewBox="0 0 32 36"><path fill="#dc2626" d="M4 2h16l8 8v22a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><text x="16" y="26" fill="#fff" font-size="8" font-weight="700" text-anchor="middle">PDF</text></svg>
@@ -384,7 +384,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     <!-- ═══ Datumy & metadata (3 sloupce ala vystavená InvoiceDetail) ═══ -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <!-- Datumy -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.fields.issue_date') }} / {{ t('purchase_invoice.fields.tax_date') }} / {{ t('purchase_invoice.fields.due_date') }}</h3>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('purchase_invoice.fields.issue_date') }}</dt><dd class="font-mono">{{ formatDate(invoice.issue_date) }}</dd></div>
@@ -396,7 +396,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
       </div>
 
       <!-- Měna & kurz -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.fields.currency') }}</h3>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('purchase_invoice.fields.currency') }}</dt><dd class="font-mono">{{ invoice.currency }}</dd></div>
@@ -429,7 +429,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
       </div>
 
       <!-- Platba v jiné měně -->
-      <div v-if="invoice.payment_currency_id" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div v-if="invoice.payment_currency_id" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.payment_currency.toggle') }}</h3>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-500">{{ t('purchase_invoice.payment_currency.currency') }}</dt><dd class="font-mono">{{ invoice.payment_currency || '—' }}</dd></div>
@@ -441,7 +441,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     </div>
 
     <!-- ═══ Položky ═══ -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <h3 class="text-sm font-medium text-neutral-700 px-5 py-3 border-b border-neutral-100">{{ t('purchase_invoice.items.title') }}</h3>
       <table class="w-full text-sm">
         <thead class="bg-neutral-50 text-neutral-500 text-xs uppercase tracking-wide">
@@ -469,7 +469,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
 
     <!-- ═══ Totals + VAT breakdown ═══ -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.vat_breakdown.title') }}</h3>
         <table class="w-full text-sm">
           <thead>
@@ -490,7 +490,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
           </tbody>
         </table>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <div class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.totals.with_vat') }}</h3>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between"><dt class="text-neutral-600">{{ t('purchase_invoice.totals.without_vat') }}</dt><dd class="font-mono">{{ formatMoney(invoice.total_without_vat, invoice.currency) }}</dd></div>
@@ -523,7 +523,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     </div>
 
     <!-- ═══ Propojení se zálohovou fakturou (advance) ═══ -->
-    <div class="bg-white border border-neutral-200 rounded-lg shadow-sm p-5">
+    <div class="bg-surface border border-neutral-200 rounded-lg shadow-sm p-5">
       <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.advance_link.title') }}</h3>
 
       <!-- Tento doklad JE záloha → reverzní pohled (kdo ji vyúčtovává) -->
@@ -586,7 +586,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
 
     <!-- Modal výběru zálohy k propojení -->
     <div v-if="advanceModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="advanceModalOpen = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="bg-surface rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
         <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
           <h3 class="font-medium">{{ t('purchase_invoice.advance_link.modal_title') }}</h3>
           <button type="button" @click="advanceModalOpen = false" class="cursor-pointer text-neutral-400 hover:text-neutral-600">✕</button>
@@ -608,7 +608,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     </div>
 
     <!-- ═══ Originální PDF od dodavatele ═══ -->
-    <div v-if="invoice.pdf_path" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-if="invoice.pdf_path" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
         <div class="flex items-center gap-3">
           <svg class="w-7 h-8 shrink-0" viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg">
@@ -652,13 +652,13 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
         ></iframe>
       </div>
     </div>
-    <div v-else class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+    <div v-else class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
       <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.pdf.title') }}</h3>
       <p class="text-sm text-neutral-500">{{ t('purchase_invoice.pdf.no_pdf') }}</p>
     </div>
 
     <!-- ═══ Poznámky (jen pokud existují) ═══ -->
-    <div v-if="invoice.note_above_items || invoice.note_below_items" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+    <div v-if="invoice.note_above_items || invoice.note_below_items" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
       <h3 class="text-sm font-medium text-neutral-700 mb-3">{{ t('purchase_invoice.fields.note_above_items') }} / {{ t('purchase_invoice.fields.note_below_items') }}</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div v-if="invoice.note_above_items">
@@ -673,7 +673,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     </div>
 
     <!-- ═══ More actions (vendor detail link, paralel s vystavenou InvoiceDetail) ═══ -->
-    <div v-if="invoice && (invoice.vendor_id || canForceEdit || canForceDelete)" class="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
+    <div v-if="invoice && (invoice.vendor_id || canForceEdit || canForceDelete)" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
       <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-3">{{ t('invoice.more_actions') }}</h3>
       <div class="flex flex-wrap gap-2">
         <RouterLink v-if="invoice.vendor_id" :to="`/clients/${invoice.vendor_id}`"
@@ -699,7 +699,7 @@ function transitionLabel(target: PurchaseInvoiceStatus): string {
     </div>
 
     <!-- ═══ Activity log (paralel s /invoices) ═══ -->
-    <div v-if="activity.length > 0" class="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+    <div v-if="activity.length > 0" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
       <header class="px-5 py-3 border-b border-neutral-200">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.activity') }}</h3>
       </header>

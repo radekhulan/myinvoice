@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import {
   Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip,
 } from 'chart.js'
+import { useChartColors, useTheme } from '@/composables/useTheme'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip)
 
@@ -12,8 +13,13 @@ const props = defineProps<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
+const colors = useChartColors()
+const { isDark } = useTheme()
 
-const palette = ['#A99CD8', '#6753AE', '#3B2D83', '#15131D']
+// Gradient velikosti faktur; v dark posunutý do viditelného rozsahu (nejtmavší indigo splývá).
+const palette = computed(() => isDark.value
+  ? ['#6753AE', '#8675C5', '#A99CD8', '#C9C0E9']
+  : ['#A99CD8', '#6753AE', '#3B2D83', '#15131D'])
 
 function formatCzk(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M Kč'
@@ -31,7 +37,7 @@ function build() {
       labels: props.buckets.map(b => b.label),
       datasets: [{
         data: props.buckets.map(b => b.count),
-        backgroundColor: props.buckets.map((_, i) => palette[i] ?? '#5C45A0'),
+        backgroundColor: props.buckets.map((_, i) => palette.value[i] ?? '#5C45A0'),
         borderRadius: 4,
       }],
     },
@@ -41,7 +47,7 @@ function build() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#15131D',
+          backgroundColor: colors.value.tooltipBg,
           callbacks: {
             label: (ctx) => {
               const b = props.buckets[ctx.dataIndex]
@@ -51,8 +57,8 @@ function build() {
         },
       },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, color: '#7A748C', font: { size: 11 } }, grid: { color: '#E7E3EE' } },
-        x: { ticks: { color: '#7A748C', font: { size: 11 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0, color: colors.value.tick, font: { size: 11 } }, grid: { color: colors.value.grid } },
+        x: { ticks: { color: colors.value.tick, font: { size: 11 } }, grid: { display: false } },
       },
     },
   })
@@ -61,6 +67,7 @@ function build() {
 onMounted(build)
 onBeforeUnmount(() => chart?.destroy())
 watch(() => props.buckets, build, { deep: true })
+watch(colors, build)
 </script>
 
 <template>

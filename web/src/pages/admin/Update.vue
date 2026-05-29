@@ -291,7 +291,7 @@ function fmtDate(s?: string | null): string {
         class="rounded-lg border p-5"
         :class="status.has_update
           ? 'border-primary-300 bg-primary-50/40'
-          : 'border-neutral-200 bg-white'"
+          : 'border-neutral-200 bg-surface'"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-4">
           <div>
@@ -330,7 +330,7 @@ function fmtDate(s?: string | null): string {
         </div>
 
         <div v-if="status.last_check_error"
-          class="mt-3 rounded-md bg-error-50 border border-error-200 p-3 text-xs text-error-700">
+          class="mt-3 rounded-md bg-danger-50 border border-danger-500/40 p-3 text-xs text-danger-600">
           {{ t('updates.last_check_error') }}: <span class="font-mono">{{ status.last_check_error }}</span>
         </div>
 
@@ -339,7 +339,7 @@ function fmtDate(s?: string | null): string {
             type="button"
             @click="refresh"
             :disabled="checking"
-            class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60 disabled:cursor-not-allowed"
+            class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-surface px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg class="w-4 h-4" :class="{ 'animate-spin': checking }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"/></svg>
             {{ checking ? t('updates.checking') : t('updates.check_now') }}
@@ -355,7 +355,7 @@ function fmtDate(s?: string | null): string {
             {{ triggering ? t('updates.triggering') : t('updates.trigger_update', { version: status.latest }) }}
           </button>
           <a v-if="status.release_url" :href="status.release_url" target="_blank" rel="noopener"
-            class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+            class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-surface px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             {{ t('updates.release_on_github') }}
           </a>
@@ -368,7 +368,7 @@ function fmtDate(s?: string | null): string {
           ? 'border-primary-300 bg-primary-50/40'
           : triggerResult.status === 'manual_required'
             ? 'border-neutral-300 bg-neutral-50'
-            : 'border-error-300 bg-error-50/40'">
+            : 'border-danger-500/40 bg-danger-50/40'">
         <h2 class="text-lg font-semibold text-neutral-900">
           <template v-if="triggerResult.status === 'queued'">{{ t('updates.queued_title') }}</template>
           <template v-else-if="triggerResult.status === 'manual_required'">{{ t('updates.manual_required_title') }}</template>
@@ -391,7 +391,7 @@ function fmtDate(s?: string | null): string {
         <p class="text-sm text-neutral-600 mt-1.5">{{ t('updates.in_progress_desc') }}</p>
         <div class="mt-3 pt-3 border-t border-primary-200/60 flex items-center gap-3 flex-wrap">
           <button type="button" @click="cancelStuckUpgrade" :disabled="cancelling"
-            class="cursor-pointer h-8 px-3 text-sm border border-neutral-300 bg-white hover:bg-neutral-50 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50">
+            class="cursor-pointer h-8 px-3 text-sm border border-neutral-300 bg-surface hover:bg-neutral-50 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             {{ cancelling ? '…' : t('updates.cancel_stuck') }}
           </button>
@@ -405,7 +405,7 @@ function fmtDate(s?: string | null): string {
         :class="['applied','success'].includes(status.last_upgrade_result.status)
           ? 'border-success-300 bg-success-50/40'
           : status.last_upgrade_result.status === 'failed'
-            ? 'border-error-300 bg-error-50/40'
+            ? 'border-danger-500/40 bg-danger-50/40'
             : 'border-warning-300 bg-warning-50/40'">
         <h2 class="text-lg font-semibold text-neutral-900">
           {{ ['applied','success'].includes(status.last_upgrade_result.status)
@@ -431,13 +431,13 @@ function fmtDate(s?: string | null): string {
 
       <!-- Release notes -->
       <section v-if="status.release_notes_md"
-        class="rounded-lg border border-neutral-200 bg-white p-5">
+        class="rounded-lg border border-neutral-200 bg-surface p-5">
         <h2 class="text-lg font-semibold text-neutral-900 mb-3">{{ t('updates.release_notes') }} (v{{ status.latest }})</h2>
         <div class="release-notes prose prose-sm max-w-none" v-html="renderedNotes"></div>
       </section>
 
       <!-- How upgrade works — vždy viditelné, environment-specific instrukce -->
-      <section class="rounded-lg border border-neutral-200 bg-white p-5">
+      <section class="rounded-lg border border-neutral-200 bg-surface p-5">
         <h2 class="text-lg font-semibold text-neutral-900 mb-3">{{ t('updates.how_it_works') }}</h2>
 
         <template v-if="status.environment === 'docker'">
@@ -488,7 +488,7 @@ php api/bin/migrate.php</code></pre>
       </section>
     </div>
 
-    <div v-if="errorMsg" class="rounded-md bg-error-50 border border-error-200 p-4 text-sm text-error-700">
+    <div v-if="errorMsg" class="rounded-md bg-danger-50 border border-danger-500/40 p-4 text-sm text-danger-600">
       {{ errorMsg }}
     </div>
   </div>
@@ -500,24 +500,24 @@ php api/bin/migrate.php</code></pre>
 .release-notes :deep(h2),
 .release-notes :deep(h3) {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-neutral-900);
   margin: 1em 0 0.4em;
   line-height: 1.3;
 }
 .release-notes :deep(h1) { font-size: 1.25rem; }
 .release-notes :deep(h2) { font-size: 1.1rem; }
 .release-notes :deep(h3) { font-size: 1rem; }
-.release-notes :deep(p) { margin: 0.4em 0; line-height: 1.55; color: #374151; }
+.release-notes :deep(p) { margin: 0.4em 0; line-height: 1.55; color: var(--color-neutral-700); }
 .release-notes :deep(ul),
 .release-notes :deep(ol) {
   margin: 0.4em 0;
   padding-left: 1.5em;
-  color: #374151;
+  color: var(--color-neutral-700);
 }
 .release-notes :deep(li) { margin: 0.15em 0; }
 .release-notes :deep(code) {
-  background: #f3f4f6;
-  color: #c0392b;
+  background: var(--color-neutral-100);
+  color: var(--color-danger-600);
   padding: 0 4px;
   border-radius: 3px;
   font-size: 0.85em;
@@ -534,8 +534,8 @@ php api/bin/migrate.php</code></pre>
   line-height: 1.5;
 }
 .release-notes :deep(pre code) { background: transparent; color: inherit; padding: 0; }
-.release-notes :deep(strong) { font-weight: 600; color: #1f2937; }
+.release-notes :deep(strong) { font-weight: 600; color: var(--color-neutral-900); }
 .release-notes :deep(em) { font-style: italic; }
-.release-notes :deep(a) { color: #6c5ce7; text-decoration: underline; }
-.release-notes :deep(a:hover) { color: #4c1d95; }
+.release-notes :deep(a) { color: var(--color-primary-600); text-decoration: underline; }
+.release-notes :deep(a:hover) { color: var(--color-primary-700); }
 </style>
