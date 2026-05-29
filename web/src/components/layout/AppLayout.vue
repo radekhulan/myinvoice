@@ -373,7 +373,7 @@ onMounted(async () => {
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ]"
       >
-        <nav class="flex-1 overflow-y-auto px-2.5 py-3">
+        <nav class="flex-1 overflow-y-auto scrollbar-slim px-2.5 py-3">
           <!-- Globální vyhledávač (před Přehled) — našeptává menu + hledá klienty/faktury -->
           <GlobalSearch :menu-items="flatNavItems" @navigated="mobileOpen = false" />
 

@@ -148,4 +148,33 @@ html, body {
   :where(.table-sticky-first tbody tr) {
     background-color: var(--color-surface);
   }
+
+  /*
+   * Tenký „plovoucí" scrollbar.
+   * Why: nativní systémový scrollbar (hlavně na Windows a v dark módu) je tlustý
+   * a barevně mimo paletu — v postranním menu vyloženě ruší. Kreslíme vlastní úzký
+   * thumb z neutral tokenů, takže se light/dark přepne sám (neutral škála se v .dark
+   * obrací) a nemusíme řešit dvě varianty.
+   * How to apply: class="scrollbar-slim" na scrollovaný element (overflow-y-auto …).
+   */
+  .scrollbar-slim {
+    scrollbar-width: thin;                                  /* Firefox */
+    scrollbar-color: var(--color-neutral-300) transparent;  /* thumb / track */
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: var(--color-neutral-300);
+    border-radius: 9999px;
+    border: 2px solid transparent;     /* odsazení → opticky tenčí, „plovoucí" thumb */
+    background-clip: padding-box;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-neutral-400);
+  }
 }
