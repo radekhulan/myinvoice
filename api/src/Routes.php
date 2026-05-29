@@ -45,6 +45,7 @@ use MyInvoice\Action\Admin\ListActivityLogAction;
 use MyInvoice\Action\Admin\UserAdminAction;
 use MyInvoice\Action\Settings\EmailBrandingAction;
 use MyInvoice\Action\Settings\SettingsAction;
+use MyInvoice\Action\Settings\SigningCertAction;
 use MyInvoice\Action\Bank\BankStatementAction;
 use MyInvoice\Action\Dashboard\SummaryAction;
 use MyInvoice\Action\Dashboard\PurchaseSummaryAction;
@@ -416,6 +417,10 @@ final class Routes
         // Settings (M6) — aktuální supplier (z X-Supplier-Id)
         $app->get ('/api/settings/supplier',                [SettingsAction::class, 'getSupplier']);
         $app->put ('/api/settings/supplier',                [SettingsAction::class, 'updateSupplier']);
+        // Podpis PDF certifikátem (PAdES, migrace 0072)
+        $app->post   ('/api/settings/signing-cert',         [SigningCertAction::class, 'upload']);
+        $app->delete ('/api/settings/signing-cert',         [SigningCertAction::class, 'remove']);
+        $app->get    ('/api/settings/signing-cert',         [SigningCertAction::class, 'metadata']);
         $app->get    ('/api/settings/currencies',                     [SettingsAction::class, 'listCurrencies']);
         $app->post   ('/api/settings/currencies',                     [SettingsAction::class, 'createCurrency']);
         $app->put    ('/api/settings/currencies/{id:[0-9]+}',         [SettingsAction::class, 'updateCurrency']);
