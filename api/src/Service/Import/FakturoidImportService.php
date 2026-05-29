@@ -240,7 +240,7 @@ final class FakturoidImportService
             'currency_id'    => $this->resolveCurrencyId((string) ($i['currency'] ?? 'CZK'), $supplierId, isActive: true),
             'reverse_charge' => !empty($i['transferred_tax_liability']),
             'language'       => 'cs',
-            'varsymbol'      => $this->sanitizeVarsymbol((string) ($i['variable_symbol'] ?? $i['number'] ?? '')),
+            'varsymbol'      => $this->uniqueVarsymbol((string) ($i['variable_symbol'] ?? $i['number'] ?? ''), $supplierId),
             'payment_method' => 'bank_transfer',
         ];
         $invoiceId = $this->invoices->createDraft($payload, $userId);
@@ -431,6 +431,34 @@ final class FakturoidImportService
         $vs = preg_replace('/[^A-Za-z0-9_-]/', '', $vs) ?? '';
         if ($vs === '') return 'FAKT-' . substr((string) random_int(1000, 9999), 0, 4);
         return substr($vs, 0, 20);
+    }
+
+    /**
+     * Zajistí unikátnost varsymbolu vůči invoices(supplier_id, varsymbol).
+     * Fakturoid běžně sdílí variabilní symbol mezi proformou a ostrou fakturou
+     * (resp. dobropisem) → naše UNIQUE (uq_inv_supplier_varsymbol) by hodil
+     * 1062 duplicate. Při kolizi disambiguujeme suffixem -N (ořez na 20 znaků
+     * dle DB sloupce). Jako poslední záchrana null (UNIQUE povoluje více NULL).
+     */
+    private function uniqueVarsymbol(string $raw, int $supplierId): ?string
+    {
+        $base = $this->sanitizeVarsymbol($raw);
+        if (!$this->varsymbolTaken($base, $supplierId)) return $base;
+        for ($n = 2; $n <= 99; $n++) {
+            $suffix = '-' . $n;
+            $candidate = substr($base, 0, 20 - strlen($suffix)) . $suffix;
+            if (!$this->varsymbolTaken($candidate, $supplierId)) return $candidate;
+        }
+        return null;
+    }
+
+    private function varsymbolTaken(string $vs, int $supplierId): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT 1 FROM invoices WHERE supplier_id = ? AND varsymbol = ? LIMIT 1'
+        );
+        $stmt->execute([$supplierId, $vs]);
+        return $stmt->fetchColumn() !== false;
     }
 
     private function sanitizeVendorNumber(string $vn): string
