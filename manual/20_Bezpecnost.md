@@ -294,6 +294,23 @@ Viz [19. Nastavení → § 15.6](19_Nastaveni.md) pro UI.
 - **PII klientů** mimo to, co bylo změněno (jen fields seznam, ne hodnoty)
 - **Bankovní transakce** — log obsahuje jen ID importovaného výpisu
 
+### 20.7.2 Jak se do logu zapisuje IP adresa
+
+Aplikace bere IP klienta z **IP síťového spojení** (`REMOTE_ADDR`). Když běží
+**za reverse proxy** (Docker, nginx, Cloudflare…), je tím spojením proxy — bez
+konfigurace by se proto do auditu zapisovala **IP proxy**, ne reálného klienta
+(typicky uvidíš pořád stejnou IP, např. bránu Dockeru `172.x.0.1`).
+
+Reálnou IP přečte aplikace z hlavičky `X-Forwarded-For` **pouze tehdy**, když
+`REMOTE_ADDR` odpovídá rozsahu v `cfg.ip_allowlist.trusted_proxies` (viz
+§ 20.4.1). Z hlavičky se bere **první** adresa (původní klient). Bez nastavené
+`trusted_proxies` se `X-Forwarded-For` ignoruje (ochrana proti podvržení).
+
+> 🛈 Stejná logika se zjišťování IP používá i pro **brute-force lockout**
+> (kap. 20.3). Za reverse proxy bez `trusted_proxies` proto lockout počítá
+> pokusy podle IP proxy = fakticky globálně. Po nastavení `trusted_proxies`
+> začnou audit log i lockout pracovat s reálnou klientskou IP.
+
 ## 20.8 DKIM podpis e-mailů
 
 Pro **deliverabilitu** (aby gmail / o365 / seznam tvé maily nepoznačily jako
