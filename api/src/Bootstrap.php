@@ -19,6 +19,7 @@ use MyInvoice\Middleware\RateLimitMiddleware;
 use MyInvoice\Middleware\RequireTotpMiddleware;
 use MyInvoice\Middleware\RoleMiddleware;
 use MyInvoice\Middleware\SupplierScopeMiddleware;
+use MyInvoice\Service\IpMatcher;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface;
@@ -87,6 +88,13 @@ final class Bootstrap
             Connection::class      => fn (ContainerInterface $c) => new Connection($c->get(Config::class), $c->get(LoggerInterface::class)),
             RedisProbe::class      => fn (ContainerInterface $c) => new RedisProbe($c->get(Config::class)),
             RedisFactory::class    => fn (ContainerInterface $c) => new RedisFactory($c->get(Config::class)),
+
+            // IpMatcher má v konstruktoru volitelný `?Config $config = null`. Autowiring
+            // takový parametr neresolvuje (dosadí default null), takže clientIpFromRequest()
+            // by ignorovalo cfg.ip_allowlist.trusted_proxies a vždy vracelo REMOTE_ADDR.
+            // Za reverse proxy → audit log a brute-force lockout vidí IP proxy místo
+            // reálného klienta. Explicitní injekce Configu to opravuje.
+            IpMatcher::class       => fn (ContainerInterface $c) => new IpMatcher($c->get(Config::class)),
         ]);
 
         $container = $builder->build();
