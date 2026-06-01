@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { settingsApi, type Supplier, type CurrencyAccount, type SigningCertMeta } from '@/api/settings'
+import { settingsApi, type Supplier, type CurrencyAccount, type SigningCertMeta, type PdfSigningDiagnostics } from '@/api/settings'
 import { clientsApi } from '@/api/clients'
 import { useHotkey } from '@/composables/useHotkey'
 import { useToast } from '@/composables/useToast'
@@ -139,6 +139,7 @@ async function load() {
     // První render preview hned po loadu supplier
     bumpPreview()
     loadSigningMeta()
+    loadSigningDiagnostics(true)
   } finally { loading.value = false }
 }
 
@@ -314,6 +315,8 @@ async function removeLogo() {
 
 // === Podpis PDF certifikátem (PAdES, migrace 0076) ===========================
 const signingCert = ref<SigningCertMeta>({ has_cert: false })
+const signingDiagnostics = ref<PdfSigningDiagnostics | null>(null)
+const signingDiagnosticsLoading = ref(false)
 const certFileInput = ref<HTMLInputElement | null>(null)
 const certFile = ref<File | null>(null)
 const certUploading = ref(false)
@@ -322,6 +325,20 @@ const tsaPassword = ref('')  // heslo k TSA (HTTP Basic) — odešle se při ulo
 
 async function loadSigningMeta() {
   try { signingCert.value = await settingsApi.getSigningCert() } catch { /* ignore */ }
+}
+async function loadSigningDiagnostics(silent = true) {
+  signingDiagnosticsLoading.value = true
+  try {
+    signingDiagnostics.value = await settingsApi.getPdfSigningDiagnostics()
+  } catch (e: any) {
+    if (!silent) toast.error(e?.response?.data?.error?.message || t('common.error'))
+  } finally {
+    signingDiagnosticsLoading.value = false
+  }
+}
+
+function signingUnavailableLabel(reason: string | null | undefined): string {
+  return t(`settings.signing_diag_reason_${reason || 'ready'}`)
 }
 
 // Uloží jen signing pole (toggle/TSA/důvod), nešahá na zbytek formuláře.
@@ -339,6 +356,7 @@ async function saveSigning(silent = false) {
     const updated = await settingsApi.updateSupplier(payload)
     supplier.value = { ...supplier.value, ...updated }
     tsaPassword.value = ''
+    await loadSigningDiagnostics(true)
     if (!silent) toast.success(t('settings.signing_saved'))
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
@@ -361,6 +379,7 @@ async function uploadCert() {
     certPassword.value = ''
     certFile.value = null
     if (certFileInput.value) certFileInput.value.value = ''
+    await loadSigningDiagnostics(true)
     toast.success(t('settings.signing_cert_uploaded'))
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
@@ -378,6 +397,7 @@ async function removeCert() {
     supplier.value.pdf_signing_enabled = false
     certFile.value = null
     if (certFileInput.value) certFileInput.value.value = ''
+    await loadSigningDiagnostics(true)
     toast.success(t('settings.signing_cert_removed'))
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
@@ -919,6 +939,31 @@ async function removeCurrency(c: CurrencyAccount) {
           <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 0 0 1.74-3L13.74 4a2 2 0 0 0-3.48 0L3.33 16a2 2 0 0 0 1.74 3z"/></svg>
           {{ t('settings.signing_need_cert') }}
         </p>
+
+        <div v-if="signingDiagnostics" class="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="inline-block h-2 w-2 rounded-full"
+                :class="signingDiagnostics.effective_can_sign ? 'bg-success-500' : 'bg-warning-500'"></span>
+              <span class="font-medium text-neutral-700">{{ t('settings.signing_diag_title') }}</span>
+              <span :class="signingDiagnostics.effective_can_sign ? 'text-success-700' : 'text-warning-700'">
+                {{ signingUnavailableLabel(signingDiagnostics.unavailable_reason) }}
+              </span>
+            </div>
+            <button @click="() => loadSigningDiagnostics(false)" type="button"
+              class="cursor-pointer text-neutral-500 hover:text-neutral-700 disabled:opacity-50"
+              :disabled="signingDiagnosticsLoading"
+              :title="t('common.refresh')">↻</button>
+          </div>
+          <div class="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_backend') }}:</span> <span class="font-mono">{{ signingDiagnostics.backend.effective }}</span></div>
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_policy') }}:</span> <span class="font-mono">{{ signingDiagnostics.failure_policy }}</span></div>
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_cert') }}:</span> {{ signingDiagnostics.certificate.exists ? t('common.yes') : t('common.no') }}</div>
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_tsa') }}:</span> {{ signingDiagnostics.tsa.configured ? 'PAdES-T' : 'PAdES-B' }}</div>
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_visible') }}:</span> {{ signingDiagnostics.backend.capabilities.supports_visible ? t('common.yes') : t('common.no') }}</div>
+            <div><span class="text-neutral-500">{{ t('settings.signing_diag_external') }}:</span> {{ signingDiagnostics.backend.capabilities.requires_external_binary ? t('common.yes') : t('common.no') }}</div>
+          </div>
+        </div>
 
         <div class="space-y-4 max-w-2xl">
           <!-- Certifikát -->

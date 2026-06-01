@@ -176,6 +176,17 @@ return [
         'sessions_dir' => __DIR__ . '/storage/sessions',  // jen pokud session.driver = 'db' (file fallback)
         'cache_dir'    => __DIR__ . '/storage/cache',     // file cache (ARES/VIES odpovědi, PDF mezikroky)
     ],
+    'pdf_signing' => [
+        // Platform-level switch pro novou signing infrastrukturu. Konkrétní dodavatel
+        // musí mít stále zapnuté supplier.pdf_signing_enabled a nahraný P12/PFX certifikát.
+        'enabled'        => true,
+        'default_backend'=> 'native',                  // první iterace: pouze native backend nad PdfSigner
+        'failure_policy' => 'fallback_unsigned',       // fallback_unsigned | fail_closed | skip_when_unconfigured
+        'enabled_outputs'=> [
+            'invoices'     => true,
+            'work_reports' => true,
+        ],
+    ],
     'qr' => [
         'czk_constant_symbol' => '0308',             // KS pro CZK platby (0308 = běžný platební styk)
     ],

@@ -14,6 +14,7 @@ use MyInvoice\Service\Branding\AccentColor;
 use MyInvoice\Service\Export\IsdocExporter;
 use MyInvoice\Service\Invoice\SnapshotBuilder;
 use MyInvoice\Service\Qr\QrPaymentGenerator;
+use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -41,8 +42,7 @@ final class InvoicePdfRenderer
         private readonly SnapshotBuilder $snapshots,
         private readonly PdfArchiveService $archive,
         private readonly IsdocExporter $isdoc,
-        private readonly PdfSigner $signer,
-        private readonly \MyInvoice\Service\ActivityLogger $activity,
+        private readonly PdfSigningService $pdfSigning,
     ) {}
 
     /**
@@ -158,8 +158,7 @@ final class InvoicePdfRenderer
         $tmpPath = $this->signPdfIfEnabled(
             $tmpPath,
             $this->getSupplierData((int) ($invoice['supplier_id'] ?? 0)),
-            $this->signer,
-            $this->activity,
+            $this->pdfSigning,
             'invoice',
             $invoiceId,
         );

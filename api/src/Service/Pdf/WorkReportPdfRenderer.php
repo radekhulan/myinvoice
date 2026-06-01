@@ -9,6 +9,7 @@ use MyInvoice\Bootstrap;
 use MyInvoice\Infrastructure\Database\Connection;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\WorkReportRepository;
+use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -27,8 +28,7 @@ final class WorkReportPdfRenderer
         private readonly InvoiceRepository $invoices,
         private readonly WorkReportRepository $workReports,
         private readonly Connection $db,
-        private readonly PdfSigner $signer,
-        private readonly \MyInvoice\Service\ActivityLogger $activity,
+        private readonly PdfSigningService $pdfSigning,
     ) {}
 
     /**
@@ -114,7 +114,7 @@ final class WorkReportPdfRenderer
 
         // Podpis PDF (PAdES) — má-li dodavatel zapnuto; měkký fallback při chybě.
         $tmpPath = $this->signPdfIfEnabled(
-            $tmpPath, $this->resolveSupplier($invoice), $this->signer, $this->activity,
+            $tmpPath, $this->resolveSupplier($invoice), $this->pdfSigning,
             'work_report', (int) $invoice['id'],
         );
 

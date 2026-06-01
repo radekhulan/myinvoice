@@ -152,6 +152,47 @@ export interface SigningCertMeta {
   fingerprint?: string
 }
 
+export interface PdfSigningDiagnostics {
+  platform_enabled: boolean
+  supplier_enabled: boolean
+  effective_can_sign: boolean
+  unavailable_reason: string | null
+  failure_policy: string
+  backend: {
+    configured: string
+    effective: string
+    health: {
+      ok: boolean
+      message: string
+    }
+    capabilities: {
+      supports_invisible: boolean
+      supports_visible: boolean
+      supports_append_signature_page: boolean
+      supports_timestamp: boolean
+      supports_pades: boolean
+      requires_external_binary: boolean
+      supported_certificate_types: string[]
+    }
+  }
+  profile: {
+    code: string
+    available: boolean
+    owner_type: string
+    owner_id: number | null
+    source: string
+  }
+  certificate: {
+    configured: boolean
+    exists: boolean
+    storage: string
+  }
+  tsa: {
+    configured: boolean
+    auth_configured: boolean
+  }
+}
+
 export const settingsApi = {
   getSupplier: () => api.get<Supplier>('/settings/supplier').then(r => r.data),
   updateSupplier: (payload: Partial<Supplier>) => api.put<Supplier>('/settings/supplier', payload).then(r => r.data),
@@ -201,6 +242,8 @@ export const settingsApi = {
     }).then(r => r.data)
   },
   deleteSigningCert: () => api.delete('/settings/signing-cert').then(r => r.data),
+  getPdfSigningDiagnostics: () =>
+    api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),
   // Vrací HTML string — frontend ho pak nacpe do iframe.srcdoc (obejde X-Frame-Options DENY).
   emailPreviewHtml: (locale: 'cs' | 'en' = 'cs') =>
     api.get<string>(`/settings/email-branding/preview?locale=${locale}`, { responseType: 'text', transformResponse: [(d) => d] }).then(r => r.data),

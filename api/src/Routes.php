@@ -47,6 +47,7 @@ use MyInvoice\Action\Admin\ListActivityLogAction;
 use MyInvoice\Action\Admin\ListSentEmailsAction;
 use MyInvoice\Action\Admin\UserAdminAction;
 use MyInvoice\Action\Settings\EmailBrandingAction;
+use MyInvoice\Action\Settings\PdfSigningDiagnosticsAction;
 use MyInvoice\Action\Settings\SettingsAction;
 use MyInvoice\Action\Settings\SigningCertAction;
 use MyInvoice\Action\Bank\BankStatementAction;
@@ -452,6 +453,7 @@ final class Routes
         $app->post   ('/api/settings/signing-cert',         [SigningCertAction::class, 'upload']);
         $app->delete ('/api/settings/signing-cert',         [SigningCertAction::class, 'remove']);
         $app->get    ('/api/settings/signing-cert',         [SigningCertAction::class, 'metadata']);
+        $app->get    ('/api/settings/pdf-signing/diagnostics', PdfSigningDiagnosticsAction::class);
         $app->get    ('/api/settings/currencies',                     [SettingsAction::class, 'listCurrencies']);
         $app->post   ('/api/settings/currencies',                     [SettingsAction::class, 'createCurrency']);
         $app->put    ('/api/settings/currencies/{id:[0-9]+}',         [SettingsAction::class, 'updateCurrency']);
