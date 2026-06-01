@@ -103,16 +103,21 @@ final class BulkReissueAction
 
         $type = $source['invoice_type'] === 'proforma' ? 'proforma' : 'invoice';
 
-        // Default due_date podle project nebo +14
-        $dueDate = $issueDate;
+        // Splatnost: payment_due_days zakázky, jinak výchozí splatnost dodavatele
+        // (stejně jako u nové faktury). Bez fallbacku na dodavatele by klon faktury
+        // bez zakázky dostal splatnost = datum vystavení (0 dní).
+        $days = 0;
         if (!empty($source['project_id'])) {
             $stmt = $this->db->pdo()->prepare('SELECT payment_due_days FROM projects WHERE id = ?');
             $stmt->execute([$source['project_id']]);
             $days = (int) $stmt->fetchColumn();
-            if ($days > 0) {
-                $dueDate = date('Y-m-d', strtotime($issueDate . " +{$days} days"));
-            }
         }
+        if ($days <= 0) {
+            $stmt = $this->db->pdo()->prepare('SELECT default_payment_due_days FROM supplier WHERE id = ?');
+            $stmt->execute([(int) $source['supplier_id']]);
+            $days = (int) $stmt->fetchColumn() ?: 14;
+        }
+        $dueDate = date('Y-m-d', strtotime($issueDate . " +{$days} days"));
 
         $taxDate = $type === 'proforma' ? null : $issueDate;
 
