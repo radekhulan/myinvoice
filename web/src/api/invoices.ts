@@ -92,6 +92,7 @@ export interface Invoice {
   advance_paid_amount: number
   discount_percent: number
   payment_method: PaymentMethod
+  auto_send_reminders: boolean
   amount_to_pay: number
   total_without_vat: number
   total_vat: number
@@ -233,6 +234,7 @@ export interface InvoicePayload {
   advance_paid_amount?: number
   discount_percent?: number
   payment_method?: PaymentMethod
+  auto_send_reminders?: boolean
   exchange_rate?: number | null
   // Volitelný ruční override čísla faktury (varsymbol). Prázdný řetězec / null =
   // generuje se automaticky při issue dle supplier templatu (Settings → Číslování faktur)

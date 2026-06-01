@@ -14,6 +14,19 @@ const supplier = ref<Supplier | null>(null)
 const currencies = ref<CurrencyAccount[]>([])
 const loading = ref(true)
 
+// Práh dní pro první upomínku — Nastavení nabízí presety (3 / týden / měsíc) + „vlastní".
+// computed mapuje uloženou hodnotu ↔ výběr: hodnota mimo presety = „vlastní" (číselný input).
+const REMINDER_DAYS_PRESETS = [3, 7, 30]
+const reminderDaysPreset = computed<number | 'custom'>({
+  get() {
+    const d = supplier.value?.reminder_days_after_due ?? 3
+    return REMINDER_DAYS_PRESETS.includes(d) ? d : 'custom'
+  },
+  set(v) {
+    if (v !== 'custom' && supplier.value) supplier.value.reminder_days_after_due = v
+  },
+})
+
 const editingCurrency = ref<number | null>(null)
 const editingCurrencyLabel = ref<string>('')
 const currencyDraft = reactive<Partial<CurrencyAccount>>({})
@@ -549,6 +562,23 @@ async function removeCurrency(c: CurrencyAccount) {
               {{ t('settings.auto_send_reminders') }}
             </label>
             <p class="text-xs text-neutral-500 mt-1 ml-6">{{ t('settings.auto_send_reminders_hint') }}</p>
+          </div>
+          <div class="md:col-span-2" v-if="supplier.auto_send_reminders">
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.reminder_days_after_due') }}</label>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select v-model="reminderDaysPreset" class="h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+                <option :value="3">{{ t('settings.reminder_days_preset.d3') }}</option>
+                <option :value="7">{{ t('settings.reminder_days_preset.week') }}</option>
+                <option :value="30">{{ t('settings.reminder_days_preset.month') }}</option>
+                <option value="custom">{{ t('settings.reminder_days_preset.custom') }}</option>
+              </select>
+              <template v-if="reminderDaysPreset === 'custom'">
+                <input v-model.number="supplier.reminder_days_after_due" type="number" min="1" max="365"
+                       class="w-24 h-10 px-3 border border-neutral-300 rounded-md text-sm font-mono" />
+                <span class="text-sm text-neutral-500">{{ t('settings.reminder_days_unit') }}</span>
+              </template>
+            </div>
+            <p class="text-xs text-neutral-500 mt-1">{{ t('settings.reminder_days_after_due_hint') }}</p>
           </div>
           <div class="md:col-span-2 border-t border-neutral-200 pt-3">
             <label class="flex items-center gap-2 text-sm">

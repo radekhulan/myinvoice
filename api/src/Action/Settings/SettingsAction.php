@@ -219,7 +219,7 @@ final class SettingsAction
             // dedikované endpointy EmailBrandingAction::uploadLogo (multipart, processed by
             // SupplierLogoConverter do storage/branding/sup-N/). Mass-assign by umožnil
             // admin-planted LFI (security report @andrejtomci #2).
-            'default_hourly_rate', 'auto_send_reminders', 'auto_generate_recurring', 'embed_isdoc',
+            'default_hourly_rate', 'auto_send_reminders', 'reminder_days_after_due', 'auto_generate_recurring', 'embed_isdoc',
             'default_prices_include_vat',
             'pohoda_account_code', 'pohoda_centre_code', 'pohoda_activity_code', 'pohoda_contract_code',
             // Per-supplier konfigurace číslování faktur (migrace 0014)
@@ -328,6 +328,11 @@ final class SettingsAction
             );
             $stmt->execute([$id, strtoupper((string) $body['default_currency'])]);
             $body['default_currency_id'] = (int) $stmt->fetchColumn();
+        }
+        // Práh dní pro první upomínku je INT — clamp zrcadlí rozsah UI (1–365 dní),
+        // ať přímý API caller neuloží nesmyslnou hodnotu.
+        if (array_key_exists('reminder_days_after_due', $body)) {
+            $body['reminder_days_after_due'] = max(1, min(365, (int) $body['reminder_days_after_due']));
         }
         $sets = [];
         $params = [];
@@ -455,6 +460,7 @@ final class SettingsAction
         $row['default_payment_due_unit'] = (string) ($row['default_payment_due_unit'] ?? 'days');
         $row['default_hourly_rate']      = (float) $row['default_hourly_rate'];
         $row['auto_send_reminders']      = (bool) $row['auto_send_reminders'];
+        $row['reminder_days_after_due']  = (int) ($row['reminder_days_after_due'] ?? 3);
         $row['auto_generate_recurring']  = (bool) ($row['auto_generate_recurring'] ?? true);
         $row['default_prices_include_vat'] = (bool) ($row['default_prices_include_vat'] ?? false);
         $row['embed_isdoc']              = (bool) ($row['embed_isdoc'] ?? true);

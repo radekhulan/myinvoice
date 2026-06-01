@@ -626,8 +626,8 @@ final class InvoiceRepository
              issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
              note_above_items, note_below_items, advance_paid_amount, discount_percent, varsymbol,
              payment_method, status, vat_classification_code, revenue_category, revenue_category_id,
-             income_tax_exempt, income_tax_exempt_reason, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?, ?, ?, ?, ?, ?)';
+             income_tax_exempt, income_tax_exempt_reason, auto_send_reminders, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?, ?, ?, ?, ?, ?, ?)';
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -654,6 +654,7 @@ final class InvoiceRepository
             $revenueCategoryId,
             !empty($data['income_tax_exempt']) ? 1 : 0,
             self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null),
+            array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
             $userId,
         ]);
 
@@ -696,7 +697,7 @@ final class InvoiceRepository
                 note_above_items = ?, note_below_items = ?,
                 advance_paid_amount = ?, discount_percent = ?,
                 vat_classification_code = ?, revenue_category = ?, revenue_category_id = ?,
-                income_tax_exempt = ?, income_tax_exempt_reason = ?'
+                income_tax_exempt = ?, income_tax_exempt_reason = ?, auto_send_reminders = ?'
               . ($hasVarsymbol ? ', varsymbol = ?' : '')
               . ($hasPaymentMethod ? ', payment_method = ?' : '')
               . ($hasType ? ', invoice_type = ?' : '')
@@ -721,6 +722,7 @@ final class InvoiceRepository
             isset($data['revenue_category_id']) && $data['revenue_category_id'] ? (int) $data['revenue_category_id'] : null,
             !empty($data['income_tax_exempt']) ? 1 : 0,
             self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null),
+            array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
         ];
         if ($hasVarsymbol) $params[] = $manualVarsymbol;
         if ($hasPaymentMethod) $params[] = $paymentMethod;
@@ -989,6 +991,9 @@ final class InvoiceRepository
         $row['prices_include_vat']  = isset($row['prices_include_vat']) ? (bool) $row['prices_include_vat'] : false;
         if (array_key_exists('income_tax_exempt', $row)) {
             $row['income_tax_exempt'] = (bool) $row['income_tax_exempt'];
+        }
+        if (array_key_exists('auto_send_reminders', $row)) {
+            $row['auto_send_reminders'] = (bool) $row['auto_send_reminders'];
         }
         foreach (['total_without_vat', 'total_vat', 'total_with_vat', 'rounding', 'advance_paid_amount', 'amount_to_pay', 'discount_percent'] as $f) {
             if (array_key_exists($f, $row) && $row[$f] !== null) $row[$f] = (float) $row[$f];
