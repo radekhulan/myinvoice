@@ -329,6 +329,25 @@ final class SettingsAction
             $stmt->execute([$id, strtoupper((string) $body['default_currency'])]);
             $body['default_currency_id'] = (int) $stmt->fetchColumn();
         }
+
+        if (array_key_exists('signing_tsa_enabled', $body)) {
+            $tsaEnabled = (bool) $body['signing_tsa_enabled'];
+            if ($tsaEnabled) {
+                $tsaUrl = trim((string) ($body['signing_tsa_url'] ?? ''));
+                if ($tsaUrl === '') {
+                    return Json::error($response, 'validation_failed', 'Pro časové razítko zadej TSA URL.', 400);
+                }
+                $body['signing_tsa_url'] = $tsaUrl;
+                if (array_key_exists('signing_tsa_username', $body)) {
+                    $body['signing_tsa_username'] = trim((string) ($body['signing_tsa_username'] ?? '')) ?: null;
+                }
+            } else {
+                $body['signing_tsa_url'] = null;
+                $body['signing_tsa_username'] = null;
+                $body['signing_tsa_password'] = '';
+            }
+        }
+
         $sets = [];
         $params = [];
         foreach ($allowed as $f) {

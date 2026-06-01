@@ -26,16 +26,13 @@ final class SigningConfig
     /**
      * Vytvoří konfiguraci z řádku tabulky supplier (SELECT s.*).
      *
-     * Vrátí null, když podpis NENÍ zapnutý (`pdf_signing_enabled` != 1) nebo
-     * chybí cesta k certifikátu — volající (renderer) podpis přeskočí.
+     * Vrátí null, když chybí cesta k certifikátu — volající (renderer) podpis
+     * přeskočí nebo použije fallback podle mapování výstupu.
      *
      * @param array<string,mixed> $row
      */
-    public static function fromSupplierRow(array $row): ?self
+    public static function fromSupplierRow(array $row, string $documentType = 'invoice'): ?self
     {
-        if ((int) ($row['pdf_signing_enabled'] ?? 0) !== 1) {
-            return null;
-        }
         // V DB je cesta uložená RELATIVNĚ ke storage (data-dir nezávislá); na absolutní
         // se resolvuje až tady přes RuntimePaths (respektuje MYINVOICE_DATA_DIR), takže
         // přesun data-dir / Docker volume podpis nerozbije.
@@ -49,10 +46,18 @@ final class SigningConfig
             certPath:     $certPath,
             passwordEnc:  (string) ($row['signing_cert_password_enc'] ?? ''),
             tsaUrl:       ($tsa !== null && $tsa !== '') ? (string) $tsa : null,
-            reason:       (string) ($row['signing_reason'] ?? '') ?: 'Faktura',
+            reason:       self::defaultReason($documentType),
             tsaUsername:  ($tsaUser !== null && $tsaUser !== '') ? (string) $tsaUser : null,
             tsaPasswordEnc: (string) ($row['signing_tsa_password_enc'] ?? ''),
         );
+    }
+
+    public static function defaultReason(string $documentType): string
+    {
+        return match ($documentType) {
+            'work_report' => 'Výkaz práce',
+            default => 'Faktura',
+        };
     }
 
     /**

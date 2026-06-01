@@ -35,7 +35,7 @@ final class WorkReportPdfRenderer
      * Vyrendrované PDF výkazu do souboru a vrátí cestu.
      * Throw RuntimeException pokud faktura/výkaz neexistuje.
      */
-    public function render(int $invoiceId): string
+    public function render(int $invoiceId, ?int $userId = null): string
     {
         $invoice = $this->invoices->find($invoiceId);
         if ($invoice === null) {
@@ -115,7 +115,7 @@ final class WorkReportPdfRenderer
         // Podpis PDF (PAdES) — má-li dodavatel zapnuto; měkký fallback při chybě.
         $tmpPath = $this->signPdfIfEnabled(
             $tmpPath, $this->resolveSupplier($invoice), $this->pdfSigning,
-            'work_report', (int) $invoice['id'],
+            'work_report', (int) $invoice['id'], $userId,
         );
 
         if (is_file($path)) @unlink($path);

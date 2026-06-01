@@ -56,6 +56,9 @@ final class NativePdfSignatureBackend implements PdfSignatureBackendInterface
             level: $timestamped ? 'PAdES-T' : 'PAdES-B',
             timestamped: $timestamped,
             certificateFingerprint: null,
+            metadata: [
+                'certificate_cn' => $this->signer->lastCertificateCommonName(),
+            ],
         );
     }
 

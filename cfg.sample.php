@@ -187,6 +187,14 @@ return [
             'work_reports' => true,
         ],
     ],
+    'signing' => [
+        // Volitelný passphrase file pro podpisové profily s politikou passphrase_file.
+        // Soubor může být Docker secret (/run/secrets/...) nebo relativní cesta vůči data dir.
+        // Formát INI:
+        //   [profile_code]
+        //   passphrase=heslo
+        'passphrase_file' => '',
+    ],
     'qr' => [
         'czk_constant_symbol' => '0308',             // KS pro CZK platby (0308 = běžný platební styk)
     ],

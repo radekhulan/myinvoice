@@ -43,6 +43,7 @@ const routes: RouteRecordRaw[] = [
       // Redirect zachovává bookmarks / staré odkazy.
       { path: 'admin/suppliers',        name: 'admin-suppliers', redirect: '/admin/codebooks' },
       { path: 'admin/codebooks',        name: 'admin-codebooks', component: () => import('@/pages/admin/Codebooks.vue'),  meta: { adminOnly: true } },
+      { path: 'admin/electronic-signatures', name: 'admin-electronic-signatures', component: () => import('@/pages/admin/ElectronicSignatures.vue'), meta: { requiresWrite: true, signingProfiles: true } },
       { path: 'admin/export',           name: 'admin-export',    component: () => import('@/pages/admin/Export.vue') },
       { path: 'admin/import',           name: 'admin-import',    component: () => import('@/pages/admin/Imports.vue'),    meta: { adminOnly: true } },
       { path: 'admin/integrations',     name: 'admin-integrations', component: () => import('@/pages/admin/Integrations.vue'), meta: { adminOnly: true } },
@@ -67,6 +68,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'profile/totp',           name: 'profile-totp',          redirect: (to) => ({ path: '/profile/password', query: { ...to.query, tab: 'totp' } }) },
       { path: 'profile/password',       name: 'profile-password',      component: () => import('@/pages/PasswordChange.vue') },
       { path: 'profile/api-tokens',     name: 'profile-api-tokens',    component: () => import('@/pages/ApiTokens.vue') },
+      { path: 'profile/signing-profiles', name: 'profile-signing-profiles', redirect: '/admin/electronic-signatures' },
     ],
   },
   { path: '/login',  name: 'login',  component: () => import('@/pages/Login.vue'),          meta: { public: true } },
@@ -138,6 +140,11 @@ router.beforeEach(async (to) => {
   // readonly smí jen číst/exportovat → na write routes ho přesměrujeme na dashboard.
   const requiresWrite = to.matched.some((r) => r.meta.requiresWrite)
   if (requiresWrite && !auth.canWrite) {
+    return { name: 'home' }
+  }
+
+  const signingProfiles = to.matched.some((r) => r.meta.signingProfiles)
+  if (signingProfiles && auth.user?.role !== 'admin' && auth.user?.role !== 'accountant') {
     return { name: 'home' }
   }
 

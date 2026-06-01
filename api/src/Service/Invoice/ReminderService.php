@@ -88,7 +88,7 @@ final class ReminderService
             }
         }
 
-        $pdfPath = $this->renderer->render($invoiceId);
+        $pdfPath = $this->renderer->render($invoiceId, false, $userId);
 
         $locale = (string) ($invoice['language'] ?? 'cs');
         $vars = $this->varsBuilder->buildReminder($invoice, $daysOverdue, $locale);

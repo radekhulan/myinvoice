@@ -91,10 +91,10 @@ final class PdfSigningServiceTest extends TestCase
         );
     }
 
-    public function testSupplierDisabledSkipsSigningAndLogsAuditEventWhenPlatformEnabled(): void
+    public function testLegacySupplierDisabledFlagDoesNotSkipSigning(): void
     {
-        $tmpPath = $this->tempPdfPath('supplier-disabled');
-        file_put_contents($tmpPath, 'not used');
+        $tmpPath = $this->tempPdfPath('legacy-supplier-disabled');
+        file_put_contents($tmpPath, $this->minimalClassicPdf());
 
         $service = $this->service(
             config: [
@@ -108,12 +108,11 @@ final class PdfSigningServiceTest extends TestCase
                 ],
             ],
             activity: $this->activityLoggerExpecting(function (array $params, array $payload): void {
-                self::assertSame('signing.skipped', $params[2]);
+                self::assertSame('signing.failed', $params[2]);
                 self::assertSame('invoice', $params[3]);
                 self::assertSame(321, $params[4]);
-                self::assertSame('skipped', $payload['status']);
-                self::assertSame('supplier_disabled', $payload['reason']);
-                self::assertNull($payload['profile_code']);
+                self::assertSame('fallback_unsigned', $payload['status']);
+                self::assertSame('supplier_default', $payload['profile_code']);
             }),
         );
 
@@ -126,6 +125,48 @@ final class PdfSigningServiceTest extends TestCase
         );
 
         self::assertSame($tmpPath, $result);
+        self::assertFileExists($tmpPath);
+        self::assertFileDoesNotExist($tmpPath . '.signed');
+    }
+
+    public function testPdfSigningTestReportsMissingProfileAndLogsSkipped(): void
+    {
+        $tmpPath = $this->tempPdfPath('signing-test-missing-profile');
+        file_put_contents($tmpPath, $this->minimalClassicPdf());
+
+        $service = $this->service(
+            config: [
+                'pdf_signing' => [
+                    'enabled' => true,
+                    'default_backend' => 'native',
+                    'failure_policy' => PdfSignaturePolicy::FALLBACK_UNSIGNED,
+                    'enabled_outputs' => [
+                        'invoices' => true,
+                    ],
+                ],
+            ],
+            activity: $this->activityLoggerExpecting(function (array $params, array $payload): void {
+                self::assertSame('signing.test_skipped', $params[2]);
+                self::assertSame('supplier', $params[3]);
+                self::assertSame(17, $params[4]);
+                self::assertSame('invoice', $payload['output_type']);
+                self::assertSame('skipped', $payload['status']);
+                self::assertSame('missing_profile', $payload['reason']);
+                self::assertNull($payload['profile_code']);
+                self::assertNull($payload['certificate_cn']);
+            }),
+        );
+
+        $result = $service->testSupplierPdfSigning(
+            $tmpPath,
+            $this->supplierRow(['signing_cert_path' => '']),
+            'invoice',
+            5,
+        );
+
+        self::assertSame('skipped', $result['status']);
+        self::assertSame('missing_profile', $result['reason']);
+        self::assertNull($result['certificate_cn']);
         self::assertFileExists($tmpPath);
     }
 
@@ -230,10 +271,16 @@ final class PdfSigningServiceTest extends TestCase
             ->with(self::stringContains('INSERT INTO activity_log'))
             ->willReturn($stmt);
 
-        $db = $this->createMock(Connection::class);
-        $db->expects(self::once())
-            ->method('pdo')
-            ->willReturn($pdo);
+        $db = new Connection(new Config([
+            'db' => [
+                'host' => '127.0.0.1',
+                'name' => 'unit_test',
+                'user' => 'unit_test',
+                'pass' => '',
+            ],
+        ]));
+        $pdoProperty = new \ReflectionProperty(Connection::class, 'pdo');
+        $pdoProperty->setValue($db, $pdo);
 
         return new ActivityLogger($db);
     }

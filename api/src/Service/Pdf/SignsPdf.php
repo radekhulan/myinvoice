@@ -28,7 +28,8 @@ trait SignsPdf
         PdfSigningService $signing,
         string $docType,
         int $docId,
+        ?int $userId = null,
     ): string {
-        return $signing->signSupplierPdfIfEnabled($tmpPath, $supplierRow, $docType, $docId);
+        return $signing->signSupplierPdfIfEnabled($tmpPath, $supplierRow, $docType, $docId, $userId);
     }
 }

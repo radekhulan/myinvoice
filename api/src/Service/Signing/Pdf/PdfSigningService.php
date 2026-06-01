@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace MyInvoice\Service\Signing\Pdf;
 
 use MyInvoice\Infrastructure\Config\Config;
+use MyInvoice\Repository\SigningProfileRepository;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\Pdf\SigningConfig;
 use MyInvoice\Service\Signing\SigningProfile;
+use MyInvoice\Service\Signing\SigningPassphraseProviderInterface;
 
 final class PdfSigningService
 {
@@ -15,6 +17,8 @@ final class PdfSigningService
         private readonly Config $config,
         private readonly ActivityLogger $activity,
         private readonly NativePdfSignatureBackend $nativeBackend,
+        private readonly ?SigningProfileRepository $profiles = null,
+        private readonly ?SigningPassphraseProviderInterface $passphrases = null,
     ) {}
 
     /**
@@ -29,14 +33,16 @@ final class PdfSigningService
         int $documentId,
         ?int $userId = null,
     ): string {
-        $policy = new PdfSignaturePolicy($this->failurePolicy());
         $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
 
         if (!$this->platformEnabled()) {
             return $tmpPath;
         }
 
-        if (!$this->outputEnabled($documentType)) {
+        $outputSetting = $this->effectiveOutputSetting($supplierId, $documentType, $documentId);
+        $policy = new PdfSignaturePolicy($this->failurePolicy($outputSetting));
+
+        if (!$this->configOutputEnabled($documentType) || !$this->outputSettingEnabled($outputSetting)) {
             return $this->handleSkipped(
                 tmpPath: $tmpPath,
                 policy: $policy,
@@ -48,23 +54,11 @@ final class PdfSigningService
             );
         }
 
-        if (!$this->supplierSigningEnabled($supplierRow)) {
-            return $this->handleSkipped(
-                tmpPath: $tmpPath,
-                policy: $policy,
-                documentType: $documentType,
-                documentId: $documentId,
-                supplierId: $supplierId,
-                userId: $userId,
-                reason: 'supplier_disabled',
-            );
-        }
-
-        $profile = $this->supplierDefaultProfile($supplierRow);
+        $profile = $this->selectProfile($supplierRow, $outputSetting, $userId, $documentType);
         if ($profile === null || $profile->pdfConfig === null) {
             return $this->handleUnconfigured(
                 tmpPath: $tmpPath,
-                policy: $policy,
+                policy: new PdfSignaturePolicy($this->unconfiguredFailurePolicy($outputSetting)),
                 documentType: $documentType,
                 documentId: $documentId,
                 supplierId: $supplierId,
@@ -139,14 +133,124 @@ final class PdfSigningService
         }
     }
 
+    /**
+     * @param array<string,mixed> $supplierRow
+     */
+    public function outputDependsOnUserProfile(array $supplierRow, string $documentType, int $documentId): bool
+    {
+        if (!$this->platformEnabled() || !$this->configOutputEnabled($documentType)) {
+            return false;
+        }
+
+        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
+        $outputSetting = $this->effectiveOutputSetting($supplierId, $documentType, $documentId);
+        if (!$this->outputSettingEnabled($outputSetting)) {
+            return false;
+        }
+
+        return (string) ($outputSetting['selection_source'] ?? 'supplier_default') === 'logged_in_user';
+    }
+
+    /**
+     * Provede test podpisu na dočasném PDF a vrátí bezpečný výsledek pro UI.
+     *
+     * @param array<string,mixed> $supplierRow řádek tabulky supplier (SELECT s.*)
+     * @return array<string,mixed>
+     */
+    public function testSupplierPdfSigning(
+        string $tmpPath,
+        array $supplierRow,
+        string $outputType,
+        ?int $userId = null,
+    ): array {
+        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
+        $outputSetting = $this->outputSetting($supplierId, $outputType);
+        $policy = new PdfSignaturePolicy($this->failurePolicy($outputSetting));
+        $base = [
+            'output_type' => $outputType,
+            'backend' => (string) $this->config->get('pdf_signing.default_backend', 'native'),
+            'profile_code' => null,
+            'certificate_cn' => null,
+            'level' => null,
+            'timestamped' => false,
+            'failure_policy' => $policy->failurePolicy,
+        ];
+
+        if (!$this->platformEnabled()) {
+            return $this->testSkipped($userId, $supplierId, $base, 'platform_disabled');
+        }
+
+        if (!$this->configOutputEnabled($outputType) || !$this->outputSettingEnabled($outputSetting)) {
+            return $this->testSkipped($userId, $supplierId, $base, 'output_disabled');
+        }
+
+        $profile = $this->selectProfile($supplierRow, $outputSetting, $userId, $outputType);
+        $base['profile_code'] = $profile?->code;
+        if ($profile === null || $profile->pdfConfig === null) {
+            $unconfiguredPolicy = new PdfSignaturePolicy($this->unconfiguredFailurePolicy($outputSetting));
+            $base['failure_policy'] = $unconfiguredPolicy->failurePolicy;
+            if ($unconfiguredPolicy->failClosed()) {
+                return $this->testFailed($userId, $supplierId, $base, 'Podpisový profil není nakonfigurovaný.');
+            }
+
+            return $this->testSkipped($userId, $supplierId, $base, 'missing_profile');
+        }
+
+        $backend = $this->backendFor($profile);
+        $base['backend'] = $backend->id();
+        $capabilities = $backend->capabilities();
+        if (!$capabilities->supportsInvisible) {
+            return $this->testFailed($userId, $supplierId, $base, 'Vybraný backend nepodporuje neviditelný PDF podpis.');
+        }
+
+        $outputPath = $tmpPath . '.signed';
+        if (is_file($outputPath)) {
+            @unlink($outputPath);
+        }
+
+        try {
+            $result = $backend->sign(new PdfSigningRequest(
+                inputPath: $tmpPath,
+                outputPath: $outputPath,
+                documentType: $outputType,
+                documentId: 0,
+                profile: $profile,
+                appearance: PdfSignatureAppearance::invisible(),
+                policy: $policy,
+                supplierId: $supplierId,
+                userId: $userId,
+            ));
+
+            $payload = array_merge($base, [
+                'status' => 'signed',
+                'level' => $result->level,
+                'timestamped' => $result->timestamped,
+                'certificate_cn' => $result->metadata['certificate_cn'] ?? null,
+            ]);
+            $this->activity->log('signing.test_signed', $userId, 'supplier', $supplierId ?? 0, $payload, null, null, $supplierId);
+
+            return $payload;
+        } catch (\Throwable $e) {
+            $status = $policy->failClosed() ? 'failed' : 'fallback_unsigned';
+            return $this->testFailed($userId, $supplierId, $base, $e->getMessage(), $status);
+        } finally {
+            if (is_file($outputPath)) {
+                @unlink($outputPath);
+            }
+        }
+    }
+
     private function platformEnabled(): bool
     {
         return (bool) $this->config->get('pdf_signing.enabled', true);
     }
 
-    private function failurePolicy(): string
+    /**
+     * @param array<string,mixed>|null $outputSetting
+     */
+    private function failurePolicy(?array $outputSetting = null): string
     {
-        $policy = (string) $this->config->get('pdf_signing.failure_policy', PdfSignaturePolicy::FALLBACK_UNSIGNED);
+        $policy = (string) ($outputSetting['failure_policy'] ?? $this->config->get('pdf_signing.failure_policy', PdfSignaturePolicy::FALLBACK_UNSIGNED));
         return in_array($policy, [
             PdfSignaturePolicy::FALLBACK_UNSIGNED,
             PdfSignaturePolicy::FAIL_CLOSED,
@@ -154,7 +258,25 @@ final class PdfSigningService
         ], true) ? $policy : PdfSignaturePolicy::FALLBACK_UNSIGNED;
     }
 
-    private function outputEnabled(string $documentType): bool
+    /**
+     * @param array<string,mixed>|null $outputSetting
+     */
+    private function unconfiguredFailurePolicy(?array $outputSetting = null): string
+    {
+        if (($outputSetting['selection_source'] ?? null) === 'logged_in_user') {
+            $fallback = (string) ($outputSetting['user_profile_fallback'] ?? '');
+            if ($fallback === 'fail_closed') {
+                return PdfSignaturePolicy::FAIL_CLOSED;
+            }
+            if ($fallback === 'fallback_unsigned') {
+                return PdfSignaturePolicy::FALLBACK_UNSIGNED;
+            }
+        }
+
+        return $this->failurePolicy($outputSetting);
+    }
+
+    private function configOutputEnabled(string $documentType): bool
     {
         $key = match ($documentType) {
             'invoice' => 'invoices',
@@ -166,19 +288,64 @@ final class PdfSigningService
     }
 
     /**
-     * @param array<string,mixed> $supplierRow
+     * @return array<string,mixed>|null
      */
-    private function supplierSigningEnabled(array $supplierRow): bool
+    private function outputSetting(?int $supplierId, string $documentType): ?array
     {
-        return (int) ($supplierRow['pdf_signing_enabled'] ?? 0) === 1;
+        if ($supplierId === null || $this->profiles === null) {
+            return null;
+        }
+
+        return $this->profiles->outputSetting($supplierId, $documentType);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function effectiveOutputSetting(?int $supplierId, string $documentType, int $documentId): ?array
+    {
+        $outputSetting = $this->outputSetting($supplierId, $documentType);
+        if ($supplierId === null || $this->profiles === null || $outputSetting === null || $documentId <= 0) {
+            return $outputSetting;
+        }
+
+        $override = $this->profiles->documentOverride($supplierId, 'pdf', $documentType, $documentId);
+        if ($override === null) {
+            return $outputSetting;
+        }
+
+        $outputSetting['selection_source'] = (string) $override['selection_source'];
+        if ($outputSetting['selection_source'] === 'admin_profile_settings') {
+            if (($override['admin_profile_id'] ?? null) !== null) {
+                $outputSetting['default_profile_id'] = (int) $override['admin_profile_id'];
+            }
+        } else {
+            $outputSetting['default_profile_id'] = null;
+        }
+        $outputSetting['document_override'] = [
+            'entity_type' => $documentType,
+            'entity_id' => $documentId,
+            'selection_source' => $override['selection_source'],
+            'admin_profile_id' => $override['admin_profile_id'] ?? null,
+        ];
+
+        return $outputSetting;
+    }
+
+    /**
+     * @param array<string,mixed>|null $outputSetting
+     */
+    private function outputSettingEnabled(?array $outputSetting): bool
+    {
+        return $outputSetting === null || (bool) ($outputSetting['enabled'] ?? true);
     }
 
     /**
      * @param array<string,mixed> $supplierRow
      */
-    private function supplierDefaultProfile(array $supplierRow): ?SigningProfile
+    private function supplierDefaultProfile(array $supplierRow, string $documentType): ?SigningProfile
     {
-        $cfg = SigningConfig::fromSupplierRow($supplierRow);
+        $cfg = SigningConfig::fromSupplierRow($supplierRow, $documentType);
         if ($cfg === null) {
             return null;
         }
@@ -192,6 +359,197 @@ final class PdfSigningService
             pdfConfig: $cfg,
             metadata: ['source' => 'supplier'],
         );
+    }
+
+    /**
+     * @param array<string,mixed> $supplierRow
+     * @param array<string,mixed>|null $outputSetting
+     */
+    private function selectProfile(
+        array $supplierRow,
+        ?array $outputSetting,
+        ?int $userId,
+        string $documentType,
+    ): ?SigningProfile {
+        $source = (string) ($outputSetting['selection_source'] ?? 'supplier_default');
+
+        if ($source === 'admin_profile_settings') {
+            $profile = $this->profileById($supplierRow, (int) ($outputSetting['default_profile_id'] ?? 0), $documentType);
+            return $profile ?? $this->fallbackProfile($supplierRow, $outputSetting, 'admin_profile_settings', $documentType);
+        }
+
+        if ($source === 'logged_in_user') {
+            $profile = $this->profileForUser($supplierRow, $userId, (string) ($outputSetting['output_type'] ?? ''), $documentType);
+            return $profile ?? $this->fallbackProfile($supplierRow, $outputSetting, 'logged_in_user', $documentType);
+        }
+
+        return $this->supplierDefaultProfile($supplierRow, $documentType);
+    }
+
+    /**
+     * @param array<string,mixed> $supplierRow
+     * @param array<string,mixed>|null $outputSetting
+     */
+    private function fallbackProfile(array $supplierRow, ?array $outputSetting, string $source, string $documentType): ?SigningProfile
+    {
+        $fallback = (string) ($outputSetting['user_profile_fallback'] ?? 'supplier_default');
+
+        if ($source === 'admin_profile_settings') {
+            $fallback = 'supplier_default';
+        }
+
+        if ($fallback === 'admin_profile_settings') {
+            return $this->profileById($supplierRow, (int) ($outputSetting['default_profile_id'] ?? 0), $documentType);
+        }
+
+        if ($fallback === 'supplier_default') {
+            return $this->supplierDefaultProfile($supplierRow, $documentType);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $supplierRow
+     */
+    private function profileById(array $supplierRow, int $profileId, string $documentType): ?SigningProfile
+    {
+        $supplierId = (int) ($supplierRow['id'] ?? 0);
+        if ($supplierId <= 0 || $profileId <= 0 || $this->profiles === null) {
+            return null;
+        }
+
+        $profile = $this->profiles->findProfile($supplierId, $profileId);
+        if (is_array($profile) && ($profile['owner_user_id'] ?? null) !== null) {
+            return null;
+        }
+
+        return is_array($profile) ? $this->storedProfile($supplierRow, $profile, 'admin_profile_settings', $documentType) : null;
+    }
+
+    /**
+     * @param array<string,mixed> $supplierRow
+     */
+    private function profileForUser(array $supplierRow, ?int $userId, string $outputType, string $documentType): ?SigningProfile
+    {
+        $supplierId = (int) ($supplierRow['id'] ?? 0);
+        if ($supplierId <= 0 || $userId === null || $userId <= 0 || $this->profiles === null) {
+            return null;
+        }
+
+        if ($outputType !== '') {
+            $default = $this->profiles->userProfileDefault($supplierId, 'pdf', $outputType, $userId);
+            if ($default !== null) {
+                $profile = $this->profiles->findProfile($supplierId, (int) ($default['profile_id'] ?? 0));
+                if (is_array($profile)) {
+                    $stored = $this->storedProfile($supplierRow, $profile, 'logged_in_user_default', $documentType);
+                    if ($stored !== null) {
+                        return $stored;
+                    }
+                }
+            }
+        }
+
+        foreach ($this->profiles->listProfilesForOwner($supplierId, $userId) as $profile) {
+            $stored = $this->storedProfile($supplierRow, $profile, 'logged_in_user', $documentType);
+            if ($stored !== null) {
+                return $stored;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $supplierRow
+     * @param array<string,mixed> $profile
+     */
+    private function storedProfile(array $supplierRow, array $profile, string $source, string $documentType): ?SigningProfile
+    {
+        $supplierId = (int) ($supplierRow['id'] ?? 0);
+        $profileId = (int) ($profile['id'] ?? 0);
+        if ($supplierId <= 0 || $profileId <= 0 || $this->profiles === null) {
+            return null;
+        }
+        if (!($profile['is_active'] ?? false) || !in_array('pdf', $profile['allowed_usages'] ?? [], true)) {
+            return null;
+        }
+
+        $credential = $this->profiles->credential($supplierId, $profileId, 'pdf');
+        if ($credential === null || !($credential['is_active'] ?? false)) {
+            return null;
+        }
+        $passwordEnc = $this->encryptedPassphraseForCredential($credential);
+        if ($passwordEnc === null) {
+            return null;
+        }
+
+        $tsa = $this->profileOrSupplierValue($profile['pdf_tsa_url'] ?? null, $supplierRow['signing_tsa_url'] ?? null);
+        $tsaUser = $this->profileOrSupplierValue($profile['pdf_tsa_username'] ?? null, $supplierRow['signing_tsa_username'] ?? null);
+        $profileTsaPasswordEnc = $this->profiles->profilePdfTsaPasswordEnc($supplierId, $profileId);
+        $tsaPasswordEnc = $this->profileOrSupplierValue($profileTsaPasswordEnc, $supplierRow['signing_tsa_password_enc'] ?? null);
+        $reason = $this->stringOrNull($profile['pdf_reason'] ?? null) ?? SigningConfig::defaultReason($documentType);
+        $cfg = new SigningConfig(
+            certPath: SigningConfig::absCertPath((string) ($credential['certificate_path'] ?? '')),
+            passwordEnc: $passwordEnc,
+            tsaUrl: ($tsa !== null && $tsa !== '') ? (string) $tsa : null,
+            reason: $reason,
+            tsaUsername: ($tsaUser !== null && $tsaUser !== '') ? (string) $tsaUser : null,
+            tsaPasswordEnc: (string) ($tsaPasswordEnc ?? ''),
+        );
+
+        return new SigningProfile(
+            code: (string) $profile['code'],
+            ownerType: $profile['owner_user_id'] !== null ? 'user' : 'supplier',
+            ownerId: $profile['owner_user_id'] !== null ? (int) $profile['owner_user_id'] : $supplierId,
+            backend: (string) ($profile['default_backend'] ?? 'native'),
+            pdfConfig: $cfg,
+            metadata: [
+                'source' => $source,
+                'profile_id' => $profileId,
+                'passphrase_policy' => $credential['passphrase_policy'],
+            ],
+        );
+    }
+
+    /**
+     * @param array<string,mixed> $credential
+     */
+    private function encryptedPassphraseForCredential(array $credential): ?string
+    {
+        if ($this->passphrases !== null) {
+            return $this->passphrases->encryptedPassphraseForCredential($credential);
+        }
+
+        if (($credential['passphrase_policy'] ?? null) !== 'encrypted_store') {
+            return null;
+        }
+        $passwordEnc = trim((string) ($credential['encrypted_passphrase'] ?? ''));
+        return $passwordEnc !== '' ? $passwordEnc : null;
+    }
+
+    /**
+     * @param mixed $profileValue
+     * @param mixed $supplierValue
+     */
+    private function profileOrSupplierValue($profileValue, $supplierValue): ?string
+    {
+        $profileValue = trim((string) ($profileValue ?? ''));
+        if ($profileValue !== '') {
+            return $profileValue;
+        }
+
+        $supplierValue = trim((string) ($supplierValue ?? ''));
+        return $supplierValue !== '' ? $supplierValue : null;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function stringOrNull($value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        return $value !== '' ? $value : null;
     }
 
     private function backendFor(SigningProfile $profile): PdfSignatureBackendInterface
@@ -288,6 +646,41 @@ final class PdfSigningService
     }
 
     /**
+     * @param array<string,mixed> $base
+     * @return array<string,mixed>
+     */
+    private function testSkipped(?int $userId, ?int $supplierId, array $base, string $reason): array
+    {
+        $payload = $base + [
+            'status' => 'skipped',
+            'reason' => $reason,
+        ];
+        $this->activity->log('signing.test_skipped', $userId, 'supplier', $supplierId ?? 0, $payload, null, null, $supplierId);
+
+        return $payload;
+    }
+
+    /**
+     * @param array<string,mixed> $base
+     * @return array<string,mixed>
+     */
+    private function testFailed(
+        ?int $userId,
+        ?int $supplierId,
+        array $base,
+        string $error,
+        string $status = 'failed',
+    ): array {
+        $payload = $base + [
+            'status' => $status,
+            'error' => $this->sanitizeError($error),
+        ];
+        $this->activity->log('signing.test_failed', $userId, 'supplier', $supplierId ?? 0, $payload, null, null, $supplierId);
+
+        return $payload;
+    }
+
+    /**
      * @param array<string,mixed> $supplierRow
      * @return array<string,mixed>
      */
@@ -296,18 +689,16 @@ final class PdfSigningService
         $storedCert = trim((string) ($supplierRow['signing_cert_path'] ?? ''));
         $certPath = $storedCert !== '' ? SigningConfig::absCertPath($storedCert) : '';
         $hasCert = $certPath !== '' && is_file($certPath);
-        $profile = $this->supplierDefaultProfile($supplierRow);
+        $profile = $this->supplierDefaultProfile($supplierRow, 'invoice');
         $backend = $this->nativeBackend;
         $health = $backend->healthCheck($profile);
         $capabilities = $backend->capabilities();
         $platformEnabled = $this->platformEnabled();
-        $supplierEnabled = (int) ($supplierRow['pdf_signing_enabled'] ?? 0) === 1;
+        $supplierEnabled = true;
 
         $unavailableReason = null;
         if (!$platformEnabled) {
             $unavailableReason = 'platform_disabled';
-        } elseif (!$supplierEnabled) {
-            $unavailableReason = 'supplier_disabled';
         } elseif (!$hasCert) {
             $unavailableReason = 'missing_certificate';
         } elseif (!$health->ok) {

@@ -51,7 +51,7 @@ export interface Supplier {
   // Podpis PDF certifikátem (PAdES, migrace 0076)
   pdf_signing_enabled: boolean
   signing_tsa_url: string | null  // RFC 3161 TSA endpoint; null = PAdES-B bez razítka
-  signing_reason: string          // důvod podpisu (default „Faktura")
+  signing_reason: string          // legacy supplier-level PDF reason; UI uses per-profile/default-by-document reason
   has_signing_cert?: boolean       // server flag (existence P12); heslo/cesta se NIKDY nevrací
   signing_tsa_username: string | null // HTTP Basic auth k TSA serveru
   signing_tsa_password?: string       // jen pro ODESLÁNÍ (uloží se šifrovaně); nikdy se nevrací
@@ -193,6 +193,132 @@ export interface PdfSigningDiagnostics {
   }
 }
 
+export interface SigningSettings {
+  supplier_id: number
+  accountant_profiles_enabled: boolean
+}
+
+export type SigningProfileUsage = 'pdf' | 'email_smime'
+
+export interface SigningProfile {
+  id: number
+  supplier_id: number
+  owner_user_id: number | null
+  name: string
+  code: string
+  allowed_usages: SigningProfileUsage[]
+  default_backend: string
+  pdf_tsa_url: string | null
+  pdf_tsa_username: string | null
+  has_pdf_tsa_password: boolean
+  pdf_reason: string | null
+  is_active: boolean
+  created_by: number | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface SigningProfilePayload {
+  owner_user_id?: number | null
+  name: string
+  code: string
+  allowed_usages: SigningProfileUsage[]
+  default_backend: string
+  pdf_tsa_enabled?: boolean
+  pdf_tsa_url?: string | null
+  pdf_tsa_username?: string | null
+  pdf_tsa_password?: string | null
+  pdf_reason?: string | null
+  is_active?: boolean
+}
+
+export type SigningCredentialPassphrasePolicy = 'encrypted_store' | 'passphrase_file' | 'prompt_on_use'
+
+export interface SigningProfileCredentialMeta {
+  has_certificate: boolean
+  usage: SigningProfileUsage
+  certificate_fingerprint?: string | null
+  certificate_subject?: string | null
+  certificate_email?: string | null
+  certificate_valid_from?: string | null
+  certificate_valid_to?: string | null
+  certificate_usage?: Record<string, unknown>
+  passphrase_policy?: SigningCredentialPassphrasePolicy | null
+  passphrase_profile_id?: string | null
+  is_active?: boolean
+  expired?: boolean
+}
+
+export type PdfSignatureSelectionSource = 'logged_in_user' | 'admin_profile_settings' | 'supplier_default'
+export type PdfSignatureUserProfileFallback = 'admin_profile_settings' | 'supplier_default' | 'fail_closed' | 'fallback_unsigned'
+export type PdfSignatureFailurePolicy = 'fallback_unsigned' | 'fail_closed' | 'skip_when_unconfigured'
+
+export interface PdfSignatureOutputSetting {
+  supplier_id: number
+  output_type: string
+  enabled: boolean
+  backend: string
+  selection_source: PdfSignatureSelectionSource
+  user_profile_fallback: PdfSignatureUserProfileFallback
+  default_profile_id: number | null
+  failure_policy: PdfSignatureFailurePolicy
+  signature_config: Record<string, unknown>
+}
+
+export interface PdfSignatureSettings {
+  output_types: string[]
+  output_settings: PdfSignatureOutputSetting[]
+}
+
+export interface PdfSignatureUserDefault {
+  supplier_id: number
+  usage: SigningProfileUsage
+  output_type: string
+  user_id: number
+  profile_id: number
+}
+
+export interface PdfSignatureUserDefaults {
+  output_types: string[]
+  user_defaults: PdfSignatureUserDefault[]
+  output_settings: PdfSignatureOutputSetting[]
+}
+
+export type PdfSignatureDocumentEntityType = 'invoice' | 'work_report'
+export type PdfSignatureDocumentSelectionSource = PdfSignatureSelectionSource | 'inherit'
+
+export interface PdfSignatureDocumentSelection {
+  usage: SigningProfileUsage
+  entity_type: PdfSignatureDocumentEntityType
+  entity_id: number
+  selection_source: PdfSignatureDocumentSelectionSource
+  admin_profile_id: number | null
+  inherited_selection_source: PdfSignatureSelectionSource
+  inherited_admin_profile_id: number | null
+  effective_selection_source: PdfSignatureSelectionSource
+  effective_admin_profile_id: number | null
+  has_override: boolean
+}
+
+export interface PdfSignatureTestResult {
+  output_type: string
+  status: 'signed' | 'skipped' | 'failed' | 'fallback_unsigned'
+  backend: string
+  profile_code: string | null
+  certificate_cn: string | null
+  level: string | null
+  timestamped: boolean
+  failure_policy: PdfSignatureFailurePolicy
+  reason?: string
+  error?: string
+}
+
+export type PdfSignatureOutputSettingPayload = Partial<Pick<
+  PdfSignatureOutputSetting,
+  'enabled' | 'backend' | 'selection_source' | 'user_profile_fallback' | 'default_profile_id' | 'failure_policy' | 'signature_config'
+>>
+
 export const settingsApi = {
   getSupplier: () => api.get<Supplier>('/settings/supplier').then(r => r.data),
   updateSupplier: (payload: Partial<Supplier>) => api.put<Supplier>('/settings/supplier', payload).then(r => r.data),
@@ -244,6 +370,63 @@ export const settingsApi = {
   deleteSigningCert: () => api.delete('/settings/signing-cert').then(r => r.data),
   getPdfSigningDiagnostics: () =>
     api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),
+  getSigningSettings: () =>
+    api.get<SigningSettings>('/settings/signing').then(r => r.data),
+  updateSigningSettings: (payload: Pick<SigningSettings, 'accountant_profiles_enabled'>) =>
+    api.put<SigningSettings>('/settings/signing', payload).then(r => r.data),
+  listSigningProfiles: () =>
+    api.get<SigningProfile[]>('/settings/signing/profiles').then(r => r.data),
+  createSigningProfile: (payload: SigningProfilePayload) =>
+    api.post<SigningProfile>('/settings/signing/profiles', payload).then(r => r.data),
+  updateSigningProfile: (id: number, payload: Partial<SigningProfilePayload>) =>
+    api.put<SigningProfile>(`/settings/signing/profiles/${id}`, payload).then(r => r.data),
+  deleteSigningProfile: (id: number) =>
+    api.delete<{ deleted: boolean }>(`/settings/signing/profiles/${id}`).then(r => r.data),
+  getSigningProfileCredential: (id: number, usage: SigningProfileUsage) =>
+    api.get<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/${usage}/certificate`).then(r => r.data),
+  uploadSigningProfileCredential: (
+    id: number,
+    usage: SigningProfileUsage,
+    file: File,
+    password: string,
+    passphrasePolicy: SigningCredentialPassphrasePolicy,
+    passphraseProfileId: string | null,
+  ) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('password', password)
+    fd.append('passphrase_policy', passphrasePolicy)
+    if (passphraseProfileId) fd.append('passphrase_profile_id', passphraseProfileId)
+    return api.post<SigningProfileCredentialMeta>(
+      `/settings/signing/profiles/${id}/credentials/${usage}/certificate`,
+      fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    ).then(r => r.data)
+  },
+  deleteSigningProfileCredential: (id: number, usage: SigningProfileUsage) =>
+    api.delete<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/${usage}/certificate`).then(r => r.data),
+  getPdfSigningSettings: () =>
+    api.get<PdfSignatureSettings>('/settings/pdf-signing').then(r => r.data),
+  testPdfSigning: (outputType: string) =>
+    api.post<PdfSignatureTestResult>('/settings/pdf-signing/test', { output_type: outputType }).then(r => r.data),
+  updatePdfSignatureOutputSetting: (outputType: string, payload: PdfSignatureOutputSettingPayload) =>
+    api.put<PdfSignatureOutputSetting>(`/settings/pdf-signing/output-settings/${outputType}`, payload).then(r => r.data),
+  getPdfSigningUserDefaults: () =>
+    api.get<PdfSignatureUserDefaults>('/settings/pdf-signing/user-defaults').then(r => r.data),
+  updatePdfSigningUserDefault: (outputType: string, profileId: number | null) =>
+    api.put<PdfSignatureUserDefault | null>(`/settings/pdf-signing/user-defaults/${outputType}`, {
+      profile_id: profileId,
+    }).then(r => r.data),
+  getPdfSignatureDocumentSelection: (entityType: PdfSignatureDocumentEntityType, id: number) =>
+    api.get<PdfSignatureDocumentSelection>(`/documents/${entityType}/${id}/signature-selection`).then(r => r.data),
+  updatePdfSignatureDocumentSelection: (
+    entityType: PdfSignatureDocumentEntityType,
+    id: number,
+    payload: { selection_source: PdfSignatureDocumentSelectionSource; admin_profile_id?: number | null },
+  ) =>
+    api.put<PdfSignatureDocumentSelection>(`/documents/${entityType}/${id}/signature-selection`, payload).then(r => r.data),
+  deletePdfSignatureDocumentSelection: (entityType: PdfSignatureDocumentEntityType, id: number) =>
+    api.delete<PdfSignatureDocumentSelection>(`/documents/${entityType}/${id}/signature-selection`).then(r => r.data),
   // Vrací HTML string — frontend ho pak nacpe do iframe.srcdoc (obejde X-Frame-Options DENY).
   emailPreviewHtml: (locale: 'cs' | 'en' = 'cs') =>
     api.get<string>(`/settings/email-branding/preview?locale=${locale}`, { responseType: 'text', transformResponse: [(d) => d] }).then(r => r.data),

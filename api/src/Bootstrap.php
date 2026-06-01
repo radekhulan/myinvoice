@@ -88,6 +88,17 @@ final class Bootstrap
             Connection::class      => fn (ContainerInterface $c) => new Connection($c->get(Config::class), $c->get(LoggerInterface::class)),
             RedisProbe::class      => fn (ContainerInterface $c) => new RedisProbe($c->get(Config::class)),
             RedisFactory::class    => fn (ContainerInterface $c) => new RedisFactory($c->get(Config::class)),
+            \MyInvoice\Service\Signing\SigningPassphraseProviderInterface::class => fn (ContainerInterface $c) => new \MyInvoice\Service\Signing\SigningPassphraseProvider(
+                $c->get(Config::class),
+                $c->get(\MyInvoice\Service\Auth\SecretEncryption::class),
+            ),
+            \MyInvoice\Service\Signing\Pdf\PdfSigningService::class => fn (ContainerInterface $c) => new \MyInvoice\Service\Signing\Pdf\PdfSigningService(
+                $c->get(Config::class),
+                $c->get(\MyInvoice\Service\ActivityLogger::class),
+                $c->get(\MyInvoice\Service\Signing\Pdf\NativePdfSignatureBackend::class),
+                $c->get(\MyInvoice\Repository\SigningProfileRepository::class),
+                $c->get(\MyInvoice\Service\Signing\SigningPassphraseProviderInterface::class),
+            ),
 
             // IpMatcher má v konstruktoru volitelný `?Config $config = null`. Autowiring
             // takový parametr neresolvuje (dosadí default null), takže clientIpFromRequest()
