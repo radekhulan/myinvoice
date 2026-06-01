@@ -147,6 +147,11 @@ final class BulkReissueAction
             $taxDate ?? $issueDate,
         );
 
+        // Per-faktura přepínač upomínek (migrace 0088) musí klon zdědit — jinak by se
+        // vědomě opt-outovaná faktura po klonu tiše vrátila na DB default 1 (upomínky
+        // zapnuté). Guard na existenci sloupce kvůli instalacím pozadu s migrací.
+        $hasReminders = $pdo->query("SHOW COLUMNS FROM invoices LIKE 'auto_send_reminders'")->fetch() !== false;
+
         $pdo->beginTransaction();
         try {
             $stmt = $pdo->prepare(
@@ -154,10 +159,14 @@ final class BulkReissueAction
                    (invoice_type, client_id, project_id, supplier_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
                     note_above_items, note_below_items, discount_percent, payment_method,
-                    revenue_category_id, status, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
+                    revenue_category_id,'
+                . ($hasReminders ? ' auto_send_reminders,' : '')
+                . ' status, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
+                . ($hasReminders ? ' ?,' : '')
+                . ' "draft", ?)'
             );
-            $stmt->execute([
+            $params = [
                 $type,
                 $source['client_id'],
                 $source['project_id'],
@@ -177,8 +186,12 @@ final class BulkReissueAction
                 (string) ($source['payment_method'] ?? 'bank_transfer'),
                 // Reissue zachová kategorii tržby zdrojové faktury.
                 $source['revenue_category_id'] ?? null,
-                $userId,
-            ]);
+            ];
+            if ($hasReminders) {
+                $params[] = !empty($source['auto_send_reminders']) ? 1 : 0;
+            }
+            $params[] = $userId;
+            $stmt->execute($params);
             $newId = (int) $pdo->lastInsertId();
 
             // Zkopíruj položky s případným inkrementem měsíce
