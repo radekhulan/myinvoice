@@ -61,6 +61,8 @@ final class ListSentEmailsAction
         // Faktura se u většiny akcí váže přes entity_id (entity_type='invoice'),
         // ale `recurring.reminder_sent` má entity recurring_template a fakturu
         // nese až v payloadu. Resolvneme oba případy, aby odkaz mířil správně.
+        // payload->>'$.invoice_id' (JSON_UNQUOTE) — bez něj by JSON_EXTRACT vrátil
+        // string v uvozovkách ("561") a JOIN na číselné i.id by tiše nematchnul.
         $sql = "SELECT al.id, al.user_id, u.email AS user_email, u.name AS user_name,
                        al.action, i.id AS invoice_id, al.payload, al.created_at,
                        i.varsymbol AS invoice_varsymbol,
@@ -69,7 +71,7 @@ final class ListSentEmailsAction
              LEFT JOIN users u    ON u.id = al.user_id
              LEFT JOIN invoices i ON i.id = COALESCE(
                        CASE WHEN al.entity_type = 'invoice' THEN al.entity_id END,
-                       JSON_EXTRACT(al.payload, '$.invoice_id')
+                       al.payload->>'$.invoice_id'
                    )
              LEFT JOIN clients c  ON c.id = i.client_id
                  WHERE al.action IN ($placeholders)
