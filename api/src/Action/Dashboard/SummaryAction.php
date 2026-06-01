@@ -375,6 +375,7 @@ final class SummaryAction
               WHERE i.supplier_id = ?
                 AND i.status IN ('issued','sent','reminded') AND i.due_date <= CURDATE()
                 AND " . $this->receivableDocTypeSql() . "
+                AND " . $this->outstandingReceivableSql() . "
               GROUP BY cur.code"
         );
         $stmt->execute([$sid]);
@@ -500,6 +501,18 @@ final class SummaryAction
              . " WHERE ch.parent_invoice_id = i.id AND ch.invoice_type = 'invoice')))";
     }
 
+    /**
+     * Doklad má reálnou nesplacenou pohledávku. Finální daňový doklad k zaplacené
+     * proformě má `amount_to_pay = 0` by design (záloha pokryla celek) — není to
+     * pohledávka a nepatří do „po splatnosti"/aging/cashflow ani do unpaid seznamu,
+     * i když status zůstává `issued`. Dobropisy (záporný total) ponecháváme beze
+     * změny. Zrcadlí InvoiceAmountPolicy::hasPositiveAmountToPay().
+     */
+    private function outstandingReceivableSql(): string
+    {
+        return "(i.invoice_type NOT IN ('invoice','proforma') OR i.amount_to_pay > 0)";
+    }
+
     private function purchaseCostsByMonth(\PDO $pdo, int $sid): array
     {
         $sql = "SELECT DATE_FORMAT(pi.issue_date, '%Y-%m') AS ym,
@@ -540,6 +553,7 @@ final class SummaryAction
                    AND i.status IN ('issued','sent','reminded')
                    AND i.due_date <= CURDATE()
                    AND " . $this->receivableDocTypeSql() . "
+                   AND " . $this->outstandingReceivableSql() . "
                  ORDER BY i.due_date ASC
                  LIMIT 20";
         $stmt = $pdo->prepare($sql);
@@ -560,6 +574,7 @@ final class SummaryAction
                    AND i.status IN ('issued','sent','reminded')
                    AND i.due_date >= CURDATE()
                    AND i.invoice_type IN ('invoice','credit_note')
+                   AND " . $this->outstandingReceivableSql() . "
                  ORDER BY i.due_date ASC
                  LIMIT 20";
         $stmt = $pdo->prepare($sql);
@@ -910,6 +925,7 @@ final class SummaryAction
                    AND i.status IN ('issued','sent','reminded')
                    AND i.invoice_type IN ('invoice','credit_note')
                    AND i.due_date >= CURDATE()
+                   AND " . $this->outstandingReceivableSql() . "
                  GROUP BY cur.code";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$sid]);
@@ -947,6 +963,7 @@ final class SummaryAction
                    AND i.status IN ('issued','sent','reminded')
                    AND i.invoice_type IN ('invoice','credit_note')
                    AND i.due_date >= CURDATE()
+                   AND " . $this->outstandingReceivableSql() . "
                  GROUP BY cur.code";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$sid]);
@@ -985,6 +1002,7 @@ final class SummaryAction
                  WHERE i.supplier_id = ?
                    AND i.status IN ('issued','sent','reminded')
                    AND " . $this->receivableDocTypeSql() . "
+                   AND " . $this->outstandingReceivableSql() . "
                  GROUP BY cur.code";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$sid]);

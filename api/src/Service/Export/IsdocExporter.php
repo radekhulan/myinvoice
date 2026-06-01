@@ -264,9 +264,14 @@ final class IsdocExporter
             $unitPrice = ($pricesInclVat && $qtyItem != 0.0)
                 ? round($base / $qtyItem, 2)
                 : (float) $item['unit_price_without_vat'];
-            $unitPriceInclVat = ($pricesInclVat && $qtyItem != 0.0)
+            // Jednotkovou cenu s DPH odvozujeme z řádkového total_with_vat (ne dopočtem
+            // nominální sazbou). Řádkový total už zohledňuje reverse charge i osvobození
+            // (daň = 0), takže UnitPriceTaxInclusive sedí s LineExtensionAmountTaxInclusive.
+            // Dopočet unitPrice*(1+sazba/100) by u RC dal falešné brutto (sazba 21 %, ale
+            // daň se nepřenáší → 0) a řádek by si protiřečil.
+            $unitPriceInclVat = $qtyItem != 0.0
                 ? round($tot / $qtyItem, 2)
-                : $unitPrice * (1 + ((float) ($item['vat_rate_snapshot'] ?? 0)) / 100);
+                : $unitPrice;
             $this->elAmountCurr($dom, $line, 'LineExtensionAmount', $base, true);
             $this->elAmountCurr($dom, $line, 'LineExtensionAmountTaxInclusive', $tot, true);
             $this->elAmount($dom, $line, 'LineExtensionTaxAmount', $vat);

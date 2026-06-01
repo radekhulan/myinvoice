@@ -44,6 +44,7 @@ use MyInvoice\Action\Admin\InvoicesZipAction;
 use MyInvoice\Action\Admin\CronJobsAction;
 use MyInvoice\Action\Admin\RunCronJobAction;
 use MyInvoice\Action\Admin\ListActivityLogAction;
+use MyInvoice\Action\Admin\ListSentEmailsAction;
 use MyInvoice\Action\Admin\UserAdminAction;
 use MyInvoice\Action\Settings\EmailBrandingAction;
 use MyInvoice\Action\Settings\SettingsAction;
@@ -336,6 +337,7 @@ final class Routes
 
         // Admin (M6)
         $app->get    ('/api/admin/activity-log',    ListActivityLogAction::class);
+        $app->get    ('/api/admin/sent-emails',     ListSentEmailsAction::class);
         $app->get    ('/api/admin/cron-jobs',       CronJobsAction::class);
         $app->post   ('/api/admin/cron-jobs/{script:cron-[a-z0-9-]+}/run', RunCronJobAction::class);
         $app->get    ('/api/admin/invoices-zip',    InvoicesZipAction::class);  // legacy — drží se kvůli historickým bookmark URL

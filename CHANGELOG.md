@@ -5,6 +5,34 @@ All notable changes to MyInvoice.cz are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.10.0] — 2026-06-01
+
+Odolné a samoopravné číslování faktur ([#85](https://github.com/radekhulan/myinvoice/issues/85)) — automatické vyhnutí se kolizím čísel, dorovnání číselných řad po importu a srozumitelné hlášky místo chyby 500. Plus oprava jednotkové ceny s DPH v ISDOC u tuzemského reverse charge.
+
+### Added
+
+- **Samoopravné číslování faktur ([#85](https://github.com/radekhulan/myinvoice/issues/85)).** Když je interní počítadlo pozadu za již použitými čísly (po importu historických dokladů, ruční úpravě v DB nebo ručním číslování), generátor nově obsazené číslo nevezme: skočí za nejvyšší skutečně použité číslo dané řady (typ + období) a najde první volné. Místo žádné ruční administrace tak číslování „dožene" samo. Vše se opírá o unikátní index `(supplier_id, varsymbol)` jako definitivní pojistku.
+- **Dorovnání číselných řad po importu.** Po importu vydaných faktur (ISDOC/Pohoda) se počítadlo automaticky posune za nejvyšší importované číslo odpovídající aktuálnímu formátu, takže další vystavená faktura na něj plynule naváže.
+- **Upozornění u ručního čísla.** Když v editoru zadáš vlastní číslo faktury, objeví se hláška, že obchází automatickou řadu a za jeho jedinečnost a návaznost ručíš sám.
+
+### Fixed
+
+- **Kolize čísla dokladu už nekončí chybou 500.** Zadání čísla, které už u dodavatele existuje (ruční číslo při založení, úpravě i vystavení), nově vrací srozumitelnou hlášku „číslo už existuje" místo neošetřené databázové chyby. Generátor se duplicitám aktivně vyhýbá; tahle pojistka řeší i souběžné vystavení (race condition).
+- **ISDOC, tuzemský reverse charge — jednotková cena s DPH.** U faktur v režimu přenesení daňové povinnosti se `UnitPriceTaxInclusive` dopočítávala nominální sazbou (např. 121 000 z 100 000), ačkoli daň se přenáší na odběratele (= 0). Řádek si tak protiřečil s `LineExtensionAmountTaxInclusive`. Nově se jednotková cena s DPH odvozuje z řádkového součtu s DPH, takže u reverse charge správně odpovídá základu (daň 0). Rekapitulace DPH s příznakem přenesení i celkové částky byly korektní už dříve.
+
+## [4.9.4] — 2026-06-01
+
+Oprava vystavování faktur v režimu přenesení daňové povinnosti (reverse charge), zachování poznámky pod položkami při vzniku daňového dokladu ze zálohy a odolnost ukládání faktur vůči neproběhlé migraci.
+
+### Changed
+
+- **Reverse charge je volbou na faktuře, ne jen vlastností odběratele.** Checkbox „přenesení daňové povinnosti (DPH 0 %)" se v editoru vydané faktury nově nabízí vždy, když je dodavatel plátce DPH — dosud se zobrazil jen u klienta, který měl příznak `reverse_charge` ve svém profilu. Příznak v profilu klienta nadále funguje jako výchozí předvyplnění při výběru klienta, ale uživatel ho může na konkrétním dokladu přepnout (typicky tuzemský PDP u stavebních prací § 92e ZDPH). RC checkbox zůstává skrytý jen u neplátce DPH, který RC vystavit nemůže.
+
+### Fixed
+
+- **Daňový doklad ze zaplacené zálohy nepřenášel poznámku pod položkami.** Při vzniku finální faktury ze zaplacené zálohové faktury se kopírovala jen poznámka nad položkami (nahrazená textem „Daňový doklad k zálohové faktuře …"); spodní poznámka uživatele se ztrácela. Nově se `note_below_items` ze zálohy zachová napříč všemi cestami vzniku (ruční vystavení, bankovní auto-match).
+- **Ukládání faktury selhalo na instalaci pozadu s migracemi.** Po nasazení kódu se sloupci `income_tax_exempt` (migrace 0087), ale bez spuštění migrace, končilo každé uložení vydané faktury chybou „Unknown column 'income_tax_exempt'". Repozitář nyní existenci sloupce detekuje a fakturu uloží (jen bez příznaku osvobození), dokud migrace neproběhne.
+
 ## [4.9.3] — 2026-06-01
 
 Per-faktura příznak „Osvobozeno od daně z příjmů" pro doklady mimo základ daně z příjmů (§ 4 ZDP / přefakturace) a sada vylepšení navigace — rychlé vytváření dokladů z horní lišty i bočního menu, předvyplnění zálohové faktury z odkazu a zpřehlednění dashboardu.

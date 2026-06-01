@@ -137,6 +137,46 @@ final class IsdocExporterSchemaTest extends TestCase
         ])));
     }
 
+    public function testReverseChargeUnitPriceTaxInclusiveMatchesNet(): void
+    {
+        // Tuzemský §92 reverse charge: nominální sazba 21 %, ale daň se přenáší → 0.
+        // Jednotková cena s DPH NESMÍ být dopočtena nominální sazbou (to by dalo falešné
+        // brutto 121 000 vedle LineExtensionAmountTaxInclusive 100 000 → řádek by si protiřečil).
+        // Musí sednout na řádkový total_with_vat (= netto, daň 0).
+        $xml = $this->exporter->buildXml($this->invoice([
+            'reverse_charge' => true,
+            'items'          => [$this->item([
+                'quantity'               => 1.0,
+                'unit_price_without_vat' => 100000.0,
+                'vat_rate_snapshot'      => 21.0,
+                'total_without_vat'      => 100000.0,
+                'total_vat'              => 0.0,
+                'total_with_vat'         => 100000.0,
+            ])],
+            'vat_breakdown'  => [['rate' => 21.0, 'base' => 100000.0, 'vat' => 0.0]],
+            'totals'         => ['without_vat' => 100000.0, 'with_vat' => 100000.0, 'rounding' => 0.0],
+            'amount_to_pay'  => 100000.0,
+        ]));
+
+        $this->assertValidIsdoc($xml);
+        self::assertSame('100000.00', $this->xpathOne($xml, '//i:InvoiceLine/i:UnitPrice'));
+        self::assertSame('100000.00', $this->xpathOne($xml, '//i:InvoiceLine/i:UnitPriceTaxInclusive'));
+        self::assertSame('100000.00', $this->xpathOne($xml, '//i:InvoiceLine/i:LineExtensionAmountTaxInclusive'));
+        self::assertSame('0.00', $this->xpathOne($xml, '//i:InvoiceLine/i:LineExtensionTaxAmount'));
+        // Rekapitulace nese RC příznak s nominální sazbou.
+        self::assertSame('true', $this->xpathOne($xml, '//i:TaxTotal/i:TaxSubTotal/i:TaxCategory/i:LocalReverseChargeFlag'));
+        self::assertSame('21.00', $this->xpathOne($xml, '//i:TaxTotal/i:TaxSubTotal/i:TaxCategory/i:Percent'));
+    }
+
+    public function testNormalInvoiceUnitPriceTaxInclusiveIsGross(): void
+    {
+        // Kontrola, že běžná (ne-RC) faktura má UnitPriceTaxInclusive = brutto (netto + DPH).
+        $xml = $this->exporter->buildXml($this->invoice());
+        self::assertSame('2520.00', $this->xpathOne($xml, '//i:InvoiceLine/i:UnitPrice'));
+        self::assertSame('3049.20', $this->xpathOne($xml, '//i:InvoiceLine/i:UnitPriceTaxInclusive'));
+        self::assertSame('3049.20', $this->xpathOne($xml, '//i:InvoiceLine/i:LineExtensionAmountTaxInclusive'));
+    }
+
     public function testMultiItemInvoiceWithProjectAndContractIsSchemaValid(): void
     {
         $this->assertValidIsdoc($this->exporter->buildXml($this->invoice([

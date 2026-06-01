@@ -103,16 +103,37 @@ final class BulkReissueAction
 
         $type = $source['invoice_type'] === 'proforma' ? 'proforma' : 'invoice';
 
-        // Default due_date podle project nebo +14
-        $dueDate = $issueDate;
+        // Splatnost: stejná priorita jako u nové faktury (InvoiceDefaults::apply) —
+        // zakázka → klient → dodavatel → 7. Bez tohoto fallbacku dostal klon faktury
+        // bez zakázky splatnost = datum vystavení (0 dní). NULL přeskakujeme (jako ??),
+        // explicitní 0 ctíme — stejně jako u nové faktury.
+        $days = null;
         if (!empty($source['project_id'])) {
             $stmt = $this->db->pdo()->prepare('SELECT payment_due_days FROM projects WHERE id = ?');
-            $stmt->execute([$source['project_id']]);
-            $days = (int) $stmt->fetchColumn();
-            if ($days > 0) {
-                $dueDate = date('Y-m-d', strtotime($issueDate . " +{$days} days"));
+            $stmt->execute([(int) $source['project_id']]);
+            $val = $stmt->fetchColumn();
+            if ($val !== false) {
+                $days = (int) $val;
             }
         }
+        if ($days === null && !empty($source['client_id'])) {
+            $stmt = $this->db->pdo()->prepare('SELECT payment_due_default FROM clients WHERE id = ?');
+            $stmt->execute([(int) $source['client_id']]);
+            $val = $stmt->fetchColumn();
+            if ($val !== false && $val !== null) {
+                $days = (int) $val;
+            }
+        }
+        if ($days === null) {
+            $stmt = $this->db->pdo()->prepare('SELECT default_payment_due_days FROM supplier WHERE id = ?');
+            $stmt->execute([(int) $source['supplier_id']]);
+            $val = $stmt->fetchColumn();
+            if ($val !== false && $val !== null) {
+                $days = (int) $val;
+            }
+        }
+        $days ??= 7;
+        $dueDate = date('Y-m-d', strtotime($issueDate . " +{$days} days"));
 
         $taxDate = $type === 'proforma' ? null : $issueDate;
 

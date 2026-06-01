@@ -30,6 +30,8 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  */
 final class IssueInvoiceAction
 {
+    use HandlesVarsymbolDuplicate;
+
     public function __construct(
         private readonly InvoiceRepository $repo,
         private readonly Connection $db,
@@ -106,7 +108,7 @@ final class IssueInvoiceAction
         } else {
             try {
                 $varsymbol = $this->varsymbol->next($supplierId, $invoice['invoice_type'], $issueDate, (int) $invoice['client_id']);
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException | \RuntimeException $e) {
                 return Json::error($response, 'varsymbol_failed', $e->getMessage(), 500);
             }
         }
@@ -117,22 +119,43 @@ final class IssueInvoiceAction
             return Json::error($response, 'snapshot_failed', $e->getMessage(), 500);
         }
 
+        // Finální daňový doklad plně pokrytý zálohou (amount_to_pay <= 0) je fakticky
+        // zaplacený už při vystavení — záloha dorazila dřív. Označíme ho rovnou jako
+        // 'paid' (paid_at = issue_date dokladu, datum se váže na daňový doklad, ne na
+        // proformu), jinak by zbytečně visel jako nezaplacený/po splatnosti a reálné
+        // inkaso by chybělo v kasových reportech (cash-flow, limit paušální daně), které
+        // sčítají daňové doklady, ne proformy. Detail podmínky viz InvoiceAmountPolicy.
+        $autoPaid = InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue($invoice);
+
         $stmt = $this->db->pdo()->prepare(
             'UPDATE invoices SET
                 varsymbol         = ?,
                 client_snapshot   = ?,
                 supplier_snapshot = ?,
                 bank_snapshot     = ?,
-                status            = "issued"
+                status            = ?,
+                paid_at           = ?
              WHERE id = ? AND status = "draft"'
         );
-        $stmt->execute([
-            $varsymbol,
-            json_encode($snapshots['client'],   JSON_UNESCAPED_UNICODE),
-            json_encode($snapshots['supplier'], JSON_UNESCAPED_UNICODE),
-            $snapshots['bank'] !== null ? json_encode($snapshots['bank'], JSON_UNESCAPED_UNICODE) : null,
-            $id,
-        ]);
+        try {
+            $stmt->execute([
+                $varsymbol,
+                json_encode($snapshots['client'],   JSON_UNESCAPED_UNICODE),
+                json_encode($snapshots['supplier'], JSON_UNESCAPED_UNICODE),
+                $snapshots['bank'] !== null ? json_encode($snapshots['bank'], JSON_UNESCAPED_UNICODE) : null,
+                $autoPaid ? 'paid' : 'issued',
+                $autoPaid ? $invoice['issue_date'] : null,
+                $id,
+            ]);
+        } catch (\PDOException $e) {
+            // Poslední pojistka proti porušení unique indexu (supplier_id, varsymbol) — typicky
+            // souběžné vystavení nebo číslo, které proklouzlo kontrolami. Generátor se sice
+            // duplicitám aktivně vyhýbá, ale DB constraint je definitivní ochrana proti race.
+            if ($dupMsg = self::varsymbolDuplicateMessage($e, $varsymbol)) {
+                return Json::error($response, 'varsymbol_duplicate', $dupMsg, 409);
+            }
+            throw $e;
+        }
 
         if ($stmt->rowCount() === 0) {
             return Json::error($response, 'race_condition', 'Faktura byla mezitím změněna.', 409);
@@ -146,6 +169,13 @@ final class IssueInvoiceAction
             'total'     => $invoice['total_with_vat'],
             'currency'  => $invoice['currency'],
         ], $ip, $request->getHeaderLine('User-Agent'));
+
+        if ($autoPaid) {
+            $this->logger->log('invoice.paid', $user['id'] ?? null, 'invoice', $id, [
+                'paid_at' => $invoice['issue_date'],
+                'trigger' => 'advance_fully_covered',
+            ], $ip, $request->getHeaderLine('User-Agent'));
+        }
 
         $this->stats->recomputeForInvoiceId($id);
         // Smaž cached draft PDF (Faktura-draft-NN.pdf) — po vystavení má faktura nový

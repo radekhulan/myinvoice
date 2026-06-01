@@ -7,6 +7,7 @@ namespace MyInvoice\Service\Invoice;
 use MyInvoice\Infrastructure\Config\Config;
 use MyInvoice\Infrastructure\Database\Connection;
 use PDO;
+use Psr\Log\LoggerInterface;
 
 /**
  * Generuje var. symbol (číslo faktury).
@@ -43,9 +44,13 @@ final class VarsymbolGenerator
     private const VALID_PERIODS   = ['year', 'month', 'none'];
     private const DEFAULT_PERIOD  = 'month';
 
+    /** Maximální počet pokusů přeskočit obsazené číslo, než to vzdáme (poslední pojistka). */
+    private const MAX_SKIP = 1000;
+
     public function __construct(
         private readonly Config $config,
         private readonly Connection $db,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -79,8 +84,183 @@ final class VarsymbolGenerator
         $for       = $for ?? new \DateTimeImmutable('today');
         $periodKey = $this->makePeriodKey($period, $for);
         $next      = $this->incrementCounter($supplierId, $counterClientId, $invoiceType, $periodKey);
+        $rendered  = $this->render($template, $for, $next);
 
-        return $this->render($template, $for, $next);
+        // Template bez counteru ({C+}) → číslo je fixní, nelze nic přeskakovat.
+        if (!$this->hasCounterPlaceholder($template)) {
+            return $rendered;
+        }
+
+        // Happy path: counter sedí, číslo je volné.
+        if (!$this->varsymbolExists($supplierId, $rendered)) {
+            return $rendered;
+        }
+
+        // Counter je pozadu (typicky po importu / ruční úpravě DB / ručním číslování).
+        // Místo slepého inkrementu po jedné skoč rovnou za nejvyšší skutečně použité číslo
+        // odpovídající aktuálnímu template+období, pak doladí případné mezery.
+        $startedAt = $next;
+        $highest = $this->highestUsedCounter($supplierId, $template, $for);
+        if ($highest >= $next) {
+            $next     = $this->liftCounterTo($supplierId, $counterClientId, $invoiceType, $periodKey, $highest + 1);
+            $rendered = $this->render($template, $for, $next);
+        }
+
+        $attempts = 0;
+        while ($this->varsymbolExists($supplierId, $rendered)) {
+            if (++$attempts > self::MAX_SKIP) {
+                throw new \RuntimeException(
+                    "Nepodařilo se najít volné číslo faktury ani po " . self::MAX_SKIP
+                    . " pokusech (typ {$invoiceType}, období {$periodKey}). Zkontroluj číselnou řadu nebo zadej číslo ručně."
+                );
+            }
+            $next     = $this->incrementCounter($supplierId, $counterClientId, $invoiceType, $periodKey);
+            $rendered = $this->render($template, $for, $next);
+        }
+
+        $this->logger?->warning('varsymbol: counter byl pozadu, automaticky posunut na volné číslo', [
+            'supplier_id'   => $supplierId,
+            'client_id'     => $counterClientId,
+            'invoice_type'  => $invoiceType,
+            'period'        => $periodKey,
+            'from_counter'  => $startedAt,
+            'to_counter'    => $next,
+            'varsymbol'     => $rendered,
+        ]);
+
+        return $rendered;
+    }
+
+    /**
+     * Posune `invoice_counters.last_number` tak, aby navazoval na nejvyšší již použité
+     * číslo odpovídající aktuálnímu template a období (samoopravná synchronizace counteru).
+     * Counter nikdy nesnižuje (GREATEST). Vhodné volat po importu historických faktur
+     * nebo ruční změně číslování.
+     *
+     * @return int Nová (případně beze změny) hodnota counteru pro danou scope.
+     */
+    public function syncCounter(int $supplierId, string $invoiceType, ?\DateTimeInterface $for = null, int $clientId = 0): int
+    {
+        if ($supplierId <= 0 || !in_array($invoiceType, self::SUPPORTED_TYPES, true)) {
+            return 0;
+        }
+
+        [$template, $period, $counterClientId] = $this->resolveTemplateAndPeriod($supplierId, $invoiceType, $clientId);
+        if ($template === '' || !$this->hasCounterPlaceholder($template)) {
+            return 0;
+        }
+
+        $for       = $for ?? new \DateTimeImmutable('today');
+        $periodKey = $this->makePeriodKey($period, $for);
+        $highest   = $this->highestUsedCounter($supplierId, $template, $for);
+        if ($highest <= 0) {
+            return 0;
+        }
+
+        return $this->liftCounterTo($supplierId, $counterClientId, $invoiceType, $periodKey, $highest);
+    }
+
+    private function hasCounterPlaceholder(string $template): bool
+    {
+        return (bool) preg_match('/\{C+\}/', $template);
+    }
+
+    private function varsymbolExists(int $supplierId, string $varsymbol): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT 1 FROM invoices WHERE supplier_id = ? AND varsymbol = ? LIMIT 1'
+        );
+        $stmt->execute([$supplierId, $varsymbol]);
+        return $stmt->fetchColumn() !== false;
+    }
+
+    /**
+     * Nejvyšší counter mezi existujícími fakturami dodavatele, jejichž varsymbol odpovídá
+     * danému template po dosazení data (rok/měsíc fixní → scope = stejné období jako counter).
+     * Z čísla se zpětně vyparsuje hodnota counteru (skupina {C+}). 0 = žádná shoda.
+     */
+    private function highestUsedCounter(int $supplierId, string $template, \DateTimeInterface $for): int
+    {
+        [$regex, $likePrefix] = $this->buildCounterMatcher($template, $for);
+        if ($regex === null) {
+            return 0;
+        }
+
+        // LIKE prefix (literál před counterem) zúží sken; prázdný prefix → '%' (vše).
+        $like = $this->escapeLike($likePrefix) . '%';
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT varsymbol FROM invoices
+              WHERE supplier_id = ? AND varsymbol IS NOT NULL AND varsymbol <> '' AND varsymbol LIKE ?"
+        );
+        $stmt->execute([$supplierId, $like]);
+
+        $max = 0;
+        while (($vs = $stmt->fetchColumn()) !== false) {
+            if (preg_match($regex, (string) $vs, $m)) {
+                $n = (int) $m[1];
+                if ($n > $max) {
+                    $max = $n;
+                }
+            }
+        }
+        return $max;
+    }
+
+    /**
+     * Postaví regex pro zpětné vyparsování counteru z varsymbolu + literální prefix pro LIKE.
+     * Datumové placeholdery se dosadí konkrétně (rok/měsíc daného období), {C+} → (\d+).
+     *
+     * @return array{0: ?string, 1: string}  [regex nebo null (template bez counteru), likePrefix]
+     */
+    private function buildCounterMatcher(string $template, \DateTimeInterface $for): array
+    {
+        if (!$this->hasCounterPlaceholder($template)) {
+            return [null, ''];
+        }
+
+        $withDate = strtr($template, [
+            '{YYYY}' => $for->format('Y'),
+            '{YY}'   => $for->format('y'),
+            '{MM}'   => $for->format('m'),
+        ]);
+
+        // Označ counter sentinelem (mimo regex escaping), rozsekni a escapuj literály.
+        $marked = preg_replace('/\{C+\}/', "\x00C\x00", $withDate) ?? $withDate;
+        $parts  = explode("\x00C\x00", $marked);
+        $escaped = array_map(static fn (string $p): string => preg_quote($p, '/'), $parts);
+        $pattern = implode('(\d+)', $escaped);
+
+        $likePrefix = $parts[0]; // literál před prvním counterem
+
+        return ['/^' . $pattern . '$/', $likePrefix];
+    }
+
+    /** Escapuje znaky se zvláštním významem v LIKE (% _ \). */
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /**
+     * Zvedne counter dané scope na minimálně $value (GREATEST) a vrátí výslednou hodnotu.
+     * Nikdy nesnižuje.
+     */
+    private function liftCounterTo(int $supplierId, int $clientId, string $invoiceType, string $periodKey, int $value): int
+    {
+        $pdo = $this->db->pdo();
+        $stmt = $pdo->prepare(
+            'INSERT INTO invoice_counters (supplier_id, client_id, invoice_type, period, last_number)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE last_number = GREATEST(last_number, VALUES(last_number))'
+        );
+        $stmt->execute([$supplierId, $clientId, $invoiceType, $periodKey, $value]);
+
+        $sel = $pdo->prepare(
+            'SELECT last_number FROM invoice_counters
+              WHERE supplier_id = ? AND client_id = ? AND invoice_type = ? AND period = ?'
+        );
+        $sel->execute([$supplierId, $clientId, $invoiceType, $periodKey]);
+        return (int) $sel->fetchColumn();
     }
 
     /**

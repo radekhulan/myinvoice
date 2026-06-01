@@ -166,6 +166,48 @@ final class InvoiceAmountPolicyTest extends TestCase
         ]));
     }
 
+    public function testShouldAutoMarkPaidOnIssueForFullyCoveredFinal(): void
+    {
+        // Finální daňový doklad k proformě plně pokrytý zálohou → auto-paid při issue.
+        self::assertTrue(InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue([
+            'invoice_type' => 'invoice',
+            'parent_invoice_id' => 42,
+            'amount_to_pay' => 0,
+        ]));
+        // Záporný zbytek (přeplatek zálohy) taky → nic se nedoplácí.
+        self::assertTrue(InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue([
+            'invoice_type' => 'invoice',
+            'parent_invoice_id' => 42,
+            'amount_to_pay' => -1.5,
+        ]));
+    }
+
+    public function testShouldNotAutoMarkPaidWhenRemainderToPay(): void
+    {
+        // Záloha pokryla jen část → zbytek se doplácí, nesmí být auto-paid.
+        self::assertFalse(InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue([
+            'invoice_type' => 'invoice',
+            'parent_invoice_id' => 42,
+            'amount_to_pay' => 100.0,
+        ]));
+    }
+
+    public function testShouldNotAutoMarkPaidForRegularInvoiceOrCreditNote(): void
+    {
+        // Běžná faktura bez vazby na proformu — nikdy auto-paid (a stejně by 0 neprošla issue).
+        self::assertFalse(InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue([
+            'invoice_type' => 'invoice',
+            'parent_invoice_id' => null,
+            'amount_to_pay' => 0,
+        ]));
+        // Dobropis má nekladný amount_to_pay, ale automaticky „zaplacený" být nesmí.
+        self::assertFalse(InvoiceAmountPolicy::shouldAutoMarkPaidOnIssue([
+            'invoice_type' => 'credit_note',
+            'parent_invoice_id' => 7,
+            'amount_to_pay' => -500.0,
+        ]));
+    }
+
     public function testValidateItemRejectsZeroQuantityWithEpsilon(): void
     {
         // 0.0001 přispěje fakticky 0 po round2 v InvoiceMath, takže by mělo být odmítnuto.

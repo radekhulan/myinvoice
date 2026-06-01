@@ -120,6 +120,21 @@ final class InvoiceAmountPolicy
     }
 
     /**
+     * Má se doklad při vystavení (draft → issued) rovnou označit jako zaplacený?
+     * Platí pro finální daňový doklad k zaplacené proformě plně pokrytý zálohou
+     * (amount_to_pay <= 0): inkaso (kasová metoda — cash-flow, limit paušální daně)
+     * se totiž promítá přes daňový doklad, ne přes proformu, a doklad by jinak zbytečně
+     * visel jako nezaplacený/po splatnosti. Dobropisy (type=credit_note, rovněž nekladný
+     * amount_to_pay) sem NEpatří — automaticky „zaplacené" být nesmí (vrácení peněz).
+     */
+    public static function shouldAutoMarkPaidOnIssue(array $invoice): bool
+    {
+        return (string) ($invoice['invoice_type'] ?? '') === 'invoice'
+            && (int) ($invoice['parent_invoice_id'] ?? 0) > 0
+            && (float) ($invoice['amount_to_pay'] ?? 0) <= 0.0;
+    }
+
+    /**
      * Sdílená per-item validace (volaná z InvoiceValidation i RecurringTemplateAction).
      * Caller odpovídá za is_array($item) check.
      *

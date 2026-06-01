@@ -9,6 +9,7 @@ use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\ProjectRepository;
 use MyInvoice\Service\Invoice\InvoiceCalculator;
 use MyInvoice\Service\Invoice\SnapshotBuilder;
+use MyInvoice\Service\Invoice\VarsymbolGenerator;
 use ZipArchive;
 
 /**
@@ -45,6 +46,7 @@ final class InvoiceImportService
         private readonly SnapshotBuilder $snapshots,
         private readonly InvoiceCalculator $calculator,
         private readonly IsdocToPurchaseInvoiceMapper $purchaseMapper,
+        private readonly VarsymbolGenerator $varsymbol,
     ) {}
 
     /**
@@ -102,6 +104,9 @@ final class InvoiceImportService
         $created = 0;
         $skipped = 0;
         $failed = 0;
+        // Scopes vydaných faktur, jejichž číselné řady je po importu třeba dorovnat
+        // (counter pozadu za historickými čísly). Klíč = typ|client|datum (idempotentní).
+        $counterScopes = [];
 
         foreach ($parsed as $entry) {
             if (isset($entry['error'])) {
@@ -132,13 +137,37 @@ final class InvoiceImportService
                     // Přidej kind do response pro UI
                     $r['kind'] = $route === 'issued' || $route === 'purchase' ? $route : null;
                     $results[] = ['file' => $label, 'status' => $r['status']] + $r;
-                    if ($r['status'] === 'created') $created++;
+                    if ($r['status'] === 'created') {
+                        $created++;
+                        if ($route === 'issued') {
+                            $type = (string) ($inv['invoice_type'] ?? 'invoice');
+                            $cli  = (int) ($r['client_id'] ?? 0);
+                            $date = (string) ($inv['issue_date'] ?? '');
+                            $counterScopes[$type . '|' . $cli . '|' . $date] = [$type, $cli, $date];
+                        }
+                    }
                     elseif ($r['status'] === 'skipped') $skipped++;
                     else $failed++;
                 } catch (\Throwable $e) {
                     $results[] = ['file' => $label, 'status' => 'failed', 'reason' => $e->getMessage()];
                     $failed++;
                 }
+            }
+        }
+
+        // Dorovnání číselných řad po importu vydaných faktur: counter se posune za
+        // nejvyšší importované číslo odpovídající aktuálnímu template (jinak no-op).
+        // Selhání syncu nesmí shodit import — jen se přeskočí (generátor je i tak
+        // duplicate-aware při dalším vystavení).
+        foreach ($counterScopes as [$type, $cli, $date]) {
+            if (!in_array($type, ['invoice', 'proforma', 'credit_note'], true)) {
+                continue;
+            }
+            try {
+                $for = $date !== '' ? new \DateTimeImmutable($date) : null;
+                $this->varsymbol->syncCounter($supplierId, $type, $for, $cli);
+            } catch (\Throwable) {
+                // ignore — best-effort dorovnání
             }
         }
 

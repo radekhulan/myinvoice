@@ -19,6 +19,40 @@ final class InvoiceRepository
 {
     public function __construct(private readonly Connection $db) {}
 
+    /**
+     * Cache existence sloupce income_tax_exempt (migrace 0087). Instalace nasazená
+     * s kódem ≥ v4.9.3, ale pozadu s migracemi, sloupce nemá → bez této detekce
+     * by každé uložení faktury spadlo na PDOException. S detekcí se faktura uloží
+     * (jen bez příznaku osvobození), dokud migrace 0087 neproběhne.
+     */
+    private ?bool $hasIncomeTaxExempt = null;
+
+    private function supportsIncomeTaxExempt(): bool
+    {
+        if ($this->hasIncomeTaxExempt === null) {
+            $col = $this->db->pdo()->query("SHOW COLUMNS FROM invoices LIKE 'income_tax_exempt'")->fetch();
+            $this->hasIncomeTaxExempt = $col !== false;
+        }
+        return $this->hasIncomeTaxExempt;
+    }
+
+    /**
+     * Cache existence sloupce auto_send_reminders (migrace 0088). Stejná obrana jako
+     * u income_tax_exempt — instalace s kódem, ale pozadu s migrací sloupec nemá;
+     * bez detekce by uložení faktury spadlo. Výchozí chování (upomínky zapnuté) drží
+     * DB default 1, takže vynechání sloupce při INSERT/UPDATE nic nerozbije.
+     */
+    private ?bool $hasAutoSendReminders = null;
+
+    private function supportsAutoSendReminders(): bool
+    {
+        if ($this->hasAutoSendReminders === null) {
+            $col = $this->db->pdo()->query("SHOW COLUMNS FROM invoices LIKE 'auto_send_reminders'")->fetch();
+            $this->hasAutoSendReminders = $col !== false;
+        }
+        return $this->hasAutoSendReminders;
+    }
+
     public function find(int $id): ?array
     {
         $pdo = $this->db->pdo();
@@ -461,9 +495,14 @@ final class InvoiceRepository
         if (!empty($filters['unpaid_only'])) {
             $where[] = "i.status IN ('issued','sent','reminded')";
             $where[] = 'i.invoice_type IN ("invoice","credit_note")';
+            // Finální daňový doklad k zaplacené proformě má amount_to_pay = 0 by design
+            // (záloha pokryla celek) — není nezaplacený, jen status zůstal 'issued'.
+            // Dobropisy (záporný total) ponecháváme. Zrcadlí dashboard a InvoiceAmountPolicy.
+            $where[] = "(i.invoice_type NOT IN ('invoice','proforma') OR i.amount_to_pay > 0)";
         }
         if (!empty($filters['overdue'])) {
             $where[] = "i.status IN ('issued','sent','reminded') AND i.due_date <= CURDATE()";
+            $where[] = "(i.invoice_type NOT IN ('invoice','proforma') OR i.amount_to_pay > 0)";
         }
         if (!empty($filters['q'])) {
             // Escape % a _ wildcards aby uživatelský input nedělal slow-query DoS / nečekanou shodu
@@ -621,16 +660,22 @@ final class InvoiceRepository
             $paymentMethod = 'bank_transfer';
         }
 
+        $hasExempt = $this->supportsIncomeTaxExempt();
+        $hasReminders = $this->supportsAutoSendReminders();
         $sql = 'INSERT INTO invoices
             (invoice_type, parent_invoice_id, client_id, project_id, supplier_id,
              issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
              note_above_items, note_below_items, advance_paid_amount, discount_percent, varsymbol,
-             payment_method, status, vat_classification_code, revenue_category, revenue_category_id,
-             income_tax_exempt, income_tax_exempt_reason, auto_send_reminders, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?, ?, ?, ?, ?, ?, ?)';
+             payment_method, status, vat_classification_code, revenue_category, revenue_category_id,'
+            . ($hasExempt ? ' income_tax_exempt, income_tax_exempt_reason,' : '')
+            . ($hasReminders ? ' auto_send_reminders,' : '')
+            . ' created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?, ?, ?,'
+            . ($hasExempt ? ' ?, ?,' : '')
+            . ($hasReminders ? ' ?,' : '')
+            . ' ?)';
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
+        $params = [
             (string) ($data['invoice_type'] ?? 'invoice'),
             isset($data['parent_invoice_id']) ? (int) $data['parent_invoice_id'] : null,
             $clientId,
@@ -652,11 +697,17 @@ final class InvoiceRepository
             !empty($data['vat_classification_code']) ? (string) $data['vat_classification_code'] : null,
             !empty($data['revenue_category']) ? (string) $data['revenue_category'] : null,
             $revenueCategoryId,
-            !empty($data['income_tax_exempt']) ? 1 : 0,
-            self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null),
-            array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
-            $userId,
-        ]);
+        ];
+        if ($hasExempt) {
+            $params[] = !empty($data['income_tax_exempt']) ? 1 : 0;
+            $params[] = self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null);
+        }
+        if ($hasReminders) {
+            $params[] = array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1;
+        }
+        $params[] = $userId;
+
+        $pdo->prepare($sql)->execute($params);
 
         return (int) $pdo->lastInsertId();
     }
@@ -690,14 +741,18 @@ final class InvoiceRepository
         $hasType = array_key_exists('invoice_type', $data)
             && in_array((string) $data['invoice_type'], ['invoice', 'proforma', 'credit_note'], true);
 
+        $hasExempt = $this->supportsIncomeTaxExempt();
+        $hasReminders = $this->supportsAutoSendReminders();
+
         $sql = 'UPDATE invoices SET
                 client_id = ?, project_id = ?,
                 issue_date = ?, tax_date = ?, due_date = ?,
                 currency_id = ?, reverse_charge = ?, prices_include_vat = ?, language = ?,
                 note_above_items = ?, note_below_items = ?,
                 advance_paid_amount = ?, discount_percent = ?,
-                vat_classification_code = ?, revenue_category = ?, revenue_category_id = ?,
-                income_tax_exempt = ?, income_tax_exempt_reason = ?, auto_send_reminders = ?'
+                vat_classification_code = ?, revenue_category = ?, revenue_category_id = ?'
+              . ($hasExempt ? ', income_tax_exempt = ?, income_tax_exempt_reason = ?' : '')
+              . ($hasReminders ? ', auto_send_reminders = ?' : '')
               . ($hasVarsymbol ? ', varsymbol = ?' : '')
               . ($hasPaymentMethod ? ', payment_method = ?' : '')
               . ($hasType ? ', invoice_type = ?' : '')
@@ -720,10 +775,14 @@ final class InvoiceRepository
             !empty($data['vat_classification_code']) ? (string) $data['vat_classification_code'] : null,
             !empty($data['revenue_category']) ? (string) $data['revenue_category'] : null,
             isset($data['revenue_category_id']) && $data['revenue_category_id'] ? (int) $data['revenue_category_id'] : null,
-            !empty($data['income_tax_exempt']) ? 1 : 0,
-            self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null),
-            array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1,
         ];
+        if ($hasExempt) {
+            $params[] = !empty($data['income_tax_exempt']) ? 1 : 0;
+            $params[] = self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null);
+        }
+        if ($hasReminders) {
+            $params[] = array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1;
+        }
         if ($hasVarsymbol) $params[] = $manualVarsymbol;
         if ($hasPaymentMethod) $params[] = $paymentMethod;
         if ($hasType) $params[] = (string) $data['invoice_type'];

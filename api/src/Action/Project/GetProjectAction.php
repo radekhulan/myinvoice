@@ -99,6 +99,9 @@ final class GetProjectAction
               WHERE i.project_id = ?
                 AND i.status IN ('issued','sent','reminded')
                 AND i.invoice_type IN ('invoice','credit_note')
+                -- Finální doklad k zaplacené proformě má amount_to_pay = 0 by design;
+                -- není pohledávka (dobropisy se záporným totálem ponecháváme).
+                AND (i.invoice_type NOT IN ('invoice','proforma') OR i.amount_to_pay > 0)
               GROUP BY cur.code"
         );
         $stmtU->execute([$id]);

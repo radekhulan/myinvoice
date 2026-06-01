@@ -627,6 +627,15 @@ const hasPositiveAmountToPay = computed(() => {
   if (!['invoice', 'proforma'].includes(invoice.value.invoice_type)) return true
   return Number(invoice.value.amount_to_pay ?? 0) > 0
 })
+// Zrcadlí backend InvoiceAmountPolicy::canBeMarkedPaid(): finální daňový doklad
+// k zaplacené proformě má amount_to_pay = 0 (záloha pokryla celek), přesto je
+// legitimní ho označit za zaplacený — inkaso (kasová metoda) se totiž do
+// cash-flow/limitu paušální daně promítá až přes finální doklad, ne přes proformu.
+const canMarkPaid = computed(() => {
+  if (!invoice.value) return false
+  if (invoice.value.invoice_type === 'invoice' && invoice.value.parent_invoice_id) return true
+  return hasPositiveAmountToPay.value
+})
 const canCancel = computed(() => invoice.value && ['issued', 'sent', 'reminded', 'paid'].includes(invoice.value.status)
   && invoice.value.invoice_type !== 'cancellation')
 // Dobropisu nelze vystavit další dobropis — v modalu skryjeme tu volbu.
@@ -859,7 +868,7 @@ async function updateApprovalStatus() {
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>
           {{ busy === 'issue-final' ? '…' : t('invoice.issue_final') }}
         </button>
-        <button v-if="isIssued && hasPositiveAmountToPay && auth.canWrite" @click="openMarkPaid" :disabled="busy !== null"
+        <button v-if="isIssued && canMarkPaid && auth.canWrite" @click="openMarkPaid" :disabled="busy !== null"
           class="cursor-pointer px-3 h-9 text-sm border border-success-500/50 text-success-600 hover:bg-success-50 rounded-md inline-flex items-center gap-1.5">
           <svg class="w-4 h-4 text-success-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
           {{ t('invoice.mark_paid') }}

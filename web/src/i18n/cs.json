@@ -121,7 +121,7 @@
     "dashboard": "Přehled", "invoices": "Vydané faktury", "clients": "Klienti",
     "projects": "Zakázky", "stats": "Tržby", "purchase_stats": "Náklady", "bank": "Banka", "system": "Systém", "section_taxes": "Daně",
     "settings": "Nastavení", "supplier_current": "Dodavatel", "suppliers": "Dodavatelé", "codebooks": "Číselníky", "users": "Uživatelé",
-    "log": "Log", "cron_jobs": "Plánované úlohy", "exports": "Export vystavených", "imports": "Importy", "imports_issued": "Import vystavených", "imports_purchase": "Import přijatých", "ai_import": "AI import", "integrations": "Externí integrace", "crm": "CRM", "reports_dph": "DPH přiznání", "reports_kh": "Kontrolní hlášení", "reports_dph_book": "Kniha DPH", "reports_shv": "Souhrnné hlášení", "reports_income_tax": "Daň z příjmů", "reports_submissions": "Archiv podání", "reports_monthly_export": "Měsíční export", "tax_optimizer": "Daňový optimalizátor", "email_templates": "Email šablony", "approvals": "Schvalování", "updates": "Aktualizace", "api_tokens": "API tokeny", "recurring": "Pravidelné fakturace", "help": "Nápověda", "logout": "Odhlásit",
+    "log": "Log", "cron_jobs": "Plánované úlohy", "exports": "Export vystavených", "imports": "Importy", "imports_issued": "Import vystavených", "imports_purchase": "Import přijatých", "ai_import": "AI import", "integrations": "Externí integrace", "crm": "CRM", "reports_dph": "DPH přiznání", "reports_kh": "Kontrolní hlášení", "reports_dph_book": "Kniha DPH", "reports_shv": "Souhrnné hlášení", "reports_income_tax": "Daň z příjmů", "reports_submissions": "Archiv podání", "reports_monthly_export": "Měsíční export", "tax_optimizer": "Daňový optimalizátor", "email_templates": "Email šablony", "sent_emails": "Odeslané e-maily", "approvals": "Schvalování", "updates": "Aktualizace", "api_tokens": "API tokeny", "recurring": "Pravidelné fakturace", "help": "Nápověda", "logout": "Odhlásit",
     "section_sales": "Prodej", "section_purchase": "Nákup", "section_finance": "Finance", "section_clients": "Klienti",
     "section_documents": "Dokumenty", "documents": "Dokumenty",
     "purchase_invoices": "Přijaté faktury", "purchase_export": "Export přijatých", "vendors": "Dodavatelé",
@@ -750,6 +750,7 @@
     "negative_item_hint": "Slevu zadej záporným množstvím nebo zápornou cenou. Výsledná částka dokladu musí zůstat kladná.",
     "amount_positive_required": "Výsledná částka k úhradě musí být větší než 0. Pro čistě záporný nebo nulový doklad použij dobropis.",
     "varsymbol_no_template": "Není nastaven žádný formát — jdi do Nastavení → Číslování faktur, nebo vyplň ručně.",
+    "varsymbol_manual_warning": "Ruční číslo obchází automatickou řadu — counter se neposune a za jeho jedinečnost a návaznost ručíš sám. Prázdné pole = číslo se vygeneruje automaticky.",
     "varsymbol_too_long": "Číslo má max 20 znaků.",
     "new": "+ Nová faktura",
     "issue_first": "Vystavit první",
@@ -2053,6 +2054,29 @@
     "entity": "Entita",
     "payload": "Payload",
     "ip": "IP"
+  },
+  "sent_emails": {
+    "title": "Odeslané e-maily",
+    "subtitle": "Přehled všech e-mailů odeslaných z aplikace — ručně i automaticky (upomínky, poděkování). Přístup pouze pro admin.",
+    "all_types": "Všechny typy",
+    "refresh": "Obnovit",
+    "total": "Celkem {n} e-mailů · strana {p} / {tp}",
+    "no_records": "Zatím nebyl odeslán žádný e-mail.",
+    "time": "Čas",
+    "type": "Typ",
+    "invoice": "Faktura",
+    "recipients": "Příjemce",
+    "sender": "Odeslal",
+    "sender_system": "Systém (automaticky)",
+    "types": {
+      "invoice_sent": "Odeslání faktury",
+      "reminder_sent": "Upomínka",
+      "approval_reminder_sent": "Upomínka ke schválení",
+      "payment_thanks_sent": "Poděkování za platbu",
+      "recurring_reminder_sent": "Koncept pravidelné faktury",
+      "test": "Testovací e-mail",
+      "test_reminder": "Testovací upomínka"
+    }
   },
   "cron_jobs": {
     "title": "Plánované úlohy",

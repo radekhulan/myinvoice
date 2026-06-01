@@ -71,6 +71,7 @@ $sql = "SELECT i.id, i.varsymbol, i.invoice_type, i.due_date, i.amount_to_pay, c
           JOIN supplier s ON s.id = i.supplier_id
          WHERE i.status IN ('issued','sent','reminded')
            AND i.invoice_type IN ('invoice','proforma')
+           AND i.amount_to_pay > 0
            AND i.payment_method = 'bank_transfer'
            AND s.auto_send_reminders = 1
            AND c.auto_send_reminders = 1

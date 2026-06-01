@@ -22,6 +22,8 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class UpdateInvoiceAction
 {
+    use HandlesVarsymbolDuplicate;
+
     public function __construct(
         private readonly InvoiceRepository $repo,
         private readonly InvoiceDefaults $defaults,
@@ -86,7 +88,14 @@ final class UpdateInvoiceAction
         // Auto-default VAT klasifikace pokud user nezadal (s multi-tenant scope)
         $this->applyVatClassificationDefaults($body, \MyInvoice\Http\SupplierGuard::currentId($request));
 
-        $this->repo->updateDraft($id, $body);
+        try {
+            $this->repo->updateDraft($id, $body);
+        } catch (\PDOException $e) {
+            if ($dupMsg = self::varsymbolDuplicateMessage($e, $body['varsymbol'] ?? null)) {
+                return Json::error($response, 'varsymbol_duplicate', $dupMsg, 409);
+            }
+            throw $e;
+        }
         $this->repo->replaceItems($id, (array) ($body['items'] ?? []));
         $this->calc->recompute($id);
 

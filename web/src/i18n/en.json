@@ -121,7 +121,7 @@
     "dashboard": "Dashboard", "invoices": "Issued invoices", "clients": "Clients",
     "projects": "Projects", "stats": "Sales", "purchase_stats": "Costs", "bank": "Bank", "system": "System", "section_taxes": "Taxes",
     "settings": "Settings", "supplier_current": "Supplier", "suppliers": "Suppliers", "codebooks": "Codebooks", "users": "Users",
-    "log": "Activity log", "cron_jobs": "Scheduled jobs", "exports": "Issued exports", "imports": "Imports", "imports_issued": "Imports (issued)", "imports_purchase": "Imports (purchase)", "ai_import": "AI import", "integrations": "External integrations", "crm": "CRM", "reports_dph": "VAT return", "reports_kh": "Control statement", "reports_dph_book": "VAT ledger", "reports_shv": "Recapitulative statement", "reports_income_tax": "Income tax", "reports_submissions": "Submission archive", "reports_monthly_export": "Monthly export", "tax_optimizer": "Tax optimizer", "email_templates": "Email templates", "approvals": "Approvals", "updates": "Updates", "api_tokens": "API tokens", "recurring": "Recurring invoices", "help": "Help", "logout": "Sign out",
+    "log": "Activity log", "cron_jobs": "Scheduled jobs", "exports": "Issued exports", "imports": "Imports", "imports_issued": "Imports (issued)", "imports_purchase": "Imports (purchase)", "ai_import": "AI import", "integrations": "External integrations", "crm": "CRM", "reports_dph": "VAT return", "reports_kh": "Control statement", "reports_dph_book": "VAT ledger", "reports_shv": "Recapitulative statement", "reports_income_tax": "Income tax", "reports_submissions": "Submission archive", "reports_monthly_export": "Monthly export", "tax_optimizer": "Tax optimizer", "email_templates": "Email templates", "sent_emails": "Sent emails", "approvals": "Approvals", "updates": "Updates", "api_tokens": "API tokens", "recurring": "Recurring invoices", "help": "Help", "logout": "Sign out",
     "section_sales": "Sales", "section_purchase": "Purchases", "section_finance": "Finance", "section_clients": "Clients",
     "section_documents": "Documents", "documents": "Documents",
     "purchase_invoices": "Received invoices", "purchase_export": "Received exports", "vendors": "Vendors",
@@ -750,6 +750,7 @@
     "negative_item_hint": "Enter a discount as a negative quantity or a negative unit price. The final amount due must stay positive.",
     "amount_positive_required": "Amount due must be greater than 0. Use a credit note for a zero or negative document.",
     "varsymbol_no_template": "No format set — go to Settings → Invoice numbering, or fill in manually.",
+    "varsymbol_manual_warning": "A manual number bypasses the automatic series — the counter won't advance and you're responsible for its uniqueness and continuity. Leave empty to auto-generate.",
     "varsymbol_too_long": "Number is max 20 characters.",
     "new": "+ New invoice",
     "issue_first": "Issue first",
@@ -2053,6 +2054,29 @@
     "entity": "Entity",
     "payload": "Payload",
     "ip": "IP"
+  },
+  "sent_emails": {
+    "title": "Sent emails",
+    "subtitle": "Overview of all e-mails sent from the app — manual and automatic (reminders, thank-you notes). Admin only.",
+    "all_types": "All types",
+    "refresh": "Refresh",
+    "total": "{n} emails · page {p} / {tp}",
+    "no_records": "No e-mail has been sent yet.",
+    "time": "Time",
+    "type": "Type",
+    "invoice": "Invoice",
+    "recipients": "Recipient",
+    "sender": "Sent by",
+    "sender_system": "System (automatic)",
+    "types": {
+      "invoice_sent": "Invoice sent",
+      "reminder_sent": "Reminder",
+      "approval_reminder_sent": "Approval reminder",
+      "payment_thanks_sent": "Payment thank-you",
+      "recurring_reminder_sent": "Recurring draft reminder",
+      "test": "Test e-mail",
+      "test_reminder": "Test reminder"
+    }
   },
   "cron_jobs": {
     "title": "Scheduled jobs",
