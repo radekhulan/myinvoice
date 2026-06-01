@@ -33,7 +33,9 @@ final class CloneInvoiceDueDateTest extends TestCase
 
     protected function setUp(): void
     {
-        $rootDir = dirname(__DIR__, 3);
+        // cfg.php leží v rootu repa (Bootstrap::rootDir() = dirname(api/src, 2)).
+        // Z api/tests/Integration/Invoice je to o 4 úrovně výš.
+        $rootDir = dirname(__DIR__, 4);
         if (!is_file($rootDir . '/cfg.php')) {
             $this->markTestSkipped('cfg.php neexistuje — test vyžaduje DB.');
         }
@@ -45,15 +47,18 @@ final class CloneInvoiceDueDateTest extends TestCase
             $this->markTestSkipped('DI/DB nedostupné: ' . $e->getMessage());
         }
         $pdo = $this->db->pdo();
-        $this->supplierId = (int) ($pdo->query('SELECT id FROM supplier ORDER BY id LIMIT 1')->fetchColumn() ?: 0);
         $this->userId = (int) ($pdo->query('SELECT id FROM users ORDER BY id LIMIT 1')->fetchColumn() ?: 0);
-        // Zdrojová faktura bez zakázky (project_id IS NULL).
-        $this->sourceId = (int) ($pdo->query(
-            "SELECT id FROM invoices
-              WHERE supplier_id = {$this->supplierId} AND project_id IS NULL
+        // Zdrojová faktura bez zakázky (project_id IS NULL); supplier odvodíme z ní,
+        // ne z „prvního v tabulce" — jinak by se test zbytečně skipoval, když faktury
+        // patří jinému dodavateli.
+        $row = $pdo->query(
+            "SELECT id, supplier_id FROM invoices
+              WHERE project_id IS NULL
                 AND invoice_type = 'invoice' AND status NOT IN ('cancelled')
               ORDER BY id DESC LIMIT 1"
-        )->fetchColumn() ?: 0);
+        )->fetch(PDO::FETCH_ASSOC) ?: [];
+        $this->sourceId = (int) ($row['id'] ?? 0);
+        $this->supplierId = (int) ($row['supplier_id'] ?? 0);
         if ($this->supplierId === 0 || $this->userId === 0 || $this->sourceId === 0) {
             $this->markTestSkipped('Chybí supplier/user/zdrojová faktura bez zakázky.');
         }
@@ -69,12 +74,18 @@ final class CloneInvoiceDueDateTest extends TestCase
         }
     }
 
-    public function testCloneWithoutProjectUsesSupplierDefaultDueDays(): void
+    public function testCloneWithoutProjectUsesDefaultDueDays(): void
     {
         $pdo = $this->db->pdo();
-        $days = (int) $pdo->query("SELECT default_payment_due_days FROM supplier WHERE id = {$this->supplierId}")->fetchColumn();
+        // Stejná priorita jako cloneOne / InvoiceDefaults: bez zakázky → klient → dodavatel → 7.
+        $clientId = (int) $pdo->query("SELECT client_id FROM invoices WHERE id = {$this->sourceId}")->fetchColumn();
+        $clientDays = $pdo->query("SELECT payment_due_default FROM clients WHERE id = {$clientId}")->fetchColumn();
+        $supplierDays = $pdo->query("SELECT default_payment_due_days FROM supplier WHERE id = {$this->supplierId}")->fetchColumn();
+        $days = $clientDays !== false && $clientDays !== null
+            ? (int) $clientDays
+            : ($supplierDays !== false && $supplierDays !== null ? (int) $supplierDays : 7);
         if ($days <= 0) {
-            self::markTestSkipped('Dodavatel nemá kladnou výchozí splatnost.');
+            self::markTestSkipped('Výchozí splatnost klienta i dodavatele je 0 — regrese (≠ vystavení) by nešla ověřit.');
         }
 
         $issueDate = date('Y-m-d');
@@ -85,7 +96,7 @@ final class CloneInvoiceDueDateTest extends TestCase
         $expected = date('Y-m-d', strtotime($issueDate . " +{$days} days"));
 
         self::assertSame($issueDate, (string) $row['issue_date'], 'issue_date klonu má být zadané datum.');
-        self::assertSame($expected, (string) $row['due_date'], 'splatnost klonu má být vystavení + výchozí splatnost dodavatele.');
+        self::assertSame($expected, (string) $row['due_date'], 'splatnost klonu má být vystavení + výchozí splatnost (klient → dodavatel → 7).');
         self::assertNotSame($issueDate, (string) $row['due_date'], 'splatnost nesmí být rovna datu vystavení (0 dní).');
     }
 }
