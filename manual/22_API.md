@@ -152,8 +152,10 @@ Všechny chyby v unifikovaném formátu:
 
 ## 22.9 Co API nepokrývá
 
-- **Admin endpointy** (`/api/admin/*`) nejsou v `openapi.yaml` — jsou určené pro
-  interní administraci, integrace na nich stavět nemá smysl.
+- **Admin a settings endpointy** (`/api/admin/*`, `/api/settings/*`) nejsou v
+  `openapi.yaml` - jsou určené pro interní administraci, integrace na nich
+  stavět nemá smysl. Platí to i pro interní podpisové endpointy, například
+  per-dokladový výběr podpisu (`/api/documents/.../signature-selection`).
 - **Webhooks** zatím nejsou — pokud potřebuješ notifikaci o platbě, použij polling
   `/api/v1/invoices?status=paid&from=<last_check>`.
 - **OAuth2** nepodporujeme — PAT je vědomé zjednodušení pro tenhle typ produktu.

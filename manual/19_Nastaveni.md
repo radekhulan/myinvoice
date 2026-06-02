@@ -204,44 +204,12 @@ Použití:
 > standardně **neničí** activity log, ale lze nastavit retention v
 > `cfg.php → app.activity_log_retention_days`.
 
-## 19.6 Podpis PDF certifikátem (PAdES)
+## 19.6 Elektronické podpisy
 
-**Nastavení → Podpis PDF**. Volitelný elektronický podpis PDF **vydaných faktur**
-a **výkazů víceprací** certifikátem, zapínatelný **per dodavatel**. Příjemce si
-v běžné PDF čtečce (Adobe Reader, …) ověří, že doklad nebyl po vystavení změněn.
-Přijaté faktury se nepodepisují (cizí doklad).
-
-Úroveň podpisu:
-
-- **PAdES-B** — základní podpis certifikátem.
-- **PAdES-T** — navíc s **důvěryhodným časovým razítkem** z RFC 3161 TSA serveru
-  (volitelné). Razítko prokazuje, *kdy* byl dokument podepsán.
-
-### Nahrání certifikátu
-
-1. **Vybrat soubor** — certifikát ve formátu **P12 / PFX** (vč. privátního klíče,
-   ideálně i s řetězcem CA).
-2. **Heslo k certifikátu** — uloží se šifrovaně (soubor i heslo leží mimo veřejné
-   úložiště, nikdy se nevrací do API).
-3. **Nahrát certifikát** — tlačítko je aktivní, až máš vybraný soubor i heslo.
-
-Po nahrání se zobrazí metadata certu (vlastník CN, vydavatel, platnost,
-SHA-256 fingerprint) a teprve pak lze zaškrtnout **„Podepisovat PDF"** — dokud
-certifikát chybí, je přepínač zamčený.
-
-### Časové razítko (TSA) — volitelné
-
-URL RFC 3161 TSA serveru (např. `http://tsa.cesnet.cz:3161/tsa`). Pokud server
-vyžaduje přihlášení, vyplň **TSA jméno + heslo** (HTTP Basic auth). Prázdné =
-podpis bez razítka (PAdES-B).
-
-> 🛈 **Měkký fallback** — když podpis selže (chybějící/expirovaný certifikát,
-> výpadek TSA), faktura se **nezablokuje**: vygeneruje se nepodepsané PDF a
-> událost se zaloguje. Výpadek TSA degraduje na PAdES-B.
-
-Veškerá správa i použití certifikátu se auditují do Activity logu
-(`signing.cert_uploaded` / `signing.cert_removed` / `signing.pdf_signed` /
-`signing.failed`) bez úniku hesla či klíče.
+Elektronické podpisy mají vlastní stránku **Systém -> Elektronické podpisy**.
+Aktuální konfigurace už není jeden certifikát dodavatele, ale sada
+podpisových profilů a mapování pro jednotlivé výstupy. Detailní postup je v
+[kapitole 21. Elektronické podpisy](28_Elektronicke_podpisy.md).
 
 ## 19.7 Tipy
 
