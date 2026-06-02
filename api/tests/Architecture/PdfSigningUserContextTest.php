@@ -94,7 +94,8 @@ final class PdfSigningUserContextTest extends TestCase
         $action = file_get_contents($root . '/api/src/Action/Settings/SigningProfilesAction.php');
         self::assertIsString($action);
 
-        self::assertStringContainsString('$before = $this->profiles->outputSetting($supplierId, $outputType);', $action);
+        self::assertStringContainsString('$before = $this->profiles->outputSetting($supplierId, $outputType, $usage);', $action);
+        self::assertStringContainsString("if (\$usage === 'pdf' && \$this->pdfOutputSettingChanged(\$before, \$updated))", $action);
         self::assertStringContainsString('invalidatePdfCacheForOutputSetting($supplierId, $outputType)', $action);
         self::assertStringContainsString('invalidate_signature_config', $action);
         self::assertStringContainsString('work_reports wr WHERE wr.invoice_id = i.id', $action);

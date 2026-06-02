@@ -83,6 +83,7 @@ final class RequestApprovalTestAction
                 [],
                 [],
                 [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
+                $userId,
             );
         } catch (\Throwable $e) {
             return Json::error($response, 'send_failed', 'Email se nepodařilo odeslat: ' . $e->getMessage(), 502);

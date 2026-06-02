@@ -105,6 +105,7 @@ final class SendTestReminderAction
                     'name' => basename($pdfPath),
                     'contentType' => 'application/pdf',
                 ]],
+                $userId,
             );
         } catch (\Throwable $e) {
             $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);

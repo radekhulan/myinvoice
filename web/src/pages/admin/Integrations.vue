@@ -846,7 +846,19 @@ onUnmounted(() => {
     </div>
 
     <!-- ════ AI extrakce (Anthropic Claude) ════ -->
-    <div v-else-if="tab === 'ai'" class="space-y-4">
+    <!-- #97: když je AI nakonfigurované, je opakovaná akce (extrakce) primární → flex
+         `order` ji vysune nad konfiguraci, kterou sbalíme do collapsible „Nastavení AI". -->
+    <div v-else-if="tab === 'ai'" class="flex flex-col gap-4">
+      <!-- Konfigurace AI: onboarding (rozbalené) když není nakonfig.; jinak sbalené a pod plochou. -->
+      <details :open="!aiStatus?.configured"
+               :class="['group space-y-4', aiStatus?.configured ? 'order-2' : 'order-1']">
+        <summary class="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-2 px-3 py-2 rounded-md border border-neutral-200 bg-neutral-50 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+          <svg class="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <span>{{ t('integrations.ai.settings_title') }}</span>
+          <span v-if="aiStatus?.configured" class="ml-1 font-mono text-xs font-normal text-success-600">✓ {{ aiStatus.default_model }}</span>
+        </summary>
       <!-- Privacy notice: PDF data se odesílá na servery Anthropic. -->
       <div class="rounded-md bg-warning-50 border border-warning-500/40 px-4 py-3 text-sm text-warning-700">
         <div class="flex gap-2 items-start">
@@ -919,9 +931,10 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
+      </details>
 
-      <!-- AI PDF extract -->
-      <div v-if="aiStatus?.configured" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
+      <!-- AI PDF extract (primární akce — jen když je nakonfigurováno; #97 nad konfigurací) -->
+      <div v-if="aiStatus?.configured" class="order-1 bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
         <h2 class="text-sm font-medium text-neutral-700 mb-2">{{ t('integrations.ai.extract_title') }}</h2>
         <p class="text-xs text-neutral-500 mb-4">{{ t('integrations.ai.extract_hint') }}</p>
 

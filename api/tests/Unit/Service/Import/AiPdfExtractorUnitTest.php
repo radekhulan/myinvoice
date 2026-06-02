@@ -472,6 +472,114 @@ final class AiPdfExtractorUnitTest extends TestCase
         self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::collapseToSummaryBaseLine($items, [], false));
     }
 
+    // ── authoritativeRecapBaseLine (#99 — doklad s rekapitulací = záznam, ne kalkulačka) ──
+
+    /** Reálný případ issue #99: účtenka za naftu, „cena/litr" 35,90 je BRUTTO. */
+    private function fuelReceiptData(): array
+    {
+        return [
+            'currency'         => 'CZK',
+            'total_without_vat' => 2219.59,
+            'total_with_vat'    => 2685.70,
+            'vat_recap'         => [['rate' => 21, 'base' => 2219.59, 'vat' => 466.11]],
+            'items'             => [['description' => 'DIESEL', 'quantity' => 74.81, 'unit' => 'L', 'unit_price_without_vat' => 35.90, 'vat_rate' => 21]],
+        ];
+    }
+
+    public function testAuthoritativeRecap_fuelReceipt_grossUnitPrice_usesDocumentBase(): void
+    {
+        $data = $this->fuelReceiptData();
+        // řádek tak, jak ho extractor postaví z AI (35,90 = brutto cena/litr)
+        $items = [['description' => 'DIESEL', 'quantity' => 74.81, 'unit' => 'L', 'unit_price_without_vat' => 35.90, 'vat_rate_id' => 7, 'order_index' => 0]];
+
+        $out = \MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine($items, $data, false);
+
+        self::assertNotNull($out);
+        self::assertCount(1, $out);
+        self::assertSame(1.0, $out[0]['quantity']);
+        self::assertSame(2219.59, $out[0]['unit_price_without_vat']); // základ z rekapitulace, NE 2 685,68
+        self::assertSame('DIESEL', $out[0]['description']);
+
+        // A přes InvoiceMath sedí přesně na doklad: 2 219,59 / 466,11 / 2 685,70 (žádné zaokrouhlení).
+        $r = \MyInvoice\Service\Invoice\InvoiceMath::compute([
+            ['quantity' => 1.0, 'unit_price_without_vat' => 2219.59, 'vat_rate_snapshot' => 21],
+        ]);
+        self::assertSame(2219.59, $r['totals']['without_vat']);
+        self::assertSame(466.11,  $r['totals']['vat']);
+        self::assertSame(2685.70, $r['totals']['with_vat']);
+    }
+
+    public function testAuthoritativeRecap_linesAlreadyMatchBase_keepsLines(): void
+    {
+        // Běžná faktura: řádky bez DPH sedí na základ z rekapitulace → NEslučovat (zachovej detail).
+        $data = [
+            'currency' => 'CZK', 'total_without_vat' => 200.0, 'total_with_vat' => 242.0,
+            'vat_recap' => [['rate' => 21, 'base' => 200.0, 'vat' => 42.0]],
+        ];
+        $items = [
+            ['description' => 'A', 'quantity' => 1.0, 'unit' => 'ks', 'unit_price_without_vat' => 120.0, 'vat_rate_id' => 7, 'order_index' => 0],
+            ['description' => 'B', 'quantity' => 1.0, 'unit' => 'ks', 'unit_price_without_vat' => 80.0, 'vat_rate_id' => 7, 'order_index' => 1],
+        ];
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine($items, $data, false));
+    }
+
+    public function testAuthoritativeRecap_inconsistentRecap_returnsNull(): void
+    {
+        // Rekapitulace NESEDÍ na celkem (200+42 ≠ 999) → nedůvěřuj, ať to vyřeší mismatch varování.
+        $data = [
+            'currency' => 'CZK', 'total_without_vat' => 200.0, 'total_with_vat' => 999.0,
+            'vat_recap' => [['rate' => 21, 'base' => 200.0, 'vat' => 42.0]],
+        ];
+        $items = [['description' => 'X', 'quantity' => 10.0, 'unit' => 'ks', 'unit_price_without_vat' => 100.0, 'vat_rate_id' => 7, 'order_index' => 0]];
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine($items, $data, false));
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::singleRateConsistentRecap($data));
+    }
+
+    public function testSingleRateConsistentRecap_ignoresEmptyTemplateRows(): void
+    {
+        // AI běžně vrátí šablonu rekapitulace s nulovými řádky 0 %/12 % vedle reálné 21 %
+        // (případ Axigon) — prázdné řádky musí jít stranou, ať zůstane „jednosazbové".
+        $data = [
+            'currency' => 'CZK', 'total_without_vat' => 1554.88, 'total_with_vat' => 1881.40,
+            'vat_recap' => [
+                ['rate' => 0, 'base' => 0, 'vat' => 0],
+                ['rate' => 12, 'base' => 0, 'vat' => 0],
+                ['rate' => 21, 'base' => 1554.88, 'vat' => 326.52],
+            ],
+        ];
+        $recap = \MyInvoice\Service\Import\AiPdfExtractor::singleRateConsistentRecap($data);
+        self::assertNotNull($recap);
+        self::assertSame(21.0, $recap['rate']);
+        self::assertSame(1554.88, $recap['base']);
+        self::assertSame(326.52, $recap['vat']);
+    }
+
+    public function testAuthoritativeRecap_multiRate_returnsNull(): void
+    {
+        $data = [
+            'currency' => 'CZK', 'total_without_vat' => 150.0, 'total_with_vat' => 180.5,
+            'vat_recap' => [['rate' => 21, 'base' => 100.0, 'vat' => 21.0], ['rate' => 12, 'base' => 50.0, 'vat' => 6.0]],
+        ];
+        $items = [['description' => 'X', 'quantity' => 1.0, 'unit' => 'ks', 'unit_price_without_vat' => 999.0, 'vat_rate_id' => 7, 'order_index' => 0]];
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine($items, $data, false));
+    }
+
+    public function testAuthoritativeRecap_noRecap_returnsNull(): void
+    {
+        $data = ['currency' => 'CZK', 'total_without_vat' => 950.0];
+        $items = [['description' => 'X', 'quantity' => 10.0, 'unit' => 'ks', 'unit_price_without_vat' => 100.0, 'vat_rate_id' => 7, 'order_index' => 0]];
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine($items, $data, false));
+    }
+
+    public function testAuthoritativeRecap_creditNote_returnsNull(): void
+    {
+        self::assertNull(\MyInvoice\Service\Import\AiPdfExtractor::authoritativeRecapBaseLine(
+            [['description' => 'DIESEL', 'quantity' => 74.81, 'unit' => 'L', 'unit_price_without_vat' => 35.90, 'vat_rate_id' => 7, 'order_index' => 0]],
+            $this->fuelReceiptData(),
+            true,
+        ));
+    }
+
     // ── Helper: reflection invokers ────────────────────────────────────────
 
     private function invokeResolvePricesInclVat(array $data, string $documentKind): bool

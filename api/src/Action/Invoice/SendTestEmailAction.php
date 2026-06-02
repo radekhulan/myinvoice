@@ -100,6 +100,7 @@ final class SendTestEmailAction
                 [],
                 [],
                 $emailAttachments,
+                $userId,
             );
         } catch (\Throwable $e) {
             $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);

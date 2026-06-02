@@ -145,7 +145,7 @@ final class SigningProfileRepositoryTest extends TestCase
         $owned = $this->profiles->listProfilesForOwner($this->supplierId, $this->userId);
         self::assertContains($profileId, array_map(static fn (array $row): int => (int) $row['id'], $owned));
 
-        $this->profiles->upsertCredential($this->supplierId, $profileId, 'pdf', [
+        $this->profiles->upsertCredential($this->supplierId, $profileId, [
             'certificate_path' => 'signing/pdf/itest.p12',
             'certificate_fingerprint' => str_repeat('a', 64),
             'certificate_subject' => 'CN=Integration Test',
@@ -155,7 +155,7 @@ final class SigningProfileRepositoryTest extends TestCase
             'encrypted_passphrase' => null,
         ], $this->userId);
 
-        $credential = $this->profiles->credential($this->supplierId, $profileId, 'pdf');
+        $credential = $this->profiles->credential($this->supplierId, $profileId);
         self::assertNotNull($credential);
         self::assertSame('passphrase_file', $credential['passphrase_policy']);
         self::assertSame('itest-profile', $credential['passphrase_profile_id']);
@@ -164,12 +164,11 @@ final class SigningProfileRepositoryTest extends TestCase
         self::assertTrue($this->profiles->updateCredentialPassphrasePolicy(
             $this->supplierId,
             $profileId,
-            'pdf',
             'prompt_on_use',
             null,
             null,
         ));
-        $credential = $this->profiles->credential($this->supplierId, $profileId, 'pdf');
+        $credential = $this->profiles->credential($this->supplierId, $profileId);
         self::assertNotNull($credential);
         self::assertSame('prompt_on_use', $credential['passphrase_policy']);
         self::assertNull($credential['passphrase_profile_id']);
@@ -179,35 +178,25 @@ final class SigningProfileRepositoryTest extends TestCase
         self::assertTrue($this->profiles->updateCredentialPassphrasePolicy(
             $this->supplierId,
             $profileId,
-            'pdf',
             'encrypted_store',
             null,
             'enc:v1:rotated',
         ));
-        $credential = $this->profiles->credential($this->supplierId, $profileId, 'pdf');
+        $credential = $this->profiles->credential($this->supplierId, $profileId);
         self::assertNotNull($credential);
         self::assertSame('encrypted_store', $credential['passphrase_policy']);
         self::assertSame('enc:v1:rotated', $credential['encrypted_passphrase']);
         self::assertSame('signing/pdf/itest.p12', $credential['certificate_path']);
 
-        self::assertFalse($this->profiles->updateCredentialPassphrasePolicy(
-            $this->supplierId,
-            $profileId,
-            'email_smime',
-            'encrypted_store',
-            null,
-            'enc:v1:missing',
-        ));
+        self::assertTrue($this->profiles->softDeleteCredential($this->supplierId, $profileId));
+        self::assertNull($this->profiles->credential($this->supplierId, $profileId));
 
-        self::assertTrue($this->profiles->softDeleteCredential($this->supplierId, $profileId, 'pdf'));
-        self::assertNull($this->profiles->credential($this->supplierId, $profileId, 'pdf'));
-
-        $this->profiles->upsertCredential($this->supplierId, $profileId, 'pdf', [
+        $this->profiles->upsertCredential($this->supplierId, $profileId, [
             'certificate_path' => 'signing/pdf/itest-restored.p12',
             'passphrase_policy' => 'encrypted_store',
             'encrypted_passphrase' => 'enc:v1:test',
         ], $this->userId);
-        self::assertNotNull($this->profiles->credential($this->supplierId, $profileId, 'pdf'));
+        self::assertNotNull($this->profiles->credential($this->supplierId, $profileId));
 
         $adminProfileId = $this->profiles->createProfile(
             supplierId: $this->supplierId,
@@ -241,6 +230,7 @@ final class SigningProfileRepositoryTest extends TestCase
         ]);
 
         $output = $this->profiles->outputSetting($this->supplierId, 'invoice');
+        self::assertSame('pdf', $output['usage']);
         self::assertSame($adminProfileId, $output['default_profile_id']);
         self::assertSame('admin_profile_settings', $output['selection_source']);
         self::assertSame(['appearance' => 'invisible'], $output['signature_config']);
@@ -250,6 +240,50 @@ final class SigningProfileRepositoryTest extends TestCase
             'selection_source' => 'admin_profile_settings',
             'default_profile_id' => $profileId,
         ]);
+    }
+
+    public function testEmailOutputSettingRequiresEmailSmimeProfile(): void
+    {
+        $emailProfileId = $this->profiles->createProfile(
+            supplierId: $this->supplierId,
+            ownerUserId: null,
+            name: 'Integration email signing profile',
+            code: 'itest_email_' . bin2hex(random_bytes(4)),
+            allowedUsages: ['email_smime'],
+            defaultBackend: 'native',
+            createdBy: $this->userId,
+        );
+        $this->createdProfiles[] = $emailProfileId;
+
+        $this->profiles->upsertOutputSetting($this->supplierId, 'email_invoice_send', [
+            'enabled' => true,
+            'backend' => 'smime',
+            'selection_source' => 'admin_profile_settings',
+            'default_profile_id' => $emailProfileId,
+            'failure_policy' => 'fail_closed',
+        ], 'email_smime');
+
+        $output = $this->profiles->outputSetting($this->supplierId, 'email_invoice_send', 'email_smime');
+        self::assertSame('email_smime', $output['usage']);
+        self::assertSame($emailProfileId, $output['default_profile_id']);
+        self::assertSame('smime', $output['backend']);
+
+        $pdfOnlyProfileId = $this->profiles->createProfile(
+            supplierId: $this->supplierId,
+            ownerUserId: null,
+            name: 'Integration PDF only profile',
+            code: 'itest_pdf_only_' . bin2hex(random_bytes(4)),
+            allowedUsages: ['pdf'],
+            defaultBackend: 'native',
+            createdBy: $this->userId,
+        );
+        $this->createdProfiles[] = $pdfOnlyProfileId;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->profiles->upsertOutputSetting($this->supplierId, 'email_invoice_send', [
+            'selection_source' => 'admin_profile_settings',
+            'default_profile_id' => $pdfOnlyProfileId,
+        ], 'email_smime');
     }
 
     public function testSoftDeletedProfileCodeCanBeReused(): void
