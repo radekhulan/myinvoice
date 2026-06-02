@@ -463,10 +463,10 @@ final class Routes
         $app->put    ('/api/settings/signing',              [SigningProfilesAction::class, 'updateSettings']);
         $app->get    ('/api/settings/signing/profiles',              [SigningProfilesAction::class, 'listProfiles']);
         $app->post   ('/api/settings/signing/profiles',              [SigningProfilesAction::class, 'createProfile']);
-        $app->get    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'credentialCertificate']);
-        $app->post   ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'uploadCredentialCertificate']);
-        $app->put    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'updateCredentialCertificate']);
-        $app->delete ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'deleteCredentialCertificate']);
+        $app->get    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/certificate', [SigningProfilesAction::class, 'credentialCertificate']);
+        $app->post   ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/certificate', [SigningProfilesAction::class, 'uploadCredentialCertificate']);
+        $app->put    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/certificate', [SigningProfilesAction::class, 'updateCredentialCertificate']);
+        $app->delete ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/certificate', [SigningProfilesAction::class, 'deleteCredentialCertificate']);
         $app->get    ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'getProfile']);
         $app->put    ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'updateProfile']);
         $app->delete ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'deleteProfile']);

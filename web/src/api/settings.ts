@@ -220,7 +220,6 @@ export type SigningCredentialPassphrasePolicy = 'encrypted_store' | 'passphrase_
 
 export interface SigningProfileCredentialMeta {
   has_certificate: boolean
-  usage: SigningProfileUsage
   certificate_fingerprint?: string | null
   certificate_subject?: string | null
   certificate_email?: string | null
@@ -245,6 +244,7 @@ export type PdfSignatureFailurePolicy = 'fallback_unsigned' | 'fail_closed' | 's
 
 export interface PdfSignatureOutputSetting {
   supplier_id: number
+  usage: SigningProfileUsage
   output_type: string
   enabled: boolean
   backend: string
@@ -360,11 +360,10 @@ export const settingsApi = {
     api.put<SigningProfile>(`/settings/signing/profiles/${id}`, payload).then(r => r.data),
   deleteSigningProfile: (id: number) =>
     api.delete<{ deleted: boolean }>(`/settings/signing/profiles/${id}`).then(r => r.data),
-  getSigningProfileCredential: (id: number, usage: SigningProfileUsage) =>
-    api.get<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/${usage}/certificate`).then(r => r.data),
+  getSigningProfileCredential: (id: number) =>
+    api.get<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/certificate`).then(r => r.data),
   uploadSigningProfileCredential: (
     id: number,
-    usage: SigningProfileUsage,
     file: File,
     password: string,
     passphrasePolicy: SigningCredentialPassphrasePolicy,
@@ -376,22 +375,21 @@ export const settingsApi = {
     fd.append('passphrase_policy', passphrasePolicy)
     if (passphraseProfileId) fd.append('passphrase_profile_id', passphraseProfileId)
     return api.post<SigningProfileCredentialMeta>(
-      `/settings/signing/profiles/${id}/credentials/${usage}/certificate`,
+      `/settings/signing/profiles/${id}/credentials/certificate`,
       fd,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     ).then(r => r.data)
   },
   updateSigningProfileCredentialPassphrase: (
     id: number,
-    usage: SigningProfileUsage,
     payload: SigningProfileCredentialPassphrasePayload,
   ) =>
     api.put<SigningProfileCredentialMeta>(
-      `/settings/signing/profiles/${id}/credentials/${usage}/certificate`,
+      `/settings/signing/profiles/${id}/credentials/certificate`,
       payload,
     ).then(r => r.data),
-  deleteSigningProfileCredential: (id: number, usage: SigningProfileUsage) =>
-    api.delete<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/${usage}/certificate`).then(r => r.data),
+  deleteSigningProfileCredential: (id: number) =>
+    api.delete<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/certificate`).then(r => r.data),
   getPdfSigningSettings: () =>
     api.get<PdfSignatureSettings>('/settings/pdf-signing').then(r => r.data),
   testPdfSigning: (outputType: string) =>

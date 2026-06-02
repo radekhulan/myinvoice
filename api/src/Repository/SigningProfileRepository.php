@@ -8,7 +8,7 @@ use MyInvoice\Infrastructure\Database\Connection;
 use PDO;
 
 /**
- * Per-supplier podpisové profily a PDF výstupní nastavení.
+ * Per-supplier podpisové profily a výstupní nastavení.
  *
  * Repository záměrně neřeší HTTP RBAC ani audit; ty patří do Action vrstvy.
  * Všechny čtecí i zapisovací metody berou `supplier_id`, aby se později
@@ -261,12 +261,10 @@ final class SigningProfileRepository
     public function upsertCredential(
         int $supplierId,
         int $profileId,
-        string $usage,
         array $data,
         ?int $createdBy = null,
     ): void {
         $this->assertProfileExists($supplierId, $profileId);
-        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $path = $this->nonEmpty((string) ($data['certificate_path'] ?? ''), 'certificate_path', 255);
         $passphrasePolicy = $this->oneOf(
             (string) ($data['passphrase_policy'] ?? 'encrypted_store'),
@@ -276,10 +274,10 @@ final class SigningProfileRepository
 
         $stmt = $this->db->pdo()->prepare(
             'INSERT INTO signing_credentials
-                (profile_id, `usage`, certificate_path, certificate_fingerprint, certificate_subject,
+                (profile_id, certificate_path, certificate_fingerprint, certificate_subject,
                  certificate_email, certificate_valid_from, certificate_valid_to, certificate_usage_json,
                  passphrase_policy, passphrase_profile_id, encrypted_passphrase, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                  certificate_path = VALUES(certificate_path),
                  certificate_fingerprint = VALUES(certificate_fingerprint),
@@ -296,7 +294,6 @@ final class SigningProfileRepository
         );
         $stmt->execute([
             $profileId,
-            $usage,
             $path,
             $data['certificate_fingerprint'] ?? null,
             $data['certificate_subject'] ?? null,
@@ -317,17 +314,17 @@ final class SigningProfileRepository
     /**
      * @return array<string,mixed>|null
      */
-    public function credential(int $supplierId, int $profileId, string $usage): ?array
+    public function credential(int $supplierId, int $profileId): ?array
     {
-        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $stmt = $this->db->pdo()->prepare(
             'SELECT c.*
                FROM signing_credentials c
                JOIN signing_profiles p ON p.id = c.profile_id
-              WHERE p.supplier_id = ? AND c.profile_id = ? AND c.`usage` = ?
-                AND c.deleted_at IS NULL'
+              WHERE p.supplier_id = ? AND c.profile_id = ?
+                AND c.deleted_at IS NULL
+              LIMIT 1'
         );
-        $stmt->execute([$supplierId, $profileId, $usage]);
+        $stmt->execute([$supplierId, $profileId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row !== false ? $this->hydrateCredential($row) : null;
@@ -336,14 +333,16 @@ final class SigningProfileRepository
     public function updateCredentialPassphrasePolicy(
         int $supplierId,
         int $profileId,
-        string $usage,
         string $passphrasePolicy,
         ?string $passphraseProfileId,
         ?string $encryptedPassphrase,
     ): bool {
         $this->assertProfileExists($supplierId, $profileId);
-        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $passphrasePolicy = $this->oneOf($passphrasePolicy, self::PASSPHRASE_POLICIES, 'passphrase_policy');
+        $credential = $this->credential($supplierId, $profileId);
+        if ($credential === null) {
+            return false;
+        }
 
         $stmt = $this->db->pdo()->prepare(
             'UPDATE signing_credentials c
@@ -351,7 +350,7 @@ final class SigningProfileRepository
                 SET c.passphrase_policy = ?,
                     c.passphrase_profile_id = ?,
                     c.encrypted_passphrase = ?
-              WHERE p.supplier_id = ? AND c.profile_id = ? AND c.`usage` = ?
+              WHERE p.supplier_id = ? AND c.id = ?
                 AND c.deleted_at IS NULL'
         );
         $stmt->execute([
@@ -359,24 +358,22 @@ final class SigningProfileRepository
             $passphrasePolicy === 'passphrase_file' ? $passphraseProfileId : null,
             $passphrasePolicy === 'encrypted_store' ? $encryptedPassphrase : null,
             $supplierId,
-            $profileId,
-            $usage,
+            (int) $credential['id'],
         ]);
 
         return $stmt->rowCount() > 0;
     }
 
-    public function softDeleteCredential(int $supplierId, int $profileId, string $usage): bool
+    public function softDeleteCredential(int $supplierId, int $profileId): bool
     {
-        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $stmt = $this->db->pdo()->prepare(
             'UPDATE signing_credentials c
                JOIN signing_profiles p ON p.id = c.profile_id
                 SET c.deleted_at = CURRENT_TIMESTAMP, c.is_active = 0
-              WHERE p.supplier_id = ? AND c.profile_id = ? AND c.`usage` = ?
+              WHERE p.supplier_id = ? AND c.profile_id = ?
                 AND c.deleted_at IS NULL'
         );
-        $stmt->execute([$supplierId, $profileId, $usage]);
+        $stmt->execute([$supplierId, $profileId]);
 
         return $stmt->rowCount() > 0;
     }
@@ -392,8 +389,9 @@ final class SigningProfileRepository
      *   signature_config?:?array<string,mixed>
      * } $data
      */
-    public function upsertOutputSetting(int $supplierId, string $outputType, array $data): void
+    public function upsertOutputSetting(int $supplierId, string $outputType, array $data, string $usage = 'pdf'): void
     {
+        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $outputType = $this->nonEmpty($outputType, 'output_type', 40);
         $selectionSource = $this->oneOf((string) ($data['selection_source'] ?? 'admin_profile_settings'), self::SELECTION_SOURCES, 'selection_source');
         $userProfileFallback = $this->oneOf((string) ($data['user_profile_fallback'] ?? 'fallback_unsigned'), self::USER_PROFILE_FALLBACKS, 'user_profile_fallback');
@@ -404,15 +402,16 @@ final class SigningProfileRepository
             $defaultProfileId = null;
         }
         if ($defaultProfileId !== null) {
-            $this->assertAdminPdfProfile($supplierId, (int) $defaultProfileId);
+            $this->assertAdminProfileForUsage($supplierId, (int) $defaultProfileId, $usage);
         }
 
         $stmt = $this->db->pdo()->prepare(
             'INSERT INTO pdf_signature_output_settings
-                (supplier_id, output_type, enabled, backend, selection_source,
+                (supplier_id, `usage`, output_type, enabled, backend, selection_source,
                  user_profile_fallback, default_profile_id, failure_policy, signature_config_json)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
+                 `usage` = VALUES(`usage`),
                  enabled = VALUES(enabled),
                  backend = VALUES(backend),
                  selection_source = VALUES(selection_source),
@@ -423,9 +422,10 @@ final class SigningProfileRepository
         );
         $stmt->execute([
             $supplierId,
+            $usage,
             $outputType,
             ($data['enabled'] ?? true) ? 1 : 0,
-            $this->nonEmpty((string) ($data['backend'] ?? 'native'), 'backend', 40),
+            $this->nonEmpty((string) ($data['backend'] ?? ($usage === 'email_smime' ? 'smime' : 'native')), 'backend', 40),
             $selectionSource,
             $userProfileFallback,
             $defaultProfileId,
@@ -439,8 +439,9 @@ final class SigningProfileRepository
     /**
      * @return array<string,mixed>
      */
-    public function outputSetting(int $supplierId, string $outputType): array
+    public function outputSetting(int $supplierId, string $outputType, string $usage = 'pdf'): array
     {
+        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $outputType = $this->nonEmpty($outputType, 'output_type', 40);
         $stmt = $this->db->pdo()->prepare(
             'SELECT * FROM pdf_signature_output_settings
@@ -452,9 +453,10 @@ final class SigningProfileRepository
         if ($row === false) {
             return [
                 'supplier_id' => $supplierId,
+                'usage' => $usage,
                 'output_type' => $outputType,
-                'enabled' => true,
-                'backend' => 'native',
+                'enabled' => $usage === 'pdf',
+                'backend' => $usage === 'email_smime' ? 'smime' : 'native',
                 'selection_source' => 'admin_profile_settings',
                 'user_profile_fallback' => 'fallback_unsigned',
                 'default_profile_id' => null,
@@ -574,7 +576,7 @@ final class SigningProfileRepository
             $adminProfileId = null;
         }
         if ($adminProfileId !== null) {
-            $this->assertAdminPdfProfile($supplierId, $adminProfileId);
+            $this->assertAdminProfileForUsage($supplierId, $adminProfileId, $usage);
         }
 
         $stmt = $this->db->pdo()->prepare(
@@ -610,8 +612,9 @@ final class SigningProfileRepository
         }
     }
 
-    private function assertAdminPdfProfile(int $supplierId, int $profileId): void
+    private function assertAdminProfileForUsage(int $supplierId, int $profileId, string $usage): void
     {
+        $usage = $this->oneOf($usage, self::USAGES, 'usage');
         $profile = $this->findProfile($supplierId, $profileId);
         if ($profile === null) {
             throw new \RuntimeException('Podpisový profil neexistuje v aktuálním supplier scope.');
@@ -619,10 +622,11 @@ final class SigningProfileRepository
         if (($profile['owner_user_id'] ?? null) !== null) {
             throw new \InvalidArgumentException('Profil dodavatele nesmí být uživatelský podpisový profil.');
         }
-        if (!($profile['is_active'] ?? false) || !in_array('pdf', $profile['allowed_usages'] ?? [], true)) {
-            throw new \InvalidArgumentException('Profil dodavatele není aktivní nebo nepodporuje PDF podpis.');
+        if (!($profile['is_active'] ?? false) || !in_array($usage, $profile['allowed_usages'] ?? [], true)) {
+            throw new \InvalidArgumentException('Profil dodavatele není aktivní nebo nepodporuje dané použití.');
         }
     }
+
 
     private function releaseDeletedCodeConflicts(int $supplierId, string $code, ?int $exceptProfileId = null): void
     {
@@ -710,7 +714,6 @@ final class SigningProfileRepository
         return [
             'id' => (int) $row['id'],
             'profile_id' => (int) $row['profile_id'],
-            'usage' => (string) $row['usage'],
             'certificate_path' => (string) $row['certificate_path'],
             'certificate_fingerprint' => $row['certificate_fingerprint'] !== null ? (string) $row['certificate_fingerprint'] : null,
             'certificate_subject' => $row['certificate_subject'] !== null ? (string) $row['certificate_subject'] : null,
@@ -737,6 +740,7 @@ final class SigningProfileRepository
     {
         return [
             'supplier_id' => (int) $row['supplier_id'],
+            'usage' => (string) ($row['usage'] ?? 'pdf'),
             'output_type' => (string) $row['output_type'],
             'enabled' => (int) $row['enabled'] === 1,
             'backend' => (string) $row['backend'],
