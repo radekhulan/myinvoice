@@ -258,6 +258,7 @@ function pdfReasonLabel(reason: string): string {
     'invalidate_allocate': 'invoice.pdf_history.reason.allocate',
     'invalidate_workreport': 'invoice.pdf_history.reason.workreport',
     'invalidate_signature_selection': 'invoice.pdf_history.reason.signature_selection',
+    'invalidate_signature_config': 'invoice.pdf_history.reason.signature_config',
     'approval_request': 'invoice.pdf_history.reason.approval_request',
     'approval_reminder': 'invoice.pdf_history.reason.approval_reminder',
     'invalidate_currency': 'invoice.pdf_history.reason.currency',

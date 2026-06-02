@@ -333,6 +333,39 @@ final class SigningProfileRepository
         return $row !== false ? $this->hydrateCredential($row) : null;
     }
 
+    public function updateCredentialPassphrasePolicy(
+        int $supplierId,
+        int $profileId,
+        string $usage,
+        string $passphrasePolicy,
+        ?string $passphraseProfileId,
+        ?string $encryptedPassphrase,
+    ): bool {
+        $this->assertProfileExists($supplierId, $profileId);
+        $usage = $this->oneOf($usage, self::USAGES, 'usage');
+        $passphrasePolicy = $this->oneOf($passphrasePolicy, self::PASSPHRASE_POLICIES, 'passphrase_policy');
+
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE signing_credentials c
+               JOIN signing_profiles p ON p.id = c.profile_id
+                SET c.passphrase_policy = ?,
+                    c.passphrase_profile_id = ?,
+                    c.encrypted_passphrase = ?
+              WHERE p.supplier_id = ? AND c.profile_id = ? AND c.`usage` = ?
+                AND c.deleted_at IS NULL'
+        );
+        $stmt->execute([
+            $passphrasePolicy,
+            $passphrasePolicy === 'passphrase_file' ? $passphraseProfileId : null,
+            $passphrasePolicy === 'encrypted_store' ? $encryptedPassphrase : null,
+            $supplierId,
+            $profileId,
+            $usage,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
     public function softDeleteCredential(int $supplierId, int $profileId, string $usage): bool
     {
         $usage = $this->oneOf($usage, self::USAGES, 'usage');

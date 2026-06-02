@@ -35,6 +35,16 @@ final class RoleMiddlewareTest extends TestCase
         self::assertSame(204, $response->getStatusCode());
     }
 
+    public function testAccountantCanUpdateOwnSigningProfileCredentialRoute(): void
+    {
+        $response = $this->middleware()->process(
+            $this->request('PUT', '/api/settings/signing/profiles/7/credentials/pdf/certificate', 'accountant'),
+            $this->okHandler(),
+        );
+
+        self::assertSame(204, $response->getStatusCode());
+    }
+
     public function testAccountantCannotMutateGlobalSigningSettingsRoute(): void
     {
         $response = $this->middleware()->process(

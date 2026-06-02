@@ -161,6 +161,44 @@ final class SigningProfileRepositoryTest extends TestCase
         self::assertSame('itest-profile', $credential['passphrase_profile_id']);
         self::assertSame(['digital_signature' => true], $credential['certificate_usage']);
 
+        self::assertTrue($this->profiles->updateCredentialPassphrasePolicy(
+            $this->supplierId,
+            $profileId,
+            'pdf',
+            'prompt_on_use',
+            null,
+            null,
+        ));
+        $credential = $this->profiles->credential($this->supplierId, $profileId, 'pdf');
+        self::assertNotNull($credential);
+        self::assertSame('prompt_on_use', $credential['passphrase_policy']);
+        self::assertNull($credential['passphrase_profile_id']);
+        self::assertNull($credential['encrypted_passphrase']);
+        self::assertSame('signing/pdf/itest.p12', $credential['certificate_path']);
+
+        self::assertTrue($this->profiles->updateCredentialPassphrasePolicy(
+            $this->supplierId,
+            $profileId,
+            'pdf',
+            'encrypted_store',
+            null,
+            'enc:v1:rotated',
+        ));
+        $credential = $this->profiles->credential($this->supplierId, $profileId, 'pdf');
+        self::assertNotNull($credential);
+        self::assertSame('encrypted_store', $credential['passphrase_policy']);
+        self::assertSame('enc:v1:rotated', $credential['encrypted_passphrase']);
+        self::assertSame('signing/pdf/itest.p12', $credential['certificate_path']);
+
+        self::assertFalse($this->profiles->updateCredentialPassphrasePolicy(
+            $this->supplierId,
+            $profileId,
+            'email_smime',
+            'encrypted_store',
+            null,
+            'enc:v1:missing',
+        ));
+
         self::assertTrue($this->profiles->softDeleteCredential($this->supplierId, $profileId, 'pdf'));
         self::assertNull($this->profiles->credential($this->supplierId, $profileId, 'pdf'));
 

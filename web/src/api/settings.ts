@@ -232,6 +232,12 @@ export interface SigningProfileCredentialMeta {
   expired?: boolean
 }
 
+export interface SigningProfileCredentialPassphrasePayload {
+  passphrase_policy: SigningCredentialPassphrasePolicy
+  passphrase_profile_id?: string | null
+  password?: string | null
+}
+
 export type PdfSignatureSelectionSource = 'logged_in_user' | 'admin_profile_settings'
 export type PdfSignatureUserProfileFallback = 'admin_profile_settings' | 'fail_closed' | 'fallback_unsigned'
 export type PdfSignatureFailurePolicy = 'fallback_unsigned' | 'fail_closed' | 'skip_when_unconfigured'
@@ -374,6 +380,15 @@ export const settingsApi = {
       { headers: { 'Content-Type': 'multipart/form-data' } },
     ).then(r => r.data)
   },
+  updateSigningProfileCredentialPassphrase: (
+    id: number,
+    usage: SigningProfileUsage,
+    payload: SigningProfileCredentialPassphrasePayload,
+  ) =>
+    api.put<SigningProfileCredentialMeta>(
+      `/settings/signing/profiles/${id}/credentials/${usage}/certificate`,
+      payload,
+    ).then(r => r.data),
   deleteSigningProfileCredential: (id: number, usage: SigningProfileUsage) =>
     api.delete<SigningProfileCredentialMeta>(`/settings/signing/profiles/${id}/credentials/${usage}/certificate`).then(r => r.data),
   getPdfSigningSettings: () =>

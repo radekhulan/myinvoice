@@ -89,7 +89,7 @@ final class AutoIssueAndSendService
         }
 
         // 2. PDF
-        $pdfPath = $this->renderer->render($invoiceId);
+        $pdfPath = $this->renderer->render($invoiceId, false, $userId);
 
         // 3. Příjemci (stejná logika jako SendEmailAction)
         $to = $this->resolveRecipients($invoice);

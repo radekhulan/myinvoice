@@ -12,6 +12,7 @@ use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Repository\SigningProfileRepository;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\Auth\SecretEncryption;
+use MyInvoice\Service\Pdf\InvoicePdfRenderer;
 use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use MyInvoice\Service\Signing\SigningProfileAccess;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -38,6 +39,7 @@ final class SigningProfilesAction
         private readonly ActivityLogger $logger,
         private readonly SecretEncryption $secrets,
         private readonly PdfSigningService $pdfSigning,
+        private readonly InvoicePdfRenderer $pdf,
     ) {}
 
     public function settings(Request $request, Response $response): Response
@@ -280,6 +282,7 @@ final class SigningProfilesAction
         }
 
         $supplierId = $this->supplierId($request);
+        $before = $this->profiles->outputSetting($supplierId, $outputType);
         $body = (array) ($request->getParsedBody() ?? []);
         $data = [];
         foreach (['enabled', 'backend', 'selection_source', 'user_profile_fallback', 'failure_policy'] as $field) {
@@ -303,12 +306,17 @@ final class SigningProfilesAction
         }
 
         $updated = $this->profiles->outputSetting($supplierId, $outputType);
+        $invalidatedPdfCache = 0;
+        if ($this->pdfOutputSettingChanged($before, $updated)) {
+            $invalidatedPdfCache = $this->invalidatePdfCacheForOutputSetting($supplierId, $outputType);
+        }
         $this->logger->log('signing.output_settings_updated', $this->userId($request), 'supplier', $supplierId, [
             'output_type' => $outputType,
             'enabled' => $updated['enabled'] ?? null,
             'selection_source' => $updated['selection_source'] ?? null,
             'default_profile_id' => $updated['default_profile_id'] ?? null,
             'failure_policy' => $updated['failure_policy'] ?? null,
+            'invalidated_pdf_cache' => $invalidatedPdfCache,
         ], null, null, $supplierId);
 
         return Json::ok($response, $updated);
@@ -492,6 +500,14 @@ final class SigningProfilesAction
         if ($passphrasePolicy === null) {
             return Json::error($response, 'unsupported_passphrase_policy', 'Politika hesla není podporovaná.', 400);
         }
+        if ($passphrasePolicy === 'prompt_on_use') {
+            return Json::error(
+                $response,
+                'prompt_on_use_unsupported',
+                'Politika „ptát se při použití“ zatím není pro PDF podporovaná.',
+                400
+            );
+        }
         $passphraseProfileId = $this->stringOrNull($body['passphrase_profile_id'] ?? null);
         if ($passphrasePolicy === 'passphrase_file' && $passphraseProfileId === null) {
             return Json::error($response, 'passphrase_profile_required', 'Pro passphrase_file zadej ID profilu hesla.', 400);
@@ -544,6 +560,89 @@ final class SigningProfilesAction
         return Json::ok($response, $this->credentialMeta($usage, $credential), 201);
     }
 
+    public function updateCredentialCertificate(Request $request, Response $response, array $args): Response
+    {
+        $supplierId = $this->supplierId($request);
+        $profileId = (int) ($args['id'] ?? 0);
+        $usage = $this->credentialUsage((string) ($args['usage'] ?? ''));
+        if ($usage === null) {
+            return Json::error($response, 'unsupported_usage', 'Typ použití certifikátu není podporovaný.', 404);
+        }
+
+        $profile = $this->profiles->findProfile($supplierId, $profileId);
+        if ($profile === null) {
+            return Json::error($response, 'not_found', 'Podpisový profil nenalezen.', 404);
+        }
+        if (!$this->canManageProfile($request, $profile)) {
+            return Json::error($response, 'forbidden', 'Pro tuto akci nemáš oprávnění.', 403);
+        }
+        if (!in_array($usage, $profile['allowed_usages'] ?? [], true)) {
+            return Json::error($response, 'usage_not_allowed', 'Profil nemá toto použití povolené.', 400);
+        }
+
+        $credential = $this->profiles->credential($supplierId, $profileId, $usage);
+        if ($credential === null) {
+            return Json::error($response, 'no_certificate', 'Nejdřív nahraj certifikát profilu.', 400);
+        }
+
+        $body = (array) ($request->getParsedBody() ?? []);
+        $passphrasePolicy = $this->passphrasePolicy((string) ($body['passphrase_policy'] ?? ($credential['passphrase_policy'] ?? 'encrypted_store')));
+        if ($passphrasePolicy === null) {
+            return Json::error($response, 'unsupported_passphrase_policy', 'Politika hesla není podporovaná.', 400);
+        }
+        if ($passphrasePolicy === 'prompt_on_use') {
+            return Json::error(
+                $response,
+                'prompt_on_use_unsupported',
+                'Politika „ptát se při použití“ zatím není pro PDF podporovaná.',
+                400
+            );
+        }
+
+        $passphraseProfileId = $this->stringOrNull($body['passphrase_profile_id'] ?? null);
+        if ($passphrasePolicy === 'passphrase_file') {
+            $passphraseProfileId ??= $this->stringOrNull($credential['passphrase_profile_id'] ?? null);
+            if ($passphraseProfileId === null) {
+                return Json::error($response, 'passphrase_profile_required', 'Pro passphrase_file zadej ID profilu hesla.', 400);
+            }
+        }
+
+        $password = (string) (($body['password'] ?? '') ?: '');
+        $encryptedPassphrase = null;
+        if ($passphrasePolicy === 'encrypted_store') {
+            $encryptedPassphrase = $password !== ''
+                ? $this->secrets->encrypt($password)
+                : $this->stringOrNull($credential['encrypted_passphrase'] ?? null);
+            if ($encryptedPassphrase === null) {
+                return Json::error(
+                    $response,
+                    'password_required',
+                    'Pro uložení hesla v aplikaci zadej heslo k certifikátu.',
+                    400
+                );
+            }
+        }
+
+        $this->profiles->updateCredentialPassphrasePolicy(
+            $supplierId,
+            $profileId,
+            $usage,
+            $passphrasePolicy,
+            $passphraseProfileId,
+            $encryptedPassphrase,
+        );
+
+        $credential = $this->profiles->credential($supplierId, $profileId, $usage);
+        $this->logger->log('signing.credential_passphrase_updated', $this->userId($request), 'signing_profile', $profileId, [
+            'usage' => $usage,
+            'profile_code' => $profile['code'] ?? null,
+            'passphrase_policy' => $credential['passphrase_policy'] ?? null,
+            'passphrase_profile_id' => $credential['passphrase_profile_id'] ?? null,
+        ], null, null, $supplierId);
+
+        return Json::ok($response, $this->credentialMeta($usage, $credential));
+    }
+
     public function deleteCredentialCertificate(Request $request, Response $response, array $args): Response
     {
         $supplierId = $this->supplierId($request);
@@ -576,6 +675,53 @@ final class SigningProfilesAction
         ], null, null, $supplierId);
 
         return Json::ok($response, $this->credentialMeta($usage, null));
+    }
+
+    /**
+     * @param array<string,mixed> $before
+     * @param array<string,mixed> $after
+     */
+    private function pdfOutputSettingChanged(array $before, array $after): bool
+    {
+        foreach (['enabled', 'backend', 'selection_source', 'user_profile_fallback', 'default_profile_id', 'failure_policy'] as $field) {
+            if (($before[$field] ?? null) != ($after[$field] ?? null)) {
+                return true;
+            }
+        }
+
+        return $this->jsonStable($before['signature_config'] ?? []) !== $this->jsonStable($after['signature_config'] ?? []);
+    }
+
+    private function invalidatePdfCacheForOutputSetting(int $supplierId, string $outputType): int
+    {
+        $sql = 'SELECT i.id, i.status
+                  FROM invoices i
+                 WHERE i.supplier_id = ?
+                   AND (i.pdf_path IS NOT NULL OR i.pdf_generated_at IS NOT NULL)';
+        if ($outputType === 'work_report') {
+            $sql .= ' AND EXISTS (SELECT 1 FROM work_reports wr WHERE wr.invoice_id = i.id)';
+        }
+
+        $stmt = $this->db->pdo()->prepare($sql);
+        $stmt->execute([$supplierId]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $row) {
+            $this->pdf->invalidate(
+                (int) $row['id'],
+                'invalidate_signature_config',
+                archive: (string) ($row['status'] ?? '') !== 'draft',
+            );
+        }
+
+        return count($rows);
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function jsonStable($value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null';
     }
 
     /**
