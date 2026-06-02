@@ -209,7 +209,7 @@ Použití:
 Elektronické podpisy mají vlastní stránku **Systém -> Elektronické podpisy**.
 Aktuální konfigurace už není jeden certifikát dodavatele, ale sada
 podpisových profilů a mapování pro jednotlivé výstupy. Detailní postup je v
-[kapitole 21. Elektronické podpisy](28_Elektronicke_podpisy.md).
+[kapitole 28. Elektronické podpisy](28_Elektronicke_podpisy.md).
 
 ## 19.7 Tipy
 

@@ -22,6 +22,29 @@ final class PdfSigningService
     ) {}
 
     /**
+     * Zjistí, zda by se dokument se SOUČASNÝM nastavením skutečně podepsal —
+     * platforma zapnutá, výstup povolený a resolvovatelný profil s PDF certifikátem.
+     * Nic nepodepisuje; slouží UI (badge „Podepsáno") k pravdivé indikaci místo
+     * pouhé existence profilu. Stejné brány jako {@see signSupplierPdfIfEnabled}.
+     *
+     * @param array<string,mixed> $supplierRow řádek supplier (stačí klíč `id`)
+     */
+    public function willSignDocument(array $supplierRow, string $documentType, int $documentId, ?int $userId = null): bool
+    {
+        if ($this->profiles === null || !$this->platformEnabled()) {
+            return false;
+        }
+        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
+        $outputSetting = $this->effectiveOutputSetting($supplierId, $documentType, $documentId);
+        if (!$this->configOutputEnabled($documentType) || !$this->outputSettingEnabled($outputSetting)) {
+            return false;
+        }
+        $profile = $this->selectProfile($supplierRow, $outputSetting, $userId, $documentType);
+
+        return $profile !== null && $profile->pdfConfig !== null;
+    }
+
+    /**
      * Podepíše PDF podle současného per-supplier nastavení.
      *
      * @param array<string,mixed> $supplierRow řádek tabulky supplier (SELECT s.*)

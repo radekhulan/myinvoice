@@ -288,6 +288,7 @@ export interface PdfSignatureDocumentSelection {
   effective_selection_source: PdfSignatureSelectionSource
   effective_admin_profile_id: number | null
   has_override: boolean
+  effective_will_sign: boolean
 }
 
 export interface PdfSignatureTestResult {

@@ -1,4 +1,4 @@
-# 21. Elektronické podpisy
+# 28. Elektronické podpisy
 
 Sekce **Systém -> Elektronické podpisy** slouží ke správě certifikátů,
 podpisových profilů a pravidel, který profil se použije pro konkrétní výstup.
@@ -27,7 +27,7 @@ nastaveným TSA serverem o **PAdES-T**. Odchozí e-mail se podepisuje jako
 **S/MIME** zpráva. S/MIME podpis potvrzuje odesílatele a integritu zprávy,
 ale e-mail nešifruje.
 
-## 21.1 Základní pojmy
+## 28.1 Základní pojmy
 
 | Pojem | Význam |
 |---|---|
@@ -37,7 +37,7 @@ ale e-mail nešifruje.
 | Konfigurace podpisů | Admin nastavení, které určuje, zda se PDF nebo e-mailový výstup podepisuje a odkud se bere podpisový profil. |
 | Mapování podpisových profilů | Uživatelské výchozí profily pro výstupy, kde admin zvolil strategii **Přihlášený uživatel**. |
 
-## 21.2 Oprávnění
+## 28.2 Oprávnění
 
 | Role | Co může |
 |---|---|
@@ -49,7 +49,7 @@ Admin povolí uživatelské profily přepínačem **Povolit uživatelům správu
 vlastních podpisových profilů**. Pokud není zapnutý, účetní v menu sekci
 elektronických podpisů nevidí.
 
-## 21.3 Založení podpisového profilu
+## 28.3 Založení podpisového profilu
 
 1. Otevři **Systém -> Elektronické podpisy**.
 2. V sekci **Podpisové profily** klikni **Nový profil**.
@@ -69,7 +69,7 @@ elektronických podpisů nevidí.
 7. Nech profil aktivní, pokud se má dát použít při podepisování.
 8. Ulož profil.
 
-## 21.4 Certifikát P12/PFX
+## 28.4 Certifikát P12/PFX
 
 Ke každému profilu se nahrává jeden společný certifikát. Stejný P12/PFX soubor
 se může použít pro PDF podpis i pro S/MIME podpis e-mailu, pokud profil povoluje
@@ -98,7 +98,7 @@ adresu používanou jako odesílatel nebo aby ho příjemcův klient uměl při�
 odesílateli. Aplikace podpis vytvoří, ale důvěryhodnost a shoda identity se
 vyhodnocuje až v e-mailovém klientovi příjemce.
 
-## 21.5 Politika hesla k certifikátu
+## 28.5 Politika hesla k certifikátu
 
 | Politika | Kdy použít | Chování |
 |---|---|---|
@@ -143,7 +143,7 @@ Do pole **ID hesla v passphrase file** v profilu zadej například
 `owner_john`. Soubor musí být čitelný procesem aplikace a neměl by být
 součástí webového rootu ani gitu.
 
-## 21.6 TSA a důvod podpisu
+## 28.6 TSA a důvod podpisu
 
 V profilu je volitelná část **PDF nastavení profilu**. Tato nastavení platí jen
 pro PDF podpisy:
@@ -160,7 +160,7 @@ přidá se důvěryhodné časové razítko a výsledkem je PAdES-T.
 
 S/MIME podpis odchozího e-mailu v této implementaci TSA nepoužívá.
 
-## 21.7 Konfigurace podpisů pro výstupy
+## 28.7 Konfigurace podpisů pro výstupy
 
 Sekci **Konfigurace podpisů** vidí admin. Každý řádek nastavuje jeden typ
 výstupu: buď PDF, nebo S/MIME e-mail.
@@ -209,7 +209,7 @@ zjistí.
 S/MIME podpis otestuješ odesláním testovacího e-mailu pro příslušný typ zprávy
 a ověřením podpisu v e-mailovém klientovi.
 
-## 21.8 Mapování podpisových profilů uživatele
+## 28.8 Mapování podpisových profilů uživatele
 
 Sekce **Mapování podpisových profilů** slouží pro osobní výchozí profily
 přihlášeného uživatele.
@@ -222,7 +222,7 @@ Pro každý výstup vyber vlastní aktivní profil, který podporuje stejné pou
 jako výstup. Pro PDF výstupy musí profil podporovat použití **PDF**, pro
 e-mailové výstupy použití **S/MIME e-mail**.
 
-## 21.9 Výběr podpisu na konkrétním dokladu
+## 28.9 Výběr podpisu na konkrétním dokladu
 
 Na detailu faktury je pro uživatele s právem zápisu sekce
 **Elektronický podpis dokumentu**. Umožňuje přepsat výchozí konfiguraci pro
@@ -242,7 +242,7 @@ profilem podle přihlášeného uživatele.
 Per-dokladový výběr se týká PDF dokladů. Odchozí e-maily se řídí mapováním
 e-mailových výstupů v **Konfiguraci podpisů**.
 
-## 21.10 Podepisování odchozích e-mailů
+## 28.10 Podepisování odchozích e-mailů
 
 S/MIME podpis se aplikuje při sestavení e-mailu těsně před odesláním přes SMTP.
 Podepisuje se výsledná MIME zpráva včetně HTML/textového těla a příloh, takže
@@ -272,7 +272,7 @@ Nastavení funguje stejně jako u PDF výstupů:
 S/MIME podpis e-mail nešifruje. Obsah zprávy zůstává čitelný stejně jako u
 běžného e-mailu, jen je opatřen elektronickým podpisem.
 
-## 21.11 Ověření podepsaného PDF
+## 28.11 Ověření podepsaného PDF
 
 Po stažení můžeš PDF ověřit v běžné PDF čtečce nebo na serveru například přes
 `pdfsig`:
@@ -286,7 +286,7 @@ vydavatel certifikátu je neznámý, znamená to obvykle chybějící důvěryho
 certifikační řetězec v prostředí ověřovatele. Samotný kryptografický podpis
 může být přesto validní.
 
-## 21.12 Audit a řešení problémů
+## 28.12 Audit a řešení problémů
 
 Správa i použití podpisů se zapisuje do activity logu. Typické události:
 
@@ -316,7 +316,7 @@ Správa i použití podpisů se zapisuje do activity logu. Typické události:
 | E-mail odešel bez S/MIME podpisu | Zkontroluj, že je zapnutý konkrétní e-mailový výstup, profil podporuje **S/MIME e-mail** a politika chyby není nastavená na tichý fallback. |
 | E-mailový klient podpisu nevěří | Zkontroluj e-mail v certifikátu, důvěryhodnost certifikační autority a to, zda po podpisu zprávu neupravuje SMTP brána nebo antispam. |
 
-## 21.13 Poznámka k REST API
+## 28.13 Poznámka k REST API
 
 Podpisové endpointy jsou interní administrační endpointy používané SPA
 aplikací (`/api/settings/...` a `/api/documents/.../signature-selection`).

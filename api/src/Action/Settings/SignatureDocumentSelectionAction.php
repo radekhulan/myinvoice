@@ -11,6 +11,7 @@ use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\SigningProfileRepository;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\Pdf\InvoicePdfRenderer;
+use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -29,6 +30,7 @@ final class SignatureDocumentSelectionAction
         private readonly InvoiceRepository $invoices,
         private readonly ActivityLogger $logger,
         private readonly InvoicePdfRenderer $pdf,
+        private readonly PdfSigningService $pdfSigning,
     ) {}
 
     public function get(Request $request, Response $response, array $args): Response
@@ -153,6 +155,14 @@ final class SignatureDocumentSelectionAction
             'effective_selection_source' => $effectiveSelectionSource,
             'effective_admin_profile_id' => $effectiveAdminProfileId,
             'has_override' => $override !== null,
+            // Skutečně se tento doklad podepíše? (zapnutý výstup + resolvovatelný
+            // profil s certifikátem) — pro pravdivý UI badge „Podepsáno".
+            'effective_will_sign' => $this->pdfSigning->willSignDocument(
+                ['id' => $supplierId],
+                $entityType,
+                $entityId,
+                $this->userId($request),
+            ),
         ];
     }
 
