@@ -360,6 +360,27 @@ final class AiPdfExtractor
             unset($it);
         }
 
+        // Doklad s KONZISTENTNÍ jednosazbovou rekapitulací DPH → eviduj VERBATIM
+        // (§ 73 odst. 6 / § 30 / § 100 ZDPH). Per-řádková „cena bez DPH" u účtenek
+        // (PHM) je často reálně brutto — základ proto NEPŘEPOČÍTÁVÁME z řádků, vezmeme
+        // ho z rekapitulace; DPH připne seedVatOverridesFromDocument a celek pak přesně
+        // sedí (žádné umělé zaokrouhlení, žádné chybné +DPH navrch). Neplátce vynecháme
+        // (na dokladu žádná DPH, řeší se výš), dobropisy taky (znaménka).
+        if (!$vendorNonPayer) {
+            $authoritative = self::authoritativeRecapBaseLine($items, $data, $isCredit);
+            if ($authoritative !== null) {
+                $this->logger->info('AI extractor: konzistentní rekapitulace DPH → evidováno verbatim (§73, brutto/netto drift řádků)', [
+                    'vendor_invoice_number' => $data['vendor_invoice_number'] ?? null,
+                    'lines_before'          => count($items),
+                    'recap_base'            => $data['total_without_vat'] ?? null,
+                    'recap_total'           => $data['total_with_vat'] ?? null,
+                ]);
+                $items = $authoritative;
+                // Základ je základ; DPH připne override → žádná „shora" math z brutto.
+                $pricesIncludeVat = false;
+            }
+        }
+
         // Haléřový rounding drift u jednosazbového dokladu (typicky čerpačka: cena/litr
         // gross→net × množství neround-tripuje na základ z REKAPITULACE) → sluč na 1 řádek
         // 1 ks × základ daně z rekapitulace. Tím základ/daň/celkem sedí na doklad bez
@@ -576,6 +597,106 @@ final class AiPdfExtractor
             'quantity'               => 1.0,
             'unit'                   => 'ks',
             'unit_price_without_vat' => round($aiBase, 2),
+            'vat_rate_id'            => (int) $items[0]['vat_rate_id'],
+            'order_index'            => 0,
+        ]];
+    }
+
+    /**
+     * Doklad s JEDNOSAZBOVOU rekapitulací DPH, která je VNITŘNĚ KONZISTENTNÍ se
+     * základem i celkem na dokladu, je podle § 73 odst. 6 / § 30 / § 100 ZDPH
+     * AUTORITATIVNÍ — eviduje se tak, jak je, nepřepočítává se z jednotkových cen.
+     *
+     * Vrací `['rate'=>, 'base'=>, 'vat'=>]` (kladné hodnoty z dokladu) nebo null,
+     * když rekapitulace chybí, je vícesazbová, nulová, nebo NESEDÍ na uvedený
+     * základ/celkem (pak jí nedůvěřujeme → standardní tok + kontrolní varování).
+     *
+     * @param array<string,mixed> $data
+     * @return array{rate:float,base:float,vat:float}|null
+     */
+    public static function singleRateConsistentRecap(array $data): ?array
+    {
+        if (!isset($data['vat_recap']) || !is_array($data['vat_recap'])) {
+            return null;
+        }
+        $rates = [];
+        foreach ($data['vat_recap'] as $r) {
+            if (!is_array($r) || !isset($r['rate'], $r['base'], $r['vat'])) {
+                continue;
+            }
+            $rate = abs((float) $r['rate']);
+            if ($rate <= 0.0) {
+                continue; // 0 % / osvobozeno tímto pinem neřešíme
+            }
+            $base = abs((float) $r['base']);
+            $vat  = abs((float) $r['vat']);
+            if ($base <= 0.0 && $vat <= 0.0) {
+                continue; // prázdný řádek rekapitulace (AI často vrátí šablonu 12 %/21 % i s nulami)
+            }
+            $rates[] = ['rate' => $rate, 'base' => $base, 'vat' => $vat];
+        }
+        if (count($rates) !== 1) {
+            return null; // jen jednosazbové; vícesazbové řeší PurchaseVatRecapSeeder
+        }
+        $recap = $rates[0];
+        if ($recap['base'] <= 0.0) {
+            return null;
+        }
+        $tol = PurchaseVatRecapSeeder::toleranceFor((string) ($data['currency'] ?? 'CZK'));
+        // Konzistence se součty na dokladu (pokud je doklad uvádí).
+        $statedBase    = isset($data['total_without_vat']) ? abs((float) $data['total_without_vat']) : null;
+        $statedWithVat = isset($data['total_with_vat']) ? abs((float) $data['total_with_vat']) : null;
+        if ($statedBase !== null && abs($recap['base'] - $statedBase) > $tol) {
+            return null; // rekapitulační základ nesedí na uvedený základ → nedůvěřuj
+        }
+        if ($statedWithVat !== null && abs(($recap['base'] + $recap['vat']) - $statedWithVat) > $tol) {
+            return null; // základ + DPH nesedí na celkem → rekapitulace není konzistentní
+        }
+        return $recap;
+    }
+
+    /**
+     * Když má doklad konzistentní jednosazbovou rekapitulaci DPH a součet řádků se
+     * od jejího základu VÝRAZNĚ liší (typicky účtenka za PHM, kde „cena/litr" je
+     * reálně brutto, i když AI tvrdí `unit_price_without_vat`: 74,81 l × 35,90 =
+     * 2 685,68 ≈ CELKEM s DPH, ne základ 2 219,59), nahradí řádky jediným řádkem
+     * `1 ks × základ z rekapitulace`. Per-řádkový dopočet by jinak přidal DPH navrch
+     * (→ 3 249,67) nebo umělé zaokrouhlení. DPH pak připne {@see seedVatOverridesFromDocument}.
+     *
+     * Na rozdíl od {@see collapseToSummaryBaseLine} (haléřový drift do 1 Kč) řeší
+     * VELKÝ rozdíl — ale jen pod ochranou konzistentní rekapitulace (jinak null,
+     * ať se „úplně mimo" řádky vyřeší standardním mismatch varováním).
+     *
+     * Vrací nové `$items` (1 řádek) nebo null (neslučovat).
+     *
+     * @param list<array{description?:string, quantity:float|int, unit?:string, unit_price_without_vat:float|int, vat_rate_id:int, order_index?:int}> $items
+     * @param array<string,mixed> $data
+     * @return list<array{description:string, quantity:float, unit:string, unit_price_without_vat:float, vat_rate_id:int, order_index:int}>|null
+     */
+    public static function authoritativeRecapBaseLine(array $items, array $data, bool $isCredit): ?array
+    {
+        if ($isCredit || count($items) === 0) {
+            return null; // dobropisy neslučujeme (znaménka), prázdné nic
+        }
+        $recap = self::singleRateConsistentRecap($data);
+        if ($recap === null) {
+            return null;
+        }
+        // Jen když se řádky od rekapitulačního základu opravdu liší (jinak ponech
+        // detailní řádky — haléřový drift dořeší collapseToSummaryBaseLine / seeder).
+        $sumLineBase = 0.0;
+        foreach ($items as $it) {
+            $sumLineBase += round((float) $it['quantity'] * (float) $it['unit_price_without_vat'], 2);
+        }
+        $tol = PurchaseVatRecapSeeder::toleranceFor((string) ($data['currency'] ?? 'CZK'));
+        if (abs(round($sumLineBase, 2) - round($recap['base'], 2)) <= $tol) {
+            return null;
+        }
+        return [[
+            'description'            => (string) ($items[0]['description'] ?? ''),
+            'quantity'               => 1.0,
+            'unit'                   => 'ks',
+            'unit_price_without_vat' => round($recap['base'], 2),
             'vat_rate_id'            => (int) $items[0]['vat_rate_id'],
             'order_index'            => 0,
         ]];

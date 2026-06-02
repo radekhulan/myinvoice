@@ -2,7 +2,7 @@
 --
 -- Datový model pro budoucí správu podpisových profilů per supplier a per user.
 -- Profily jsou primárním místem pro certifikáty, TSA a mapování výstupů.
--- Starší supplier-level podpis se migruje v 0090 do profilu dodavatele.
+-- Starší supplier-level podpis se migruje v 0093 do profilu dodavatele.
 --
 -- Idempotence: CREATE TABLE IF NOT EXISTS. Re-run safe.
 

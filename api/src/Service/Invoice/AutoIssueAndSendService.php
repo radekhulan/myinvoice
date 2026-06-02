@@ -124,6 +124,7 @@ final class AutoIssueAndSendService
                 $cc,
                 [],
                 [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
+                $userId,
             );
         } catch (\Throwable $e) {
             // Auto-send po schválení výkazu — selhání zalogujeme do přehledu e-mailů

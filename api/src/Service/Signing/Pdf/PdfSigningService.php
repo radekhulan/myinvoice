@@ -445,7 +445,7 @@ final class PdfSigningService
             return null;
         }
 
-        $credential = $this->profiles->credential($supplierId, $profileId, 'pdf');
+        $credential = $this->profiles->credential($supplierId, $profileId);
         if ($credential === null || !($credential['is_active'] ?? false)) {
             return null;
         }

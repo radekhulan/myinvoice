@@ -56,10 +56,6 @@ const signingProfileDraft = reactive<SigningProfilePayload & { owner_user_id: nu
   pdf_reason: null,
   is_active: true,
 })
-const pdfSigningProfiles = computed(() => signingProfiles.value.filter(profile => profile.allowed_usages.includes('pdf')))
-const adminPdfSigningProfiles = computed(() => pdfSigningProfiles.value.filter(
-  profile => profile.owner_user_id === null && profile.is_active,
-))
 const isAdmin = computed(() => auth.user?.role === 'admin')
 const isAccountant = computed(() => auth.user?.role === 'accountant')
 const accountantProfilesEnabled = computed(() => signingSettings.value?.accountant_profiles_enabled === true)
@@ -159,11 +155,23 @@ function outputSettingFor(outputType: string): PdfSignatureOutputSetting | null 
 }
 
 function userDefaultProfileId(outputType: string): number | null {
-  return userDefaults.value.find((item) => item.output_type === outputType && item.usage === 'pdf')?.profile_id ?? null
+  const usage = signingOutputUsage(outputType)
+  return userDefaults.value.find((item) => item.output_type === outputType && item.usage === usage)?.profile_id ?? null
 }
 
 function signingOutputUsage(outputType: string): SigningProfileUsage {
   return outputType.includes('email') ? 'email_smime' : 'pdf'
+}
+
+function defaultBackendForOutput(outputType: string): string {
+  return signingOutputUsage(outputType) === 'email_smime' ? 'smime' : 'native'
+}
+
+function adminSigningProfilesForOutput(outputType: string): SigningProfile[] {
+  const usage = signingOutputUsage(outputType)
+  return signingProfiles.value.filter(
+    profile => profile.owner_user_id === null && profile.is_active && profile.allowed_usages.includes(usage),
+  )
 }
 
 function activeUserSigningProfilesForOutput(outputType: string): SigningProfile[] {
@@ -211,7 +219,8 @@ async function saveUserDefault(outputType: string, rawProfileId: string) {
   userDefaultSaving.value = outputType
   try {
     const saved = await settingsApi.updatePdfSigningUserDefault(outputType, profileId)
-    userDefaults.value = userDefaults.value.filter((item) => !(item.output_type === outputType && item.usage === 'pdf'))
+    const usage = signingOutputUsage(outputType)
+    userDefaults.value = userDefaults.value.filter((item) => !(item.output_type === outputType && item.usage === usage))
     if (saved !== null) {
       userDefaults.value.push(saved)
     }
@@ -250,14 +259,14 @@ function resetSigningProfileDraft() {
 async function loadSigningProfileCredential(profileId: number, silent = true) {
   signingProfileCredentialLoading.value = true
   try {
-    const meta = await settingsApi.getSigningProfileCredential(profileId, 'pdf')
+    const meta = await settingsApi.getSigningProfileCredential(profileId)
     signingProfileCredential.value = meta
     signingProfileCertPolicy.value = meta.passphrase_policy === 'prompt_on_use'
       ? 'encrypted_store'
       : (meta.passphrase_policy || 'encrypted_store')
     signingProfileCertPassphraseProfileId.value = meta.passphrase_profile_id || ''
   } catch (e: any) {
-    signingProfileCredential.value = { has_certificate: false, usage: 'pdf' }
+    signingProfileCredential.value = { has_certificate: false }
     if (!silent) toast.error(e?.response?.data?.error?.message || t('common.error'))
   } finally {
     signingProfileCredentialLoading.value = false
@@ -310,7 +319,7 @@ async function saveSigningProfile() {
     toast.error(t('settings.signing_tsa_url_required'))
     return
   }
-  const saveCredentialAfterSave = pdfUsageEnabled && hasPendingSigningProfileCredentialSave()
+  const saveCredentialAfterSave = hasPendingSigningProfileCredentialSave()
   if (saveCredentialAfterSave && !validateSigningProfileCredentialSave()) {
     return
   }
@@ -450,7 +459,6 @@ async function saveSigningProfileCertFor(profileId: number) {
   if (signingProfileCertFile.value !== null) {
     signingProfileCredential.value = await settingsApi.uploadSigningProfileCredential(
       profileId,
-      'pdf',
       signingProfileCertFile.value,
       signingProfileCertPassword.value,
       signingProfileCertPolicy.value,
@@ -459,7 +467,6 @@ async function saveSigningProfileCertFor(profileId: number) {
   } else {
     signingProfileCredential.value = await settingsApi.updateSigningProfileCredentialPassphrase(
       profileId,
-      'pdf',
       {
         passphrase_policy: signingProfileCertPolicy.value,
         passphrase_profile_id: passphraseProfileId,
@@ -476,7 +483,7 @@ async function deleteSigningProfileCert() {
   if (editingSigningProfile.value === null) return
   if (!window.confirm(t('settings.signing_profile_cert_delete_confirm'))) return
   try {
-    signingProfileCredential.value = await settingsApi.deleteSigningProfileCredential(editingSigningProfile.value, 'pdf')
+    signingProfileCredential.value = await settingsApi.deleteSigningProfileCredential(editingSigningProfile.value)
     signingProfileCertFile.value = null
     signingProfileCertPassword.value = ''
     if (signingProfileCertFileInput.value) signingProfileCertFileInput.value.value = ''
@@ -504,12 +511,12 @@ function outputUsesAdminProfile(setting: PdfSignatureOutputSetting): boolean {
     || (setting.selection_source === 'logged_in_user' && setting.user_profile_fallback === 'admin_profile_settings')
 }
 
-function isAdminPdfSigningProfile(profileId: number | null): boolean {
-  return profileId !== null && adminPdfSigningProfiles.value.some(profile => profile.id === profileId)
+function isAdminSigningProfileForOutput(outputType: string, profileId: number | null): boolean {
+  return profileId !== null && adminSigningProfilesForOutput(outputType).some(profile => profile.id === profileId)
 }
 
 function normalizePdfOutputAdminProfile(setting: PdfSignatureOutputSetting) {
-  if (!outputUsesAdminProfile(setting) || !isAdminPdfSigningProfile(setting.default_profile_id)) {
+  if (!outputUsesAdminProfile(setting) || !isAdminSigningProfileForOutput(setting.output_type, setting.default_profile_id)) {
     setting.default_profile_id = null
   }
 }
@@ -526,7 +533,7 @@ async function savePdfOutputSetting(setting: PdfSignatureOutputSetting) {
   try {
     const payload = {
       enabled: setting.enabled,
-      backend: setting.backend || 'native',
+      backend: setting.backend || defaultBackendForOutput(setting.output_type),
       selection_source: setting.selection_source,
       user_profile_fallback: setting.user_profile_fallback,
       default_profile_id: outputUsesAdminProfile(setting) ? setting.default_profile_id : null,
@@ -737,9 +744,14 @@ async function testPdfOutputSetting(setting: PdfSignatureOutputSetting) {
                   class="h-10 w-full max-w-3xl px-3 border border-neutral-300 rounded-md text-sm" />
               </div>
             </div>
-            <div v-if="signingProfileDraft.allowed_usages.includes('pdf')" class="sm:col-span-2 border-t border-neutral-100 pt-3">
+            <div class="sm:col-span-2 border-t border-neutral-100 pt-3">
               <div class="flex items-center justify-between gap-3 mb-2">
-                <label class="block text-xs font-medium text-neutral-700">{{ t('settings.signing_profile_cert_pdf') }}</label>
+                <div>
+                  <label class="block text-xs font-medium text-neutral-700">
+                    {{ t('settings.signing_profile_cert_title') }}
+                  </label>
+                  <p class="mt-1 text-xs text-neutral-500">{{ t('profile_signing.credential_hint') }}</p>
+                </div>
                 <button v-if="signingProfileCredential?.has_certificate" @click="deleteSigningProfileCert" type="button"
                   class="cursor-pointer text-xs text-danger-600 hover:text-danger-700">{{ t('common.remove') }}</button>
               </div>
@@ -895,7 +907,7 @@ async function testPdfOutputSetting(setting: PdfSignatureOutputSetting) {
                     <select v-model="setting.default_profile_id" :disabled="!outputUsesAdminProfile(setting)"
                       class="h-8 w-44 px-2 border border-neutral-300 rounded-md text-xs disabled:bg-neutral-50 disabled:text-neutral-500">
                       <option :value="null">{{ outputUsesAdminProfile(setting) ? t('settings.signing_output_profile_none') : signingProfileName(setting.default_profile_id) }}</option>
-                      <option v-for="profile in adminPdfSigningProfiles" :key="profile.id" :value="profile.id">
+                      <option v-for="profile in adminSigningProfilesForOutput(setting.output_type)" :key="profile.id" :value="profile.id">
                         {{ profile.name }} ({{ profile.code }})
                       </option>
                     </select>
@@ -920,7 +932,7 @@ async function testPdfOutputSetting(setting: PdfSignatureOutputSetting) {
                       class="cursor-pointer text-primary-600 hover:text-primary-700 disabled:opacity-50">
                       {{ pdfOutputSettingsSaving === setting.output_type ? t('common.loading') : t('common.save') }}
                     </button>
-                    <button @click="testPdfOutputSetting(setting)" type="button"
+                    <button v-if="signingOutputUsage(setting.output_type) === 'pdf'" @click="testPdfOutputSetting(setting)" type="button"
                       :disabled="pdfOutputSettingsTesting === setting.output_type"
                       class="cursor-pointer ml-3 text-neutral-600 hover:text-neutral-800 disabled:opacity-50">
                       {{ pdfOutputSettingsTesting === setting.output_type ? t('common.loading') : t('settings.signing_output_test') }}

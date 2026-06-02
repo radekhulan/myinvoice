@@ -28,7 +28,7 @@ final class RoleMiddlewareTest extends TestCase
     public function testAccountantCanMutateOwnSigningProfileCredentialRoute(): void
     {
         $response = $this->middleware()->process(
-            $this->request('POST', '/api/settings/signing/profiles/7/credentials/pdf/certificate', 'accountant'),
+            $this->request('POST', '/api/settings/signing/profiles/7/credentials/certificate', 'accountant'),
             $this->okHandler(),
         );
 
@@ -38,7 +38,7 @@ final class RoleMiddlewareTest extends TestCase
     public function testAccountantCanUpdateOwnSigningProfileCredentialRoute(): void
     {
         $response = $this->middleware()->process(
-            $this->request('PUT', '/api/settings/signing/profiles/7/credentials/pdf/certificate', 'accountant'),
+            $this->request('PUT', '/api/settings/signing/profiles/7/credentials/certificate', 'accountant'),
             $this->okHandler(),
         );
 

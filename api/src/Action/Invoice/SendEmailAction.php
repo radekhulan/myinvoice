@@ -139,6 +139,7 @@ final class SendEmailAction
                 $cc,
                 $bcc,
                 $emailAttachments,
+                $userId,
             );
         } catch (\Throwable $e) {
             $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);

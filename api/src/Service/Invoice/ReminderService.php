@@ -107,6 +107,7 @@ final class ReminderService
                 $cc,
                 [],
                 [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
+                $userId,
             );
         } catch (\Throwable $e) {
             $this->logger->log('invoice.reminder_failed', $userId, 'invoice', $invoiceId, [

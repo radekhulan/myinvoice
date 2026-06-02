@@ -99,6 +99,13 @@ final class Bootstrap
                 $c->get(\MyInvoice\Repository\SigningProfileRepository::class),
                 $c->get(\MyInvoice\Service\Signing\SigningPassphraseProviderInterface::class),
             ),
+            \MyInvoice\Service\Mail\Mailer::class => fn (ContainerInterface $c) => new \MyInvoice\Service\Mail\Mailer(
+                $c->get(Config::class),
+                $c->get(LoggerInterface::class),
+                $c->get(Connection::class),
+                $c->get(\MyInvoice\Repository\EmailTemplateRepository::class),
+                $c->get(\MyInvoice\Service\Signing\Email\EmailSigningService::class),
+            ),
 
             // IpMatcher má v konstruktoru volitelný `?Config $config = null`. Autowiring
             // takový parametr neresolvuje (dosadí default null), takže clientIpFromRequest()
