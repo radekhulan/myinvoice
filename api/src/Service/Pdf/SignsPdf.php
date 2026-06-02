@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MyInvoice\Service\Pdf;
 
-use MyInvoice\Service\ActivityLogger;
+use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 
 /**
  * Sdílený podpisový hook pro PDF renderery (faktura, výkaz víceprací).
@@ -25,33 +25,11 @@ trait SignsPdf
     private function signPdfIfEnabled(
         string $tmpPath,
         array $supplierRow,
-        PdfSigner $signer,
-        ActivityLogger $activity,
+        PdfSigningService $signing,
         string $docType,
         int $docId,
+        ?int $userId = null,
     ): string {
-        $cfg = SigningConfig::fromSupplierRow($supplierRow);
-        if ($cfg === null) {
-            return $tmpPath; // podpis vypnutý nebo bez certu
-        }
-        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
-        try {
-            $signed = $signer->signFile($tmpPath, $cfg);
-            @unlink($tmpPath);
-            // Skutečně dosažená úroveň: PAdES-T jen když TSA razítko reálně prošlo
-            // (při výpadku TSA signer tiše degraduje na PAdES-B — viz PdfSigner::sign()).
-            $activity->log('signing.pdf_signed', null, $docType, $docId, [
-                'level'   => $signer->lastTimestamped() ? 'PAdES-T' : 'PAdES-B',
-                'tsa_url' => $cfg->tsaUrl,
-                'status'  => 'signed',
-            ], null, null, $supplierId);
-            return $signed;
-        } catch (\Throwable $e) {
-            $activity->log('signing.failed', null, $docType, $docId, [
-                'status' => 'fallback_unsigned',
-                'error'  => $e->getMessage(),
-            ], null, null, $supplierId);
-            return $tmpPath; // měkký fallback — nepodepsané PDF
-        }
+        return $signing->signSupplierPdfIfEnabled($tmpPath, $supplierRow, $docType, $docId, $userId);
     }
 }

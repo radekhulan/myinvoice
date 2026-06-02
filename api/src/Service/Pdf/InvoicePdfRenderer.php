@@ -14,6 +14,7 @@ use MyInvoice\Service\Branding\AccentColor;
 use MyInvoice\Service\Export\IsdocExporter;
 use MyInvoice\Service\Invoice\SnapshotBuilder;
 use MyInvoice\Service\Qr\QrPaymentGenerator;
+use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -41,8 +42,7 @@ final class InvoicePdfRenderer
         private readonly SnapshotBuilder $snapshots,
         private readonly PdfArchiveService $archive,
         private readonly IsdocExporter $isdoc,
-        private readonly PdfSigner $signer,
-        private readonly \MyInvoice\Service\ActivityLogger $activity,
+        private readonly PdfSigningService $pdfSigning,
     ) {}
 
     /**
@@ -50,7 +50,7 @@ final class InvoicePdfRenderer
      *
      * @return string  absolutní cesta k vygenerovanému PDF
      */
-    public function render(int $invoiceId, bool $forceRegenerate = false): string
+    public function render(int $invoiceId, bool $forceRegenerate = false, ?int $userId = null): string
     {
         $invoice = $this->repo->find($invoiceId);
         if ($invoice === null) {
@@ -58,6 +58,12 @@ final class InvoicePdfRenderer
         }
 
         $cachedPath = $this->cachePath($invoice);
+        $supplierData = $this->getSupplierData((int) ($invoice['supplier_id'] ?? 0));
+        $signatureCacheDependsOnUser = $this->pdfSigning->outputDependsOnUserProfile(
+            $supplierData,
+            'invoice',
+            $invoiceId,
+        );
 
         // Cache je validní jen když je novější než šablona, CSS a kód renderu
         $tplMtime = max(
@@ -68,7 +74,7 @@ final class InvoicePdfRenderer
         $isFresh = static fn (string $p): bool =>
             is_file($p) && (@filemtime($p) ?: 0) >= $tplMtime;
 
-        if (!$forceRegenerate && $invoice['pdf_path'] && $isFresh($invoice['pdf_path'])) {
+        if (!$forceRegenerate && !$signatureCacheDependsOnUser && $invoice['pdf_path'] && $isFresh($invoice['pdf_path'])) {
             return $invoice['pdf_path'];
         }
         // cachePath fallback je orphan-recovery (pdf_path je null, ale soubor leží na
@@ -76,7 +82,7 @@ final class InvoicePdfRenderer
         // by invalidate() s uzamčeným souborem (Windows: PDF otevřené v prohlížeči →
         // rename a unlink selžou) skončila s pdf_path=NULL ale původní soubor zůstal
         // na disku, a tahle větev by ho zde znovu pickla → stale PDF.
-        if (!$forceRegenerate && !empty($invoice['pdf_generated_at']) && $isFresh($cachedPath)) {
+        if (!$forceRegenerate && !$signatureCacheDependsOnUser && !empty($invoice['pdf_generated_at']) && $isFresh($cachedPath)) {
             $this->updatePdfPath($invoiceId, $cachedPath);
             return $cachedPath;
         }
@@ -157,11 +163,11 @@ final class InvoicePdfRenderer
         // Podpis PDF (PAdES) — má-li dodavatel zapnuto; měkký fallback při chybě.
         $tmpPath = $this->signPdfIfEnabled(
             $tmpPath,
-            $this->getSupplierData((int) ($invoice['supplier_id'] ?? 0)),
-            $this->signer,
-            $this->activity,
+            $supplierData,
+            $this->pdfSigning,
             'invoice',
             $invoiceId,
+            $userId,
         );
 
         if (is_file($cachedPath)) {

@@ -72,6 +72,9 @@ final class RoleMiddleware implements MiddlewareInterface
         '* #^/api/document-folders(/|$)#',
         // Codebooks read-only přes API (admin endpointy mají zvláštní cestu /api/admin/codebooks)
         'GET #^/api/codebooks(/|$)#',
+        // Vlastní podpisové profily účetních; Action vrstva hlídá feature flag i owner_user_id.
+        '* #^/api/settings/signing/profiles(/|$)#',
+        '* #^/api/settings/pdf-signing/user-defaults(/|$)#',
         // ZIP export může i účetní (read of mass PDF)
         'GET #^/api/admin/invoices-zip$#',
     ];

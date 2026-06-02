@@ -34,6 +34,7 @@ final class PdfSigner
 
     /** Byl na poslední podpis skutečně aplikován TSA timestamp (PAdES-T)? Jinak PAdES-B. */
     private bool $lastTimestamped = false;
+    private ?string $lastCertificateCommonName = null;
 
     public function __construct(private readonly SecretEncryption $secrets) {}
 
@@ -41,6 +42,11 @@ final class PdfSigner
     public function lastTimestamped(): bool
     {
         return $this->lastTimestamped;
+    }
+
+    public function lastCertificateCommonName(): ?string
+    {
+        return $this->lastCertificateCommonName;
     }
 
     /** Podepíše PDF soubor; výsledek zapíše do `<path>.signed` a vrátí jeho cestu. */
@@ -64,6 +70,7 @@ final class PdfSigner
     public function sign(string $pdf, SigningConfig $cfg): string
     {
         $this->lastTimestamped = false;
+        $this->lastCertificateCommonName = null;
         $this->assertClassicXref($pdf);
 
         // 1) Načti cert + privátní klíč z P12 (heslo dešifruj až tady).
@@ -76,6 +83,7 @@ final class PdfSigner
         if (!openssl_pkcs12_read($p12, $certs, $password)) {
             throw new \RuntimeException('P12 nelze otevřít (špatné heslo nebo poškozený soubor).');
         }
+        $this->lastCertificateCommonName = $this->certificateCommonName((string) ($certs['cert'] ?? ''));
 
         // 2) Sestav incremental update s placeholdery (/ByteRange, /Contents).
         $withPlaceholder = $this->buildIncrementalUpdate($pdf, $cfg);
@@ -112,6 +120,24 @@ final class PdfSigner
         if ($at !== 'xref') {
             throw new \RuntimeException('PDF nemá klasický xref table (pravděpodobně xref stream) — podpis nepodporován.');
         }
+    }
+
+    private function certificateCommonName(string $certPem): ?string
+    {
+        if ($certPem === '') {
+            return null;
+        }
+        $info = openssl_x509_parse($certPem);
+        if (!is_array($info)) {
+            return null;
+        }
+        $subject = $info['subject'] ?? [];
+        if (!is_array($subject) || empty($subject['CN']) || !is_scalar($subject['CN'])) {
+            return null;
+        }
+
+        $cn = trim((string) $subject['CN']);
+        return $cn !== '' ? $cn : null;
     }
 
     /** Sestaví incremental update: sig dict + widget + override catalog/page + xref + trailer. */

@@ -95,7 +95,7 @@ final class ReminderService
         // výše se sem nedostanou (házejí dřív). Po zalogování chybu propustíme dál —
         // caller (manual/bulk/cron) si ji ošetří jako dosud.
         try {
-            $pdfPath = $this->renderer->render($invoiceId);
+            $pdfPath = $this->renderer->render($invoiceId, false, $userId);
             $vars = $this->varsBuilder->buildReminder($invoice, $daysOverdue, $locale);
             $templateCode = $invoice['invoice_type'] === 'proforma' ? 'proforma_reminder' : 'invoice_reminder';
             $this->mailer->sendTemplate(

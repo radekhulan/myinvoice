@@ -5113,7 +5113,6 @@ components:
         email_branding_enabled: { type: boolean }
         email_accent_color: { type: string, example: "#3B2D83" }
         has_email_logo: { type: boolean }
-        has_signing_cert: { type: boolean, description: "Je nahrán podpisový certifikát (PAdES)" }
         auto_send_reminders: { type: boolean }
         reminder_days_after_due: { type: integer, minimum: 1, maximum: 365, default: 3, description: "Per-dodavatel práh: po kolika dnech po splatnosti poslat první automatickou upomínku (migrace 0089). CLI --days ho přebije." }
         created_at: { type: string, format: date-time }

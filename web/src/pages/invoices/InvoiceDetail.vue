@@ -4,6 +4,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { invoicesApi, type Invoice, type WorkReport, type ApprovalStatus, type InvoiceAttachment, type AdvanceCandidate } from '@/api/invoices'
+import {
+  settingsApi,
+  type PdfSignatureDocumentEntityType,
+  type PdfSignatureDocumentSelection,
+  type PdfSignatureDocumentSelectionSource,
+  type SigningProfile,
+} from '@/api/settings'
 import { apiErrorMessage } from '@/api/errors'
 import { formatMoney, formatDate, formatPercent, statusLabel, typeLabel, statusBadgeClass } from '@/composables/useFormat'
 import { useAuthStore } from '@/stores/auth'
@@ -72,18 +79,46 @@ const attachmentsBusy = ref(false)
 const attachmentsDragOver = ref(false)
 const attachmentInput = ref<HTMLInputElement | null>(null)
 const workReport = ref<WorkReport | null>(null)
+const signatureSelections = ref<Partial<Record<PdfSignatureDocumentEntityType, PdfSignatureDocumentSelection>>>({})
+const signingProfiles = ref<SigningProfile[]>([])
+const signatureSelectionLoading = ref(false)
+const signatureSelectionSaving = ref<PdfSignatureDocumentEntityType | null>(null)
 const wrHasDates = computed(() => !!workReport.value?.items.some(i => !!i.work_date))
+const hasPdfSigningProfiles = computed(() => signingProfiles.value.some(
+  profile => profile.is_active && profile.allowed_usages.includes('pdf'),
+))
+// Kartu „Elektronický podpis dokumentu" ukážeme jen když je podepisování pro
+// tohoto dodavatele skutečně nastavené (existuje aktivní profil s PDF využitím).
+// Jinak by ji u každé faktury viděl i uživatel, který nikdy nepodepisuje (balast).
+const canManageSignatureSelection = computed(() => auth.canWrite && hasPdfSigningProfiles.value)
+const adminSigningProfiles = computed(() => signingProfiles.value.filter(
+  profile => profile.owner_user_id === null && profile.is_active && profile.allowed_usages.includes('pdf'),
+))
+const signatureSelectionRows = computed(() => {
+  const rows: Array<{ entityType: PdfSignatureDocumentEntityType; label: string }> = [
+    { entityType: 'invoice', label: t('invoice.signing.output_invoice') as string },
+  ]
+  if (workReport.value) rows.push({ entityType: 'work_report', label: t('invoice.signing.output_work_report') as string })
+  return rows
+})
 
 async function load() {
   loading.value = true
   invoice.value = await invoicesApi.get(Number(route.params.id))
   loading.value = false
+  if (auth.canWrite) {
+    await loadSignatureProfiles()
+    if (hasPdfSigningProfiles.value) loadSignatureSelection('invoice')
+  }
   // Activity log + work report + PDF historie (parallel, ne blokuje UI)
   invoicesApi.activity(Number(route.params.id))
     .then(a => { activity.value = a })
     .catch(() => {})
   invoicesApi.getWorkReport(Number(route.params.id))
-    .then(wr => { workReport.value = wr })
+    .then(wr => {
+      workReport.value = wr
+      if (wr && canManageSignatureSelection.value) loadSignatureSelection('work_report')
+    })
     .catch(() => {})
   invoicesApi.listPdfs(Number(route.params.id))
     .then(items => { pdfHistory.value = items })
@@ -91,6 +126,90 @@ async function load() {
   invoicesApi.listAttachments(Number(route.params.id))
     .then(items => { attachments.value = items })
     .catch(() => {})
+}
+
+async function loadSignatureProfiles() {
+  try {
+    signingProfiles.value = await settingsApi.listSigningProfiles()
+  } catch {
+    signingProfiles.value = []
+  }
+}
+
+async function loadSignatureSelection(entityType: PdfSignatureDocumentEntityType) {
+  if (!invoice.value) return
+  signatureSelectionLoading.value = true
+  try {
+    const selection = await settingsApi.getPdfSignatureDocumentSelection(entityType, invoice.value.id)
+    signatureSelections.value = { ...signatureSelections.value, [entityType]: selection }
+  } catch {
+    // UI zůstane bez řádku nastavení, pokud endpoint není pro roli dostupný.
+  } finally {
+    signatureSelectionLoading.value = false
+  }
+}
+
+function signatureSelection(entityType: PdfSignatureDocumentEntityType): PdfSignatureDocumentSelection | null {
+  return signatureSelections.value[entityType] || null
+}
+
+function setSignatureSelectionSource(entityType: PdfSignatureDocumentEntityType, source: PdfSignatureDocumentSelectionSource) {
+  const current = signatureSelection(entityType)
+  if (!current) return
+  signatureSelections.value = {
+    ...signatureSelections.value,
+    [entityType]: {
+      ...current,
+      selection_source: source,
+      admin_profile_id: source === 'admin_profile_settings' ? current.admin_profile_id : null,
+    },
+  }
+}
+
+function setSignatureAdminProfile(entityType: PdfSignatureDocumentEntityType, profileId: number | null) {
+  const current = signatureSelection(entityType)
+  if (!current) return
+  signatureSelections.value = {
+    ...signatureSelections.value,
+    [entityType]: {
+      ...current,
+      admin_profile_id: profileId,
+    },
+  }
+}
+
+function signatureSelectionSourceLabel(source: string): string {
+  if (source === 'inherit') return t('invoice.signing.source_inherit') as string
+  return t(`settings.signing_output_source_${source}`) as string
+}
+
+function signatureProfileName(profileId: number | null): string {
+  if (profileId === null) return t('settings.signing_output_profile_none') as string
+  return signingProfiles.value.find(profile => profile.id === profileId)?.name || `#${profileId}`
+}
+
+async function saveSignatureSelection(entityType: PdfSignatureDocumentEntityType) {
+  if (!invoice.value) return
+  const selection = signatureSelection(entityType)
+  if (!selection) return
+  signatureSelectionSaving.value = entityType
+  try {
+    const saved = await settingsApi.updatePdfSignatureDocumentSelection(entityType, invoice.value.id, {
+      selection_source: selection.selection_source,
+      admin_profile_id: selection.selection_source === 'admin_profile_settings' && isAdmin.value
+        ? selection.admin_profile_id
+        : null,
+    })
+    signatureSelections.value = { ...signatureSelections.value, [entityType]: saved }
+    toast.success(t('invoice.signing.saved'))
+    if (entityType === 'invoice') {
+      invoicesApi.listPdfs(invoice.value.id).then(items => { pdfHistory.value = items }).catch(() => {})
+    }
+  } catch (e: any) {
+    toast.error(e?.response?.data?.error?.message || t('common.error'))
+  } finally {
+    signatureSelectionSaving.value = null
+  }
 }
 
 function attachmentsAvailable(inv: Invoice | null): boolean {
@@ -144,6 +263,8 @@ function pdfReasonLabel(reason: string): string {
     'invalidate_issue': 'invoice.pdf_history.reason.issue',
     'invalidate_allocate': 'invoice.pdf_history.reason.allocate',
     'invalidate_workreport': 'invoice.pdf_history.reason.workreport',
+    'invalidate_signature_selection': 'invoice.pdf_history.reason.signature_selection',
+    'invalidate_signature_config': 'invoice.pdf_history.reason.signature_config',
     'approval_request': 'invoice.pdf_history.reason.approval_request',
     'approval_reminder': 'invoice.pdf_history.reason.approval_reminder',
     'invalidate_currency': 'invoice.pdf_history.reason.currency',
@@ -1326,6 +1447,79 @@ async function updateApprovalStatus() {
         {{ invoice.revenue_category_label }}
         <span class="text-neutral-400">({{ invoice.revenue_category_code }})</span>
       </span>
+    </div>
+
+    <!-- Elektronický podpis dokumentu -->
+    <div v-if="canManageSignatureSelection" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <header class="px-5 py-3 border-b border-neutral-200">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.signing.title') }}</h3>
+        <p class="text-xs text-neutral-500 mt-0.5">{{ t('invoice.signing.hint') }}</p>
+      </header>
+      <div v-if="signatureSelectionLoading && signatureSelectionRows.some(row => !signatureSelection(row.entityType))"
+        class="px-5 py-4 text-sm text-neutral-500">
+        {{ t('common.loading') }}
+      </div>
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-neutral-50 text-neutral-500 uppercase tracking-wide">
+            <tr>
+              <th class="px-5 py-2 text-left font-medium">{{ t('invoice.signing.output') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('settings.signing_output_selection_source') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('settings.signing_output_profile') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('invoice.signing.effective') }}</th>
+              <th class="px-5 py-2 w-24"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100">
+            <tr v-for="row in signatureSelectionRows" :key="row.entityType">
+              <td class="px-5 py-2 font-medium text-neutral-800">{{ row.label }}</td>
+              <td class="px-3 py-2">
+                <select
+                  :value="signatureSelection(row.entityType)?.selection_source || 'inherit'"
+                  @change="setSignatureSelectionSource(row.entityType, ($event.target as HTMLSelectElement).value as PdfSignatureDocumentSelectionSource)"
+                  class="h-8 w-48 px-2 border border-neutral-300 rounded-md text-xs">
+                  <option value="inherit">{{ t('invoice.signing.source_inherit') }}</option>
+                  <option value="logged_in_user">{{ t('settings.signing_output_source_logged_in_user') }}</option>
+                  <option value="admin_profile_settings">{{ t('settings.signing_output_source_admin_profile_settings') }}</option>
+                </select>
+              </td>
+              <td class="px-3 py-2">
+                <select
+                  v-if="isAdmin && signatureSelection(row.entityType)?.selection_source === 'admin_profile_settings'"
+                  :value="signatureSelection(row.entityType)?.admin_profile_id || ''"
+                  @change="setSignatureAdminProfile(row.entityType, ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
+                  class="h-8 w-48 px-2 border border-neutral-300 rounded-md text-xs">
+                  <option value="">{{ t('invoice.signing.admin_profile_inherited') }}</option>
+                  <option v-for="profile in adminSigningProfiles" :key="profile.id" :value="profile.id">
+                    {{ profile.name }} ({{ profile.code }})
+                  </option>
+                </select>
+                <span v-else class="text-neutral-500">
+                  {{ signatureSelection(row.entityType)?.selection_source === 'admin_profile_settings'
+                    ? t('invoice.signing.admin_profile_inherited')
+                    : '—' }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-neutral-600">
+                <template v-if="signatureSelection(row.entityType)">
+                  {{ signatureSelectionSourceLabel(signatureSelection(row.entityType)!.effective_selection_source) }}
+                  <span v-if="signatureSelection(row.entityType)!.effective_selection_source === 'admin_profile_settings'"
+                    class="text-neutral-400">
+                    · {{ signatureProfileName(signatureSelection(row.entityType)!.effective_admin_profile_id) }}
+                  </span>
+                </template>
+              </td>
+              <td class="px-5 py-2 text-right">
+                <button @click="saveSignatureSelection(row.entityType)" type="button"
+                  :disabled="signatureSelectionSaving === row.entityType || !signatureSelection(row.entityType)"
+                  class="cursor-pointer text-primary-600 hover:text-primary-700 disabled:opacity-50">
+                  {{ signatureSelectionSaving === row.entityType ? t('common.loading') : t('common.save') }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
 

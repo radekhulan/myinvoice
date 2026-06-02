@@ -47,8 +47,10 @@ use MyInvoice\Action\Admin\ListActivityLogAction;
 use MyInvoice\Action\Admin\ListSentEmailsAction;
 use MyInvoice\Action\Admin\UserAdminAction;
 use MyInvoice\Action\Settings\EmailBrandingAction;
+use MyInvoice\Action\Settings\PdfSigningDiagnosticsAction;
 use MyInvoice\Action\Settings\SettingsAction;
-use MyInvoice\Action\Settings\SigningCertAction;
+use MyInvoice\Action\Settings\SignatureDocumentSelectionAction;
+use MyInvoice\Action\Settings\SigningProfilesAction;
 use MyInvoice\Action\Bank\BankStatementAction;
 use MyInvoice\Action\Dashboard\SummaryAction;
 use MyInvoice\Action\Dashboard\PurchaseSummaryAction;
@@ -276,6 +278,9 @@ final class Routes
         $app->post   ('/api/invoices/bulk-reissue',          BulkReissueAction::class);
         $app->post   ('/api/invoices/bulk-reminder',         BulkSendRemindersAction::class);
         $app->post   ('/api/invoices/{id:[0-9]+}/clone',     CloneInvoiceAction::class);
+        $app->get    ('/api/documents/{entity_type:invoice|work_report}/{id:[0-9]+}/signature-selection', [SignatureDocumentSelectionAction::class, 'get']);
+        $app->put    ('/api/documents/{entity_type:invoice|work_report}/{id:[0-9]+}/signature-selection', [SignatureDocumentSelectionAction::class, 'put']);
+        $app->delete ('/api/documents/{entity_type:invoice|work_report}/{id:[0-9]+}/signature-selection', [SignatureDocumentSelectionAction::class, 'delete']);
 
         // Přijaté faktury (purchase invoices) — fáze 1 integrace forku.
         // Všechny chráněné AuthMiddleware + SupplierScopeMiddleware (skrz globální group).
@@ -448,10 +453,23 @@ final class Routes
         // Settings (M6) — aktuální supplier (z X-Supplier-Id)
         $app->get ('/api/settings/supplier',                [SettingsAction::class, 'getSupplier']);
         $app->put ('/api/settings/supplier',                [SettingsAction::class, 'updateSupplier']);
-        // Podpis PDF certifikátem (PAdES, migrace 0076)
-        $app->post   ('/api/settings/signing-cert',         [SigningCertAction::class, 'upload']);
-        $app->delete ('/api/settings/signing-cert',         [SigningCertAction::class, 'remove']);
-        $app->get    ('/api/settings/signing-cert',         [SigningCertAction::class, 'metadata']);
+        $app->get    ('/api/settings/pdf-signing/diagnostics', PdfSigningDiagnosticsAction::class);
+        $app->get    ('/api/settings/pdf-signing',          [SigningProfilesAction::class, 'pdfSettings']);
+        $app->post   ('/api/settings/pdf-signing/test',     [SigningProfilesAction::class, 'testPdfSigning']);
+        $app->put    ('/api/settings/pdf-signing/output-settings/{output_type:[a-z_]+}', [SigningProfilesAction::class, 'updatePdfOutputSetting']);
+        $app->get    ('/api/settings/pdf-signing/user-defaults', [SigningProfilesAction::class, 'userDefaults']);
+        $app->put    ('/api/settings/pdf-signing/user-defaults/{output_type:[a-z_]+}', [SigningProfilesAction::class, 'updateUserDefault']);
+        $app->get    ('/api/settings/signing',              [SigningProfilesAction::class, 'settings']);
+        $app->put    ('/api/settings/signing',              [SigningProfilesAction::class, 'updateSettings']);
+        $app->get    ('/api/settings/signing/profiles',              [SigningProfilesAction::class, 'listProfiles']);
+        $app->post   ('/api/settings/signing/profiles',              [SigningProfilesAction::class, 'createProfile']);
+        $app->get    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'credentialCertificate']);
+        $app->post   ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'uploadCredentialCertificate']);
+        $app->put    ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'updateCredentialCertificate']);
+        $app->delete ('/api/settings/signing/profiles/{id:[0-9]+}/credentials/{usage:[a-z_]+}/certificate', [SigningProfilesAction::class, 'deleteCredentialCertificate']);
+        $app->get    ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'getProfile']);
+        $app->put    ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'updateProfile']);
+        $app->delete ('/api/settings/signing/profiles/{id:[0-9]+}', [SigningProfilesAction::class, 'deleteProfile']);
         $app->get    ('/api/settings/currencies',                     [SettingsAction::class, 'listCurrencies']);
         $app->post   ('/api/settings/currencies',                     [SettingsAction::class, 'createCurrency']);
         $app->put    ('/api/settings/currencies/{id:[0-9]+}',         [SettingsAction::class, 'updateCurrency']);

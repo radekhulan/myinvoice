@@ -7,7 +7,7 @@ namespace MyInvoice\Service\Pdf;
 use MyInvoice\Infrastructure\Config\RuntimePaths;
 
 /**
- * Konfigurace podpisu PDF pro jednoho dodavatele (read-only value object).
+ * Konfigurace PDF podpisu pro jeden podpisový profil (read-only value object).
  *
  * Heslo k certifikátu zůstává ZAŠIFROVANÉ (enc:v1:...) — dešifruje ho až
  * {@see PdfSigner} těsně před použitím, nikdy se nedrží v plaintextu déle než nutno.
@@ -23,51 +23,18 @@ final class SigningConfig
         public readonly string $tsaPasswordEnc = '',
     ) {}
 
-    /**
-     * Vytvoří konfiguraci z řádku tabulky supplier (SELECT s.*).
-     *
-     * Vrátí null, když podpis NENÍ zapnutý (`pdf_signing_enabled` != 1) nebo
-     * chybí cesta k certifikátu — volající (renderer) podpis přeskočí.
-     *
-     * @param array<string,mixed> $row
-     */
-    public static function fromSupplierRow(array $row): ?self
+    public static function defaultReason(string $documentType): string
     {
-        if ((int) ($row['pdf_signing_enabled'] ?? 0) !== 1) {
-            return null;
-        }
-        // V DB je cesta uložená RELATIVNĚ ke storage (data-dir nezávislá); na absolutní
-        // se resolvuje až tady přes RuntimePaths (respektuje MYINVOICE_DATA_DIR), takže
-        // přesun data-dir / Docker volume podpis nerozbije.
-        $certPath = self::absCertPath((string) ($row['signing_cert_path'] ?? ''));
-        if ($certPath === '') {
-            return null;
-        }
-        $tsa = $row['signing_tsa_url'] ?? null;
-        $tsaUser = $row['signing_tsa_username'] ?? null;
-        return new self(
-            certPath:     $certPath,
-            passwordEnc:  (string) ($row['signing_cert_password_enc'] ?? ''),
-            tsaUrl:       ($tsa !== null && $tsa !== '') ? (string) $tsa : null,
-            reason:       (string) ($row['signing_reason'] ?? '') ?: 'Faktura',
-            tsaUsername:  ($tsaUser !== null && $tsaUser !== '') ? (string) $tsaUser : null,
-            tsaPasswordEnc: (string) ($row['signing_tsa_password_enc'] ?? ''),
-        );
-    }
-
-    /**
-     * Relativní (data-dir nezávislá) cesta P12 ukládaná do `supplier.signing_cert_path`.
-     * Absolutní cestu z ní složí {@see absCertPath} až za běhu.
-     */
-    public static function relCertPath(int $supplierId): string
-    {
-        return "certs/supplier-{$supplierId}.p12";
+        return match ($documentType) {
+            'work_report' => 'Výkaz práce',
+            default => 'Faktura',
+        };
     }
 
     /**
      * Resolvne uloženou cestu na absolutní přes {@see RuntimePaths} (respektuje
      * MYINVOICE_DATA_DIR). Prázdný vstup → ''. Snese i starší absolutní hodnotu
-     * (passthrough), aby přechod ze staré varianty neztratil cert.
+     * (passthrough), aby migrace legacy certů neztratila uložený soubor.
      */
     public static function absCertPath(string $stored): string
     {

@@ -187,7 +187,7 @@ final class MonthlyExportService
                     $base = $typeLabel . '-' . $this->sanitize((string) ($inv['varsymbol'] ?? ('draft-' . $id)));
                     if (in_array('sales_pdf', $parts, true)) {
                         try {
-                            $path = $this->invoicePdf->render($id);
+                            $path = $this->invoicePdf->render($id, false, $userId);
                             if (is_file($path)) {
                                 $zip->addFile($path, "Vystavene-faktury/PDF/{$base}.pdf");
                                 $added++; $summary['sales_pdf'] = ($summary['sales_pdf'] ?? 0) + 1;

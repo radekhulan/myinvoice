@@ -95,8 +95,11 @@ final class SendEmailAction
             }
         }
 
+        $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
+        $userId = isset($user['id']) ? (int) $user['id'] : null;
+
         try {
-            $pdfPath = $this->renderer->render($id);
+            $pdfPath = $this->renderer->render($id, false, $userId);
         } catch (\Throwable $e) {
             return Json::error($response, 'pdf_failed', 'Nepodařilo se vygenerovat PDF: ' . $e->getMessage(), 500);
         }
@@ -156,7 +159,6 @@ final class SendEmailAction
         $sentToAll = array_values(array_unique(array_merge($to, $cc, $bcc)));
         $archiveId = $this->pdfArchive->archiveCopy($id, $pdfPath, 'sent', wasSent: true, sentTo: $sentToAll);
 
-        $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
         $this->logger->log('invoice.sent', $user['id'] ?? null, 'invoice', $id, [
             'to' => $to, 'cc' => $cc, 'bcc' => $bcc,

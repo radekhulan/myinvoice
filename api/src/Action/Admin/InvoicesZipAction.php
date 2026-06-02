@@ -88,9 +88,10 @@ final class InvoicesZipAction
         }
 
         $errors = 0;
+        $userId = isset($user['id']) ? (int) $user['id'] : null;
         foreach ($invoices as $inv) {
             try {
-                $path = $this->pdf->render((int) $inv['id']);
+                $path = $this->pdf->render((int) $inv['id'], false, $userId);
                 if (!is_file($path)) {
                     $errors++;
                     continue;

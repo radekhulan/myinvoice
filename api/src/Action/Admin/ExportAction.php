@@ -66,8 +66,9 @@ final class ExportAction
         }
 
         try {
+            $userId = isset($user['id']) ? (int) $user['id'] : null;
             [$filename, $content, $mime] = match ($format) {
-                'pdf-zip' => $this->buildPdfZip($ids, $month, $type),
+                'pdf-zip' => $this->buildPdfZip($ids, $month, $type, $userId),
                 'isdoc'   => $this->buildIsdoc($ids, $month),
                 'pohoda'  => $this->buildPohoda($ids, $sid, $month),
                 default   => throw new \InvalidArgumentException("Neznámý formát: $format"),
@@ -116,7 +117,7 @@ final class ExportAction
      * @param int[] $ids
      * @return array{0:string,1:string,2:string} [filename, content, mime]
      */
-    private function buildPdfZip(array $ids, string $month, string $type): array
+    private function buildPdfZip(array $ids, string $month, string $type, ?int $userId): array
     {
         $tmpZip = tempnam(sys_get_temp_dir(), 'inv-zip-') . '.zip';
         $zip = new ZipArchive();
@@ -125,7 +126,7 @@ final class ExportAction
         }
         foreach ($ids as $id) {
             try {
-                $path = $this->pdf->render($id);
+                $path = $this->pdf->render($id, false, $userId);
                 if (!is_file($path)) continue;
                 $inv = $this->repo->find($id);
                 $typeLabel = match ($inv['invoice_type'] ?? 'invoice') {
