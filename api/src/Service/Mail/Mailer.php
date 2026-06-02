@@ -95,7 +95,8 @@ final class Mailer
         if ($dbTpl !== null) {
             // DB šablona je editovatelná adminem — sandboxujeme proti SSTI
             $sandbox = $this->sandboxedTwig();
-            $vars['subject'] = $subjectOverride ?? $dbTpl['subject'];
+            $subjectTemplate = $subjectOverride ?? $dbTpl['subject'];
+            $vars['subject'] = $sandbox->createTemplate($subjectTemplate)->render($vars);
             $html = $sandbox->createTemplate($dbTpl['body_html'])->render($vars);
             $text = $sandbox->createTemplate($dbTpl['body_text'])->render($vars);
         } else {

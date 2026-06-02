@@ -84,7 +84,13 @@ const signingProfiles = ref<SigningProfile[]>([])
 const signatureSelectionLoading = ref(false)
 const signatureSelectionSaving = ref<PdfSignatureDocumentEntityType | null>(null)
 const wrHasDates = computed(() => !!workReport.value?.items.some(i => !!i.work_date))
-const canManageSignatureSelection = computed(() => auth.canWrite)
+const hasPdfSigningProfiles = computed(() => signingProfiles.value.some(
+  profile => profile.is_active && profile.allowed_usages.includes('pdf'),
+))
+// Kartu „Elektronický podpis dokumentu" ukážeme jen když je podepisování pro
+// tohoto dodavatele skutečně nastavené (existuje aktivní profil s PDF využitím).
+// Jinak by ji u každé faktury viděl i uživatel, který nikdy nepodepisuje (balast).
+const canManageSignatureSelection = computed(() => auth.canWrite && hasPdfSigningProfiles.value)
 const adminSigningProfiles = computed(() => signingProfiles.value.filter(
   profile => profile.owner_user_id === null && profile.is_active && profile.allowed_usages.includes('pdf'),
 ))
@@ -100,9 +106,9 @@ async function load() {
   loading.value = true
   invoice.value = await invoicesApi.get(Number(route.params.id))
   loading.value = false
-  if (canManageSignatureSelection.value) {
-    loadSignatureProfiles()
-    loadSignatureSelection('invoice')
+  if (auth.canWrite) {
+    await loadSignatureProfiles()
+    if (hasPdfSigningProfiles.value) loadSignatureSelection('invoice')
   }
   // Activity log + work report + PDF historie (parallel, ne blokuje UI)
   invoicesApi.activity(Number(route.params.id))

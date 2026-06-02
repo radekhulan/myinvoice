@@ -228,6 +228,13 @@ final class SigningProfilesAction
             'code' => $updated['code'] ?? null,
         ], null, null, $supplierId);
 
+        // Změna podpisově relevantních polí může zneplatnit cachované podpisy.
+        $signingFields = ['is_active', 'allowed_usages', 'default_backend', 'code',
+            'pdf_tsa_url', 'pdf_tsa_username', 'pdf_tsa_password_enc', 'pdf_reason'];
+        if (array_intersect(array_keys($changes), $signingFields)) {
+            $this->invalidatePdfCacheForSupplierSigning($supplierId);
+        }
+
         return Json::ok($response, $updated);
     }
 
@@ -557,6 +564,10 @@ final class SigningProfilesAction
             'passphrase_policy' => $credential['passphrase_policy'] ?? null,
         ], null, null, $supplierId);
 
+        if ($usage === 'pdf') {
+            $this->invalidatePdfCacheForSupplierSigning($supplierId);
+        }
+
         return Json::ok($response, $this->credentialMeta($usage, $credential), 201);
     }
 
@@ -640,6 +651,10 @@ final class SigningProfilesAction
             'passphrase_profile_id' => $credential['passphrase_profile_id'] ?? null,
         ], null, null, $supplierId);
 
+        if ($usage === 'pdf') {
+            $this->invalidatePdfCacheForSupplierSigning($supplierId);
+        }
+
         return Json::ok($response, $this->credentialMeta($usage, $credential));
     }
 
@@ -674,6 +689,11 @@ final class SigningProfilesAction
             'profile_code' => $profile['code'] ?? null,
         ], null, null, $supplierId);
 
+        // Smazaný certifikát → cachované podepsané PDF by jinak zůstalo podepsané.
+        if ($usage === 'pdf' && $credential !== null) {
+            $this->invalidatePdfCacheForSupplierSigning($supplierId);
+        }
+
         return Json::ok($response, $this->credentialMeta($usage, null));
     }
 
@@ -703,6 +723,35 @@ final class SigningProfilesAction
         }
 
         $stmt = $this->db->pdo()->prepare($sql);
+        $stmt->execute([$supplierId]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $row) {
+            $this->pdf->invalidate(
+                (int) $row['id'],
+                'invalidate_signature_config',
+                archive: (string) ($row['status'] ?? '') !== 'draft',
+            );
+        }
+
+        return count($rows);
+    }
+
+    /**
+     * Profil i jeho certifikát se mohou používat pro libovolný PDF výstup
+     * (fakturu i výkaz) a u zdroje `admin_profile_settings` se podepsané PDF
+     * cachuje. Při změně certifikátu, TSA, důvodu nebo (de)aktivaci profilu proto
+     * invaliduj VŠECHNY cachované PDF dodavatele — jinak by se servíroval starý
+     * podpis, nebo dokonce podepsané PDF s už smazaným certifikátem. Dotaz bez
+     * output filtru pokrývá faktury i výkazy (oba visí na řádku faktury).
+     */
+    private function invalidatePdfCacheForSupplierSigning(int $supplierId): int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT i.id, i.status
+               FROM invoices i
+              WHERE i.supplier_id = ?
+                AND (i.pdf_path IS NOT NULL OR i.pdf_generated_at IS NOT NULL)'
+        );
         $stmt->execute([$supplierId]);
         $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
         foreach ($rows as $row) {
