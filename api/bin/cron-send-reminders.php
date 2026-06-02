@@ -34,18 +34,17 @@ use MyInvoice\Service\Cron\CronRun;
 use MyInvoice\Service\Invoice\ReminderService;
 
 // Parse args
-$days = 3;
+$daysOverride = null;  // null = per-dodavatel práh (supplier.reminder_days_after_due); --days ho přebije
 $cooldown = 7;
 $dryRun = false;
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--dry-run')                     { $dryRun = true; continue; }
-    if (preg_match('/^--days=(\d+)$/', $arg, $m))      { $days = (int) $m[1]; continue; }
+    if (preg_match('/^--days=(\d+)$/', $arg, $m))      { $daysOverride = max(1, (int) $m[1]); continue; }
     if (preg_match('/^--cooldown=(\d+)$/', $arg, $m))  { $cooldown = (int) $m[1]; continue; }
     fwrite(STDERR, "Unknown arg: $arg\n");
     exit(1);
 }
 
-$days = max(1, $days);
 $cooldown = max(0, $cooldown);
 
 $app = Bootstrap::buildApp();
@@ -76,17 +75,19 @@ $sql = "SELECT i.id, i.varsymbol, i.invoice_type, i.due_date, i.amount_to_pay, c
            AND i.payment_method = 'bank_transfer'
            AND s.auto_send_reminders = 1
            AND c.auto_send_reminders = 1
-           AND i.due_date < (CURDATE() - INTERVAL ? DAY)
+           AND i.auto_send_reminders = 1
+           AND i.due_date < (CURDATE() - INTERVAL COALESCE(?, s.reminder_days_after_due) DAY)
            AND (i.last_reminder_at IS NULL OR i.last_reminder_at < (NOW() - INTERVAL ? DAY))
          ORDER BY i.due_date ASC, i.id ASC";
 $stmt = $pdo->prepare($sql);
-$stmt->execute([$days, $cooldown]);
+$stmt->execute([$daysOverride, $cooldown]);
 $candidates = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-echo "[" . date('Y-m-d H:i:s') . "] cron-send-reminders --days={$days} --cooldown={$cooldown}"
+$daysLabel = $daysOverride === null ? 'per-supplier' : (string) $daysOverride;
+echo "[" . date('Y-m-d H:i:s') . "] cron-send-reminders --days={$daysLabel} --cooldown={$cooldown}"
     . ($dryRun ? ' --dry-run' : '') . " — found " . count($candidates) . " candidates\n";
 
-$report = ['days' => $days, 'cooldown' => $cooldown, 'dry_run' => $dryRun, 'candidates' => count($candidates), 'sent' => 0, 'errors' => 0];
+$report = ['days' => $daysOverride, 'cooldown' => $cooldown, 'dry_run' => $dryRun, 'candidates' => count($candidates), 'sent' => 0, 'errors' => 0];
 
 if (empty($candidates)) {
     $ms = (int) ((microtime(true) - $startedAt) * 1000);

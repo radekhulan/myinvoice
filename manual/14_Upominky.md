@@ -17,6 +17,8 @@ Aby šla upomínka odeslat, faktura musí:
 - Být ve stavu `issued`, `sent` nebo `reminded`
 - Být **po splatnosti** (`due_date < dnes`)
 - Mít k dispozici klientův e-mail (hlavní + případné fakturační)
+- Mít zapnutý přepínač **Posílat automatické upomínky** (viz § 14.7) — týká se
+  jen automatického cronu; ruční i hromadné odeslání funguje vždy.
 
 ## 14.2 Manuální upomínka
 
@@ -72,10 +74,9 @@ Skript `php api/bin/cron-send-reminders.php` má parametry:
 
 | Parametr | Default | Význam |
 |---|---|---|
-| `--days=N` | `1` | Faktura musí být po splatnosti alespoň N dní |
-| `--cooldown=N` | `14` | Min. počet dní mezi dvěma upomínkami stejné faktury |
+| `--days=N` | (per dodavatel) | Faktura musí být po splatnosti alespoň N dní. Bez parametru se čte **práh nastavený u dodavatele** (§ 14.7, default 3); `--days` ho pro daný běh přebije. |
+| `--cooldown=N` | `7` | Min. počet dní mezi dvěma upomínkami stejné faktury |
 | `--dry-run` | — | Jen vypíše, co by udělal, **bez odeslání** |
-| `--supplier=N` | (všichni) | Omezit na jednoho dodavatele |
 
 ### 14.4.1 Doporučené nastavení
 
@@ -153,3 +154,47 @@ Vybere se podle `klient.language`.
   E-mailová upomínka je jen formalita.
 - **Test upomínky** = vždy před produkčním cronem. Nešťastné je posílat
   klientovi rozbitý HTML.
+
+## 14.7 Vypnutí upomínek u konkrétní faktury a práh dní
+
+Automatické upomínky lze řídit na třech úrovních; cron pošle upomínku, jen když
+**všechny tři** dovolí (zapnuto u dodavatele **i** u klienta **i** u faktury):
+
+| Úroveň | Kde | Význam |
+|---|---|---|
+| Dodavatel | Nastavení → dodavatel | Globální vypnutí pro celého dodavatele |
+| Klient | Detail klienta | Vypnutí pro všechny faktury daného klienta |
+| **Faktura** | Editor faktury | Vypnutí pro jedinou konkrétní fakturu |
+
+### 14.7.1 Přepínač na faktuře
+
+V [editoru faktury](11_Faktura_editor.md) je v pravém boxu **Datumy**, hned pod
+polem *Splatnost*, přepínač **Posílat automatické upomínky** (výchozí: zapnuto).
+Když ho vypneš, cron tuto fakturu přeskočí, i kdyby měl dodavatel i klient
+upomínky zapnuté. **Ruční i hromadné** odeslání upomínky funguje vždy. U dobropisů
+se přepínač nezobrazuje (dobropisy se neupomínají).
+
+### 14.7.2 Práh „po kolika dnech po splatnosti"
+
+V **Nastavení → dodavatel** nastavíš, **po kolika dnech po splatnosti** se má
+poslat první automatická upomínka. Na výběr jsou předvolby **3 dny / týden /
+měsíc** nebo **vlastní** počet dní (1–365). Hodnota je per dodavatel; cron ji čte
+automaticky. Parametr `--days=N` (§ 14.4) ji pro daný běh přebije — hodí se pro
+mimořádný / ruční běh.
+
+## 14.8 Kontrola, co se opravdu odeslalo (a co ne)
+
+V **Systém → Odeslané e-maily** je přehled **všech** e-mailů, které aplikace
+rozeslala — odeslání faktur, upomínky, schvalovací upomínky, poděkování za
+úhradu, připomínky konceptů i testovací odeslání. Automatické (cron) odeslání
+jsou připsána „Systému".
+
+Přehled ukazuje **i neúspěšná odeslání**: když odeslání selže (nedostupný SMTP,
+odmítnutý příjemce, chyba při generování PDF), zapíše se červený řádek se stavem
+**Neodesláno** a textem chyby. Filtr **stavu** (Vše / Odesláno / Neodesláno) a
+zkratka **Neodesláno: N** umožní rychle najít, co je potřeba poslat znovu.
+
+> ⚠️ „Odesláno" znamená, že e-mail **převzal SMTP server** — nezaručuje doručení
+> do schránky (odmítnutí mailserverem příjemce / spam filtr aplikace netrackuje).
+> Pokud cron upomínku **přeskočí** kvůli předpokladům z § 14.1 (např. klient nemá
+> e-mail), nejde o „selhání odeslání" a v přehledu se jako chyba neobjeví.

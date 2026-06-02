@@ -123,13 +123,19 @@ final class MonthlyExportService
                 throw new \RuntimeException("Neplatné období: {$month}.");
             }
 
-            // Připrav cílovou cestu (sup-N/<jobId>-myinvoice-mesicni-export-YYYY-MM.zip).
+            $companyName = $this->supplierCompanyName($supplierId);
+
+            // Připrav cílovou cestu (sup-N/<jobId>-<firma>-mesicni-export-YYYY-MM.zip).
             $relDir = 'sup-' . $supplierId;
             $absDir = $this->storageBaseDir() . DIRECTORY_SEPARATOR . $relDir;
             if (!is_dir($absDir) && !@mkdir($absDir, 0775, true) && !is_dir($absDir)) {
                 throw new \RuntimeException('Nelze vytvořit úložiště exportů.');
             }
-            $fileName = sprintf('myinvoice-mesicni-export-%s.zip', $month);
+            // Název firmy (bez diakritiky) v názvu ZIPu — ať jdou exporty víc dodavatelů rozlišit.
+            $companySlug = $this->asciiSlug($companyName);
+            $fileName = $companySlug !== ''
+                ? sprintf('%s-mesicni-export-%s.zip', $companySlug, $month)
+                : sprintf('myinvoice-mesicni-export-%s.zip', $month);
             $relPath  = $relDir . '/' . $jobId . '-' . $fileName;
             $absPath  = $this->storageBaseDir() . DIRECTORY_SEPARATOR
                 . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
@@ -287,7 +293,7 @@ final class MonthlyExportService
                 return;
             }
 
-            $zip->addFromString('README.txt', $this->buildReadme($month, $summary, $warnings));
+            $zip->addFromString('README.txt', $this->buildReadme($companyName, $month, $summary, $warnings));
             $zip->close();
 
             $size = (int) (@filesize($absPath) ?: 0);
@@ -447,6 +453,31 @@ final class MonthlyExportService
         return preg_replace('/[^A-Za-z0-9._\-]/u', '_', $s) ?? 'soubor';
     }
 
+    /** Název firmy dodavatele (pro README i název ZIPu). Prázdný string = nenalezeno. */
+    private function supplierCompanyName(int $sid): string
+    {
+        $stmt = $this->db->pdo()->prepare('SELECT company_name FROM supplier WHERE id = ?');
+        $stmt->execute([$sid]);
+        return trim((string) ($stmt->fetchColumn() ?: ''));
+    }
+
+    /**
+     * Název firmy → ASCII slug pro název souboru: ořízne českou/slovenskou diakritiku
+     * (č→c, ž→z, …), zbytek nealfanumerických znaků nahradí pomlčkou. Délku omezí na 60.
+     */
+    private function asciiSlug(string $s): string
+    {
+        $map = [
+            'á'=>'a','č'=>'c','ď'=>'d','é'=>'e','ě'=>'e','í'=>'i','ľ'=>'l','ĺ'=>'l','ň'=>'n','ó'=>'o',
+            'ô'=>'o','ŕ'=>'r','ř'=>'r','š'=>'s','ť'=>'t','ú'=>'u','ů'=>'u','ý'=>'y','ž'=>'z','ä'=>'a',
+            'Á'=>'A','Č'=>'C','Ď'=>'D','É'=>'E','Ě'=>'E','Í'=>'I','Ľ'=>'L','Ĺ'=>'L','Ň'=>'N','Ó'=>'O',
+            'Ô'=>'O','Ŕ'=>'R','Ř'=>'R','Š'=>'S','Ť'=>'T','Ú'=>'U','Ů'=>'U','Ý'=>'Y','Ž'=>'Z','Ä'=>'A',
+        ];
+        $s = strtr($s, $map);
+        $s = preg_replace('/[^A-Za-z0-9]+/', '-', $s) ?? '';
+        return mb_substr(trim($s, '-'), 0, 60);
+    }
+
     private function statementFilename(string $name, string $account, int $id, string $ext): string
     {
         $name = $name !== '' ? $name : ('vypis-' . $id . '.' . $ext);
@@ -472,7 +503,7 @@ final class MonthlyExportService
      * @param array<string,int> $summary
      * @param list<string> $warnings
      */
-    private function buildReadme(string $month, array $summary, array $warnings): string
+    private function buildReadme(string $companyName, string $month, array $summary, array $warnings): string
     {
         $labels = [
             'sales_pdf' => 'Vystavené faktury (PDF)', 'sales_isdoc' => 'Vystavené faktury (ISDOC)',
@@ -482,13 +513,18 @@ final class MonthlyExportService
         ];
         $lines = [
             'Měsíční export MyInvoice.cz', '============================',
+        ];
+        if (trim($companyName) !== '') {
+            $lines[] = 'Firma: ' . $companyName;
+        }
+        $lines = array_merge($lines, [
             'Období: ' . $month, 'Vygenerováno: ' . date('Y-m-d H:i:s'), '',
             'Zařazení dokladů do období (shodné s Knihou DPH a přiznáním DPH):',
             '  - Vystavené faktury: podle data zdanitelného plnění (DUZP).',
             '  - Přijaté faktury: podle pozdějšího z dat DUZP / vystavení',
             '    (nárok na odpočet nelze uplatnit dříve než podle daňového dokladu).',
             '  - Výpisy z účtu: podle data výpisu.', '', 'Obsah:',
-        ];
+        ]);
         foreach ($labels as $key => $label) {
             if (isset($summary[$key])) $lines[] = sprintf('  - %s: %d', $label, $summary[$key]);
         }

@@ -1063,6 +1063,8 @@
     "income_tax_exempt": "Exempt from income tax",
     "income_tax_exempt_hint": "Not included in the income-tax base. VAT, control statement and turnover are unaffected.",
     "income_tax_exempt_reason_placeholder": "Reason for exemption (optional) — e.g. sale of vehicle § 4(1)(c), pass-through reinvoicing",
+    "auto_send_reminders": "Send automatic reminders",
+    "auto_send_reminders_hint": "When off, the cron will not send automatic reminders for this invoice (even if the supplier and client have them enabled). Manual send always works.",
     "income_tax_exempt_badge": "Exempt from income tax",
     "advance_paid": "Advance deduction",
     "note_above": "Note above items",
@@ -1748,6 +1750,10 @@
     "default_hourly_rate": "Default hourly rate",
     "auto_send_reminders": "Send automatic reminders",
     "auto_send_reminders_hint": "When off, the cron will not send automatic reminders for this supplier. Manual send (single + bulk) always works.",
+    "reminder_days_after_due": "Days after due date to send the first reminder",
+    "reminder_days_after_due_hint": "The cron sends the first reminder once the invoice is this many days past due. Applies to automatic reminders only; manual send always works.",
+    "reminder_days_unit": "days",
+    "reminder_days_preset": { "d3": "3 days", "week": "Week (7 days)", "month": "Month (30 days)", "custom": "Custom…" },
     "payment_thanks_enabled": "Send payment thank-you e-mails",
     "payment_thanks_enabled_hint": "After an invoice is marked as paid, a short thank-you e-mail can be sent to the customer. Default: off.",
     "payment_thanks_auto_send": "Automatically on bank payment matching",
@@ -2186,9 +2192,11 @@
   },
   "sent_emails": {
     "title": "Sent emails",
-    "subtitle": "Overview of all e-mails sent from the app — manual and automatic (reminders, thank-you notes). Admin only.",
+    "subtitle": "Overview of all e-mails sent from the app — manual and automatic (reminders, thank-you notes), including failed attempts. Admin only.",
     "all_types": "All types",
+    "all_statuses": "All statuses",
     "refresh": "Refresh",
+    "failed_badge": "Failed: {n}",
     "total": "{n} emails · page {p} / {tp}",
     "no_records": "No e-mail has been sent yet.",
     "time": "Time",
@@ -2197,6 +2205,10 @@
     "recipients": "Recipient",
     "sender": "Sent by",
     "sender_system": "System (automatic)",
+    "status": {
+      "sent": "Sent",
+      "failed": "Failed"
+    },
     "types": {
       "invoice_sent": "Invoice sent",
       "reminder_sent": "Reminder",

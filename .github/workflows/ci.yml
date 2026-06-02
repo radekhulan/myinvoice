@@ -7,11 +7,6 @@ on:
     branches: [master]
   workflow_dispatch:
 
-# Force JavaScript actions (checkout, setup-node, cache, …) na Node 24.
-# Default je Node 20 (deprecated, removal září 2026).
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   backend:
     name: Backend (PHP 8.5 + PHPUnit)
@@ -19,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup PHP 8.5
         uses: shivammathur/setup-php@v2
@@ -30,7 +25,7 @@ jobs:
           tools: composer:v2
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: api/vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
@@ -50,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node 24 + pnpm
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
 
@@ -61,7 +56,7 @@ jobs:
         run: corepack enable && corepack prepare pnpm@latest --activate
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('web/pnpm-lock.yaml') }}

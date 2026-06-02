@@ -345,6 +345,95 @@ final class RecurringGeneratorTest extends TestCase
     }
 
     /**
+     * Neplátce DPH: i když šablona drží nominální sazbu (21 %), vygenerovaná faktura
+     * musí mít DPH = 0 a položky 0% snapshot (generátor coercne sazbu na 0% Osvobozeno).
+     * Chrání šablony uložené dřív, než frontend začal pro neplátce vybírat 0% sazbu.
+     */
+    public function testGeneratorZeroesVatForNonVatPayerSupplier(): void
+    {
+        $today = (new \DateTimeImmutable('today'))->format('Y-m-d');
+
+        // Default sazba musí být >0 %, jinak by 0 DPH nic nedokázala.
+        $stmt = $this->db->pdo()->prepare('SELECT rate_percent FROM vat_rates WHERE id = ?');
+        $stmt->execute([$this->vatRateId]);
+        if ((float) $stmt->fetchColumn() <= 0.0) {
+            $this->markTestSkipped('Default sazba je 0 % — test neplátce nedává smysl.');
+        }
+        // Musí existovat 0% osvobozená sazba platná dnes, na kterou se coercne.
+        $zeroId = (int) $this->db->pdo()->query(
+            "SELECT id FROM vat_rates
+              WHERE rate_percent = 0 AND is_reverse_charge = 0
+                AND valid_from <= CURDATE() AND (valid_to IS NULL OR valid_to >= CURDATE())
+              ORDER BY valid_from DESC LIMIT 1"
+        )->fetchColumn();
+        if ($zeroId <= 0) {
+            $this->markTestSkipped('Žádná platná 0% osvobozená sazba v DB.');
+        }
+
+        // Šablona s nominální sazbou — jako kdyby ji založil neplátce před opravou.
+        $tplId = $this->repo->create([
+            'supplier_id'      => $this->supplierId,
+            'client_id'        => $this->clientId,
+            'name'             => 'TEST recurring neplátce DPH (PHPUnit)',
+            'frequency'        => 'monthly',
+            'end_of_month'     => false,
+            'anchor_date'      => $today,
+            'next_run_date'    => $today,
+            'invoice_type'     => 'invoice',
+            'currency_id'      => $this->currencyId,
+            'language'         => 'cs',
+            'payment_method'   => 'bank_transfer',
+            'payment_due_days' => 14,
+            'increment_month_in_descriptions' => false,
+            'auto_issue'       => false,
+            'auto_send_email'  => false,
+        ], $this->userId);
+        $this->createdTemplateIds[] = $tplId;
+        $this->repo->replaceItems($tplId, [[
+            'description' => 'Paušál',
+            'quantity' => 1.0,
+            'unit' => 'měs',
+            'unit_price_without_vat' => 1000.00,
+            'vat_rate_id' => $this->vatRateId, // nominální (>0 %)
+            'order_index' => 0,
+        ]]);
+
+        // Dočasně přepni dodavatele na neplátce DPH; v finally vrať původní hodnotu.
+        $orig = (int) $this->db->pdo()
+            ->query("SELECT is_vat_payer FROM supplier WHERE id = {$this->supplierId}")
+            ->fetchColumn();
+        $this->db->pdo()->prepare('UPDATE supplier SET is_vat_payer = 0 WHERE id = ?')
+            ->execute([$this->supplierId]);
+        try {
+            $result = $this->generator->generate($tplId, $today, $this->userId, '127.0.0.1', 'phpunit');
+            $this->createdInvoiceIds[] = $result['invoice_id'];
+
+            $inv = $this->db->pdo()->prepare(
+                'SELECT total_without_vat, total_vat, total_with_vat FROM invoices WHERE id = ?'
+            );
+            $inv->execute([$result['invoice_id']]);
+            $invRow = $inv->fetch(PDO::FETCH_ASSOC);
+            $this->assertEqualsWithDelta(0.0, (float) $invRow['total_vat'], 0.001, 'Neplátce DPH → DPH = 0');
+            $this->assertEqualsWithDelta(1000.0, (float) $invRow['total_without_vat'], 0.001);
+            $this->assertEqualsWithDelta(1000.0, (float) $invRow['total_with_vat'], 0.001);
+
+            // Položky mají 0% snapshot a coercnuté vat_rate_id na 0% sazbu.
+            $items = $this->db->pdo()->prepare(
+                'SELECT vat_rate_id, vat_rate_snapshot, total_vat FROM invoice_items WHERE invoice_id = ?'
+            );
+            $items->execute([$result['invoice_id']]);
+            foreach ($items->fetchAll(PDO::FETCH_ASSOC) as $it) {
+                $this->assertSame($zeroId, (int) $it['vat_rate_id'], 'vat_rate_id coercnuto na 0% sazbu');
+                $this->assertEqualsWithDelta(0.0, (float) $it['vat_rate_snapshot'], 0.001);
+                $this->assertEqualsWithDelta(0.0, (float) $it['total_vat'], 0.001);
+            }
+        } finally {
+            $this->db->pdo()->prepare('UPDATE supplier SET is_vat_payer = ? WHERE id = ?')
+                ->execute([$orig, $this->supplierId]);
+        }
+    }
+
+    /**
      * Přenos šablony s `prices_include_vat=true` do VYDANÉ faktury: režim se musí
      * propsat, DPH se počítá koeficientem (na haléř), unit_price_without_vat nese
      * brutto, ale uložený řádkový základ + zobrazené netto sedí na haléř.

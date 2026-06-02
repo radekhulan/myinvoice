@@ -11,7 +11,11 @@
 # ---------- Stage 1: frontend ----------
 FROM node:24-alpine AS web-build
 WORKDIR /app
-COPY web/package.json web/pnpm-lock.yaml ./
+# pnpm-workspace.yaml nese supply-chain politiku (minimumReleaseAgeExclude pro
+# záměrně povýšené balíky jako vite, onlyBuiltDependencies). Musí být v kontextu
+# PŘED `pnpm install`, jinak novější pnpm@latest odmítne „příliš čerstvé" závislosti
+# (ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION), přestože jsou ve whitelistu repa.
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN corepack enable && corepack prepare pnpm@latest --activate \
  && pnpm install --frozen-lockfile
 COPY web/ ./

@@ -5,6 +5,39 @@ All notable changes to MyInvoice.cz are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.11.1] — 2026-06-01
+
+Oprava: pravidelná fakturace u **neplátce DPH** nově nevyplňuje DPH — chová se stejně jako jednorázové vystavení faktury.
+
+### Fixed
+
+- **Pravidelná fakturace u neplátce DPH nevyplňuje DPH ([#95](https://github.com/radekhulan/myinvoice/issues/95)).** Šablona pravidelné fakturace dříve vždy nasazovala výchozí (nenulovou) sazbu DPH, takže neplátci generovala faktury s DPH — na rozdíl od jednorázového editoru, který pro neplátce volí 0 % „Osvobozeno". Nově se formulář šablony řídí příznakem plátce u dodavatele stejně jako editor faktury (skrytý výběr DPH i přepínač „ceny s DPH", nulová sazba). Navíc to **autoritativně hlídá i generátor**: při vystavení faktury ze šablony u neplátce sjednotí sazby položek na 0 % — takže se opraví i šablony uložené dříve s nominální sazbou (vč. cron generování, otevřených konceptů i REST API). DPH na faktuře vždy určuje výhradně dodavatel, ne plátcovství odběratele.
+
+### Build
+
+- **Docker build kopíruje `pnpm-workspace.yaml`.** Multi-arch image build padal na `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` (vite@8.0.16), protože Dockerfile kopíroval jen `package.json` + `pnpm-lock.yaml`, ale ne supply-chain whitelist z `pnpm-workspace.yaml`. Novější `pnpm@latest` začalo defaultně vynucovat minimální stáří balíků; bez whitelistu odmítlo záměrně povýšenou (čerstvou) verzi vite. Workspace config se nově kopíruje před `pnpm install`.
+
+## [4.11.0] — 2026-06-01
+
+Přehled odeslaných e-mailů ([#88](https://github.com/radekhulan/myinvoice/issues/88)) nově ukazuje i **neúspěšná odeslání** — hned je vidět, co se nepodařilo doručit. Upomínky jsou konfigurovatelné ([#91](https://github.com/radekhulan/myinvoice/issues/91)): vypnutí u konkrétní faktury a nastavitelný práh „po kolika dnech po splatnosti". Plus drobná vylepšení použitelnosti a opravy pohledávkových přehledů.
+
+### Added
+
+- **Přehled odeslaných e-mailů ([#88](https://github.com/radekhulan/myinvoice/issues/88)).** Nová admin stránka **Systém → Odeslané e-maily** — všechny e-maily rozeslané aplikací (odeslání faktur, upomínky, schvalovací upomínky, poděkování za úhradu, připomínky konceptů, testovací odeslání) v jednom filtrovatelném pohledu s odkazem na fakturu a příjemci. Automatická (cron) odeslání jsou připsána „Systému". Čte se z existujícího auditního logu, žádná změna schématu.
+- **Viditelnost neúspěšných odeslání.** Přehled ukazuje i e-maily, které se **nepodařilo odeslat** (nedostupný SMTP, odmítnutý příjemce, chyba PDF) — červený stav **Neodesláno** s textem chyby, filtr stavu (Vše / Odesláno / Neodesláno) a zkratka „Neodesláno: N". Selhání se nově loguje napříč všemi cestami odeslání (ruční i hromadná upomínka, cron upomínek i schvalovacích upomínek, odeslání faktury, auto-odeslání po schválení, poděkování za úhradu, připomínka konceptu, testovací odeslání).
+- **Konfigurovatelné upomínky ([#91](https://github.com/radekhulan/myinvoice/issues/91)).** Per-faktura přepínač **Posílat automatické upomínky** v editoru (výchozí zapnuto) — vypnutím cron tu jednu fakturu přeskočí, i když má dodavatel a klient upomínky zapnuté; ruční i hromadné odeslání funguje dál. Navíc nastavitelný **práh dní po splatnosti** pro první upomínku per dodavatel (předvolby 3 dny / týden / měsíc / vlastní); CLI `--days` ho při potřebě přebije.
+- **Měsíční export — výchozí minulý měsíc.** Stránka měsíčního exportu nově předvyplní **předchozí** měsíc místo aktuálního (export se typicky dělá po uzávěrce skončeného měsíce).
+
+### Changed
+
+- **Přepínač upomínek v editoru faktury** se přesunul do pravého boxu *Datumy*, pod pole *Splatnost* — logicky vedle data, od kterého se upomínky odvíjejí.
+
+### Fixed
+
+- **Klon faktury bere splatnost stejně jako nová faktura ([#90](https://github.com/radekhulan/myinvoice/issues/90)).** Klon vydané faktury bez zakázky dříve dostal splatnost = datum vystavení (0 dní); nově se počítá stejnou prioritou zakázka → klient → dodavatel → 7 dní. Klon navíc zdědí i přepínač automatických upomínek ze zdrojové faktury.
+- **Doklad ze zaplacené zálohy už nestraší jako nezaplacený.** Finální daňový doklad vystavený z plně uhrazené proformy (`amount_to_pay = 0`) se přestal objevovat v přehledech „Po splatnosti", aging, cash-flow i v upomínkách. Pohledávkové dotazy nově vylučují plně uhrazené doklady a takový doklad se při vystavení rovnou označí jako zaplacený (kvůli kasovým reportům).
+- **Přehled odeslaných e-mailů padal na 500 (MariaDB).** Předchozí verze používala MySQL-only operátor `->>`, který MariaDB neumí; nahrazeno za `JSON_UNQUOTE(JSON_EXTRACT(...))`.
+
 ## [4.10.0] — 2026-06-01
 
 Odolné a samoopravné číslování faktur ([#85](https://github.com/radekhulan/myinvoice/issues/85)) — automatické vyhnutí se kolizím čísel, dorovnání číselných řad po importu a srozumitelné hlášky místo chyby 500. Plus oprava jednotkové ceny s DPH v ISDOC u tuzemského reverse charge.

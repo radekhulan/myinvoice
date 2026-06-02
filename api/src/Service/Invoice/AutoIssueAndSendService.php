@@ -114,16 +114,27 @@ final class AutoIssueAndSendService
         $locale = (string) ($invoice['language'] ?? 'cs');
         $vars = $this->varsBuilder->build($invoice, false, $locale);
 
-        $this->mailer->sendTemplate(
-            'invoice_send',
-            $locale,
-            $to,
-            $vars,
-            null,
-            $cc,
-            [],
-            [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
-        );
+        try {
+            $this->mailer->sendTemplate(
+                'invoice_send',
+                $locale,
+                $to,
+                $vars,
+                null,
+                $cc,
+                [],
+                [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
+            );
+        } catch (\Throwable $e) {
+            // Auto-send po schválení výkazu — selhání zalogujeme do přehledu e-mailů
+            // a propustíme dál (caller v approval flow si ho ošetří).
+            $this->logger->log('invoice.send_failed', $userId, 'invoice', $invoiceId, [
+                'to' => $to, 'cc' => $cc,
+                'auto_reason' => 'work_report_approved',
+                'error' => mb_substr($e->getMessage(), 0, 500),
+            ], $ip, $ua);
+            throw $e;
+        }
 
         $newStatus = $invoice['status'] === 'issued' ? 'sent' : $invoice['status'];
         $this->db->pdo()->prepare('UPDATE invoices SET status = ?, sent_at = NOW() WHERE id = ?')

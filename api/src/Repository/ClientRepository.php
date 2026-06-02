@@ -144,6 +144,7 @@ final class ClientRepository
         $sql = "SELECT c.id, c.supplier_id, c.company_name, c.ic, c.dic, c.main_email, c.language,
                        c.currency_default_id, cur.code AS currency_default,
                        c.reverse_charge, c.is_vat_payer, c.is_customer, c.is_vendor,
+                       c.auto_send_reminders,
                        c.payment_due_default, c.payment_due_unit, c.hourly_rate,
                        c.default_expense_category_id, c.default_revenue_category_id,
                        c.archived_at, co.iso2 AS country_iso2,

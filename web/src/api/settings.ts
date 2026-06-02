@@ -28,6 +28,7 @@ export interface Supplier {
   default_prices_include_vat: boolean
   default_hourly_rate: number
   auto_send_reminders: boolean
+  reminder_days_after_due: number
   auto_generate_recurring: boolean
   embed_isdoc: boolean
   logo_path: string | null

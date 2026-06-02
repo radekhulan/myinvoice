@@ -36,6 +36,23 @@ final class InvoiceRepository
         return $this->hasIncomeTaxExempt;
     }
 
+    /**
+     * Cache existence sloupce auto_send_reminders (migrace 0088). Stejná obrana jako
+     * u income_tax_exempt — instalace s kódem, ale pozadu s migrací sloupec nemá;
+     * bez detekce by uložení faktury spadlo. Výchozí chování (upomínky zapnuté) drží
+     * DB default 1, takže vynechání sloupce při INSERT/UPDATE nic nerozbije.
+     */
+    private ?bool $hasAutoSendReminders = null;
+
+    private function supportsAutoSendReminders(): bool
+    {
+        if ($this->hasAutoSendReminders === null) {
+            $col = $this->db->pdo()->query("SHOW COLUMNS FROM invoices LIKE 'auto_send_reminders'")->fetch();
+            $this->hasAutoSendReminders = $col !== false;
+        }
+        return $this->hasAutoSendReminders;
+    }
+
     public function find(int $id): ?array
     {
         $pdo = $this->db->pdo();
@@ -644,15 +661,18 @@ final class InvoiceRepository
         }
 
         $hasExempt = $this->supportsIncomeTaxExempt();
+        $hasReminders = $this->supportsAutoSendReminders();
         $sql = 'INSERT INTO invoices
             (invoice_type, parent_invoice_id, client_id, project_id, supplier_id,
              issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
              note_above_items, note_below_items, advance_paid_amount, discount_percent, varsymbol,
              payment_method, status, vat_classification_code, revenue_category, revenue_category_id,'
             . ($hasExempt ? ' income_tax_exempt, income_tax_exempt_reason,' : '')
+            . ($hasReminders ? ' auto_send_reminders,' : '')
             . ' created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?, ?, ?,'
             . ($hasExempt ? ' ?, ?,' : '')
+            . ($hasReminders ? ' ?,' : '')
             . ' ?)';
 
         $params = [
@@ -681,6 +701,9 @@ final class InvoiceRepository
         if ($hasExempt) {
             $params[] = !empty($data['income_tax_exempt']) ? 1 : 0;
             $params[] = self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null);
+        }
+        if ($hasReminders) {
+            $params[] = array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1;
         }
         $params[] = $userId;
 
@@ -719,6 +742,7 @@ final class InvoiceRepository
             && in_array((string) $data['invoice_type'], ['invoice', 'proforma', 'credit_note'], true);
 
         $hasExempt = $this->supportsIncomeTaxExempt();
+        $hasReminders = $this->supportsAutoSendReminders();
 
         $sql = 'UPDATE invoices SET
                 client_id = ?, project_id = ?,
@@ -728,6 +752,7 @@ final class InvoiceRepository
                 advance_paid_amount = ?, discount_percent = ?,
                 vat_classification_code = ?, revenue_category = ?, revenue_category_id = ?'
               . ($hasExempt ? ', income_tax_exempt = ?, income_tax_exempt_reason = ?' : '')
+              . ($hasReminders ? ', auto_send_reminders = ?' : '')
               . ($hasVarsymbol ? ', varsymbol = ?' : '')
               . ($hasPaymentMethod ? ', payment_method = ?' : '')
               . ($hasType ? ', invoice_type = ?' : '')
@@ -754,6 +779,9 @@ final class InvoiceRepository
         if ($hasExempt) {
             $params[] = !empty($data['income_tax_exempt']) ? 1 : 0;
             $params[] = self::normalizeExemptReason($data['income_tax_exempt_reason'] ?? null);
+        }
+        if ($hasReminders) {
+            $params[] = array_key_exists('auto_send_reminders', $data) ? ((int) (bool) $data['auto_send_reminders']) : 1;
         }
         if ($hasVarsymbol) $params[] = $manualVarsymbol;
         if ($hasPaymentMethod) $params[] = $paymentMethod;
@@ -1022,6 +1050,9 @@ final class InvoiceRepository
         $row['prices_include_vat']  = isset($row['prices_include_vat']) ? (bool) $row['prices_include_vat'] : false;
         if (array_key_exists('income_tax_exempt', $row)) {
             $row['income_tax_exempt'] = (bool) $row['income_tax_exempt'];
+        }
+        if (array_key_exists('auto_send_reminders', $row)) {
+            $row['auto_send_reminders'] = (bool) $row['auto_send_reminders'];
         }
         foreach (['total_without_vat', 'total_vat', 'total_with_vat', 'rounding', 'advance_paid_amount', 'amount_to_pay', 'discount_percent'] as $f) {
             if (array_key_exists($f, $row) && $row[$f] !== null) $row[$f] = (float) $row[$f];

@@ -1063,6 +1063,8 @@
     "income_tax_exempt": "Osvobozeno od daně z příjmů",
     "income_tax_exempt_hint": "Nezahrne se do základu daně z příjmů. DPH, kontrolní hlášení i tržby zůstávají beze změny.",
     "income_tax_exempt_reason_placeholder": "Důvod osvobození (volitelné) — např. prodej vozidla § 4 odst. 1 písm. c, přefakturace nákladů",
+    "auto_send_reminders": "Posílat automatické upomínky",
+    "auto_send_reminders_hint": "Když je vypnuto, cron nebude posílat automatické upomínky pro tuto fakturu (i když je má dodavatel a klient zapnuté). Ruční odeslání funguje vždy.",
     "income_tax_exempt_badge": "Osvobozeno od daně z příjmů",
     "advance_paid": "Odečet zálohy",
     "note_above": "Poznámka nad položkami",
@@ -1748,6 +1750,10 @@
     "default_hourly_rate": "Default hodinová sazba",
     "auto_send_reminders": "Posílat automatické upomínky",
     "auto_send_reminders_hint": "Když je vypnuto, cron nebude posílat automatické upomínky pro tohoto dodavatele. Ruční odeslání (jednotlivé i hromadné) funguje vždy.",
+    "reminder_days_after_due": "Po kolika dnech po splatnosti poslat první upomínku",
+    "reminder_days_after_due_hint": "Cron pošle první upomínku, jakmile je faktura tolik dní po splatnosti. Týká se jen automatických upomínek; ruční odeslání funguje vždy.",
+    "reminder_days_unit": "dní",
+    "reminder_days_preset": { "d3": "3 dny", "week": "Týden (7 dní)", "month": "Měsíc (30 dní)", "custom": "Vlastní…" },
     "payment_thanks_enabled": "Posílat poděkování za úhradu",
     "payment_thanks_enabled_hint": "Po označení faktury jako uhrazené lze zákazníkovi poslat krátký děkovný e-mail. Výchozí stav: vypnuto.",
     "payment_thanks_auto_send": "Automaticky při spárování platby z banky",
@@ -2186,9 +2192,11 @@
   },
   "sent_emails": {
     "title": "Odeslané e-maily",
-    "subtitle": "Přehled všech e-mailů odeslaných z aplikace — ručně i automaticky (upomínky, poděkování). Přístup pouze pro admin.",
+    "subtitle": "Přehled všech e-mailů odeslaných z aplikace — ručně i automaticky (upomínky, poděkování), včetně neúspěšných pokusů. Přístup pouze pro admin.",
     "all_types": "Všechny typy",
+    "all_statuses": "Všechny stavy",
     "refresh": "Obnovit",
+    "failed_badge": "Neodesláno: {n}",
     "total": "Celkem {n} e-mailů · strana {p} / {tp}",
     "no_records": "Zatím nebyl odeslán žádný e-mail.",
     "time": "Čas",
@@ -2197,6 +2205,10 @@
     "recipients": "Příjemce",
     "sender": "Odeslal",
     "sender_system": "Systém (automaticky)",
+    "status": {
+      "sent": "Odesláno",
+      "failed": "Neodesláno"
+    },
     "types": {
       "invoice_sent": "Odeslání faktury",
       "reminder_sent": "Upomínka",

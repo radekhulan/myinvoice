@@ -21,6 +21,8 @@ export interface SupplierBrief {
   default_payment_due_unit: 'days' | 'month'
   /** Výchozí režim cen u nových faktur (false = bez DPH, true = ceny s DPH). */
   default_prices_include_vat: boolean
+  /** Posílá dodavatel automatické upomínky? Když ne, per-faktura přepínač se v editoru skryje. */
+  auto_send_reminders: boolean
   /** Děkovný e-mail za úhradu (issue #57) — řídí checkbox v mark-paid modalu. */
   payment_thanks_enabled: boolean
   payment_thanks_default_checked: boolean

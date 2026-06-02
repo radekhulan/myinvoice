@@ -76,6 +76,12 @@ cena/j, sazba DPH). Sazba se bere podle vybraného `vat_rate_id` ze šablony.
 > ve šabloně vybereš aktuální sazbu. Tím se nikdy tiše nevystaví doklad se starou
 > sazbou. (Totéž hlídá i klonování faktury.)
 
+> 💡 **Neplátce DPH** — pokud je dodavatel neplátce, pravidelná fakturace se chová
+> stejně jako jednorázové vystavení: výběr sazby DPH se v šabloně skryje a každá
+> vygenerovaná faktura je **bez DPH** (0 % „Osvobozeno"). Platí to i pro šablony
+> založené dřív s nominální sazbou — generátor sazbu při vystavení sám sjednotí
+> na 0 %.
+
 ### 15.2.4 Sekce „Automatizace"
 
 - **Synchronizovat měsíc v popiscích položek s DUZP** — pokud je v popisu

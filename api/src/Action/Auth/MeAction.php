@@ -28,7 +28,7 @@ final class MeAction
         $suppliers = $this->db->pdo()->query(
             'SELECT id, company_name, ic, is_vat_payer, taxpayer_type,
                     default_payment_due_days, default_payment_due_unit, default_prices_include_vat,
-                    payment_thanks_enabled, payment_thanks_default_checked
+                    auto_send_reminders, payment_thanks_enabled, payment_thanks_default_checked
                FROM supplier ORDER BY id'
         )->fetchAll(\PDO::FETCH_ASSOC);
         foreach ($suppliers as &$s) {
@@ -40,6 +40,8 @@ final class MeAction
             $s['default_payment_due_unit'] = (string) ($s['default_payment_due_unit'] ?? 'days');
             // Výchozí režim cen u nových faktur (0 = bez DPH, 1 = ceny s DPH) — předvyplní editor.
             $s['default_prices_include_vat'] = (bool) ($s['default_prices_include_vat'] ?? false);
+            // Per-faktura přepínač upomínek v editoru se skryje, když dodavatel auto-upomínky nemá.
+            $s['auto_send_reminders']      = (bool) ($s['auto_send_reminders'] ?? true);
             // Děkovný e-mail (issue #57) — UI v mark-paid modalu podle nich zobrazí checkbox.
             $s['payment_thanks_enabled']         = (bool) ($s['payment_thanks_enabled'] ?? false);
             $s['payment_thanks_default_checked'] = (bool) ($s['payment_thanks_default_checked'] ?? false);

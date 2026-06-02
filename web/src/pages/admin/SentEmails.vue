@@ -7,11 +7,13 @@ const { t } = useI18n()
 
 const entries = ref<SentEmail[]>([])
 const total = ref(0)
-const types = ref<Array<{ action: string; cnt: number }>>([])
+const types = ref<Array<{ action: string; cnt: number; failed: number }>>([])
+const failedTotal = ref(0)
 const loading = ref(false)
 
 const filter = ref({
   type: '',
+  status: '' as '' | 'sent' | 'failed',
   limit: 100,
   offset: 0,
 })
@@ -21,17 +23,19 @@ async function load() {
   try {
     const params: Record<string, string | number> = { limit: filter.value.limit, offset: filter.value.offset }
     if (filter.value.type) params.type = filter.value.type
+    if (filter.value.status) params.status = filter.value.status
     const r = await adminApi.sentEmails(params)
     entries.value = r.data
     total.value = r.total
     types.value = r.types
+    failedTotal.value = r.failed_total
   } finally {
     loading.value = false
   }
 }
 
 onMounted(load)
-watch(() => filter.value.type, () => { filter.value.offset = 0; load() })
+watch([() => filter.value.type, () => filter.value.status], () => { filter.value.offset = 0; load() })
 
 /** action z activity_log → i18n suffix popisku + barevný pill. Jedno místo na typ e-mailu. */
 const EMAIL_TYPES: Record<string, { key: string; badge: string }> = {
@@ -82,8 +86,17 @@ function goPage(delta: number) {
         <option value="">{{ t('sent_emails.all_types') }}</option>
         <option v-for="ty in types" :key="ty.action" :value="ty.action">{{ typeLabel(ty.action) }} ({{ ty.cnt }})</option>
       </select>
+      <select v-model="filter.status" class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+        <option value="">{{ t('sent_emails.all_statuses') }}</option>
+        <option value="sent">{{ t('sent_emails.status.sent') }}</option>
+        <option value="failed">{{ t('sent_emails.status.failed') }}</option>
+      </select>
       <button @click="load" class="cursor-pointer h-9 px-3 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50">
         {{ t('sent_emails.refresh') }}
+      </button>
+      <button v-if="failedTotal > 0 && filter.status !== 'failed'" @click="filter.status = 'failed'"
+        class="cursor-pointer h-9 px-3 rounded-md text-sm bg-danger-50 text-danger-700 border border-danger-200 hover:bg-danger-100">
+        {{ t('sent_emails.failed_badge', { n: failedTotal }) }}
       </button>
       <span class="ml-auto text-xs text-neutral-500">{{ t('sent_emails.total', { n: total, p: currentPage, tp: totalPages }) }}</span>
     </div>
@@ -108,11 +121,17 @@ function goPage(delta: number) {
           </tr>
         </thead>
         <tbody class="divide-y divide-neutral-100">
-          <tr v-for="e in entries" :key="e.id" class="hover:bg-neutral-50 align-top">
+          <tr v-for="e in entries" :key="e.id" class="hover:bg-neutral-50 align-top"
+              :class="e.status === 'failed' ? 'bg-danger-50/40' : ''">
             <td class="px-3 py-2 font-mono text-xs whitespace-nowrap">{{ fmtTime(e.created_at) }}</td>
-            <td class="px-3 py-2">
-              <span class="text-xs px-2 py-0.5 rounded font-medium" :class="typeBadge(e.action)"
-                    :title="e.smtp_response || ''">{{ typeLabel(e.action) }}</span>
+            <td class="px-3 py-2 space-y-1">
+              <span class="text-xs px-2 py-0.5 rounded font-medium inline-block" :class="typeBadge(e.type)"
+                    :title="e.smtp_response || ''">{{ typeLabel(e.type) }}</span>
+              <span v-if="e.status === 'failed'"
+                    class="text-xs px-2 py-0.5 rounded font-medium inline-flex items-center gap-1 bg-danger-100 text-danger-700">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.86l-8.5 14.7A1.5 1.5 0 0 0 3.1 21h17.8a1.5 1.5 0 0 0 1.3-2.44l-8.5-14.7a1.5 1.5 0 0 0-2.6 0z"/></svg>
+                {{ t('sent_emails.status.failed') }}
+              </span>
             </td>
             <td class="px-3 py-2 text-xs">
               <RouterLink v-if="e.invoice_id" :to="`/invoices/${e.invoice_id}`"
@@ -122,7 +141,10 @@ function goPage(delta: number) {
               <span v-else class="text-neutral-400">—</span>
               <div v-if="e.client_company_name" class="text-neutral-500 truncate max-w-[16rem]">{{ e.client_company_name }}</div>
             </td>
-            <td class="px-3 py-2 text-xs text-neutral-600 break-all leading-snug">{{ fmtRecipients(e.recipients) }}</td>
+            <td class="px-3 py-2 text-xs text-neutral-600 break-all leading-snug">
+              {{ fmtRecipients(e.recipients) }}
+              <div v-if="e.status === 'failed' && e.error" class="text-danger-600 mt-1 break-words">{{ e.error }}</div>
+            </td>
             <td class="px-3 py-2 text-xs break-words">
               <span v-if="e.user_email">{{ e.user_name || e.user_email }}</span>
               <span v-else class="text-neutral-400 italic">{{ t('sent_emails.sender_system') }}</span>
@@ -134,15 +156,20 @@ function goPage(delta: number) {
 
       <!-- Mobile: karty -->
       <div class="md:hidden divide-y divide-neutral-100">
-        <div v-for="e in entries" :key="`m-${e.id}`" class="p-3 space-y-1">
+        <div v-for="e in entries" :key="`m-${e.id}`" class="p-3 space-y-1"
+             :class="e.status === 'failed' ? 'bg-danger-50/40' : ''">
           <div class="flex items-baseline justify-between gap-2">
-            <span class="text-xs px-2 py-0.5 rounded font-medium" :class="typeBadge(e.action)">{{ typeLabel(e.action) }}</span>
+            <span class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs px-2 py-0.5 rounded font-medium" :class="typeBadge(e.type)">{{ typeLabel(e.type) }}</span>
+              <span v-if="e.status === 'failed'" class="text-xs px-2 py-0.5 rounded font-medium bg-danger-100 text-danger-700">{{ t('sent_emails.status.failed') }}</span>
+            </span>
             <RouterLink v-if="e.invoice_id" :to="`/invoices/${e.invoice_id}`"
                         class="text-xs font-medium text-primary-700 hover:underline whitespace-nowrap">
               {{ e.invoice_varsymbol || `#${e.invoice_id}` }}
             </RouterLink>
           </div>
           <div class="text-xs text-neutral-600 break-all leading-snug">{{ fmtRecipients(e.recipients) }}</div>
+          <div v-if="e.status === 'failed' && e.error" class="text-xs text-danger-600 break-words">{{ e.error }}</div>
           <div v-if="e.client_company_name" class="text-xs text-neutral-500 truncate">{{ e.client_company_name }}</div>
           <div class="flex items-baseline justify-between gap-2 text-xs text-neutral-500">
             <span class="truncate">

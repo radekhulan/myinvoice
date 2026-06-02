@@ -7,6 +7,7 @@ import { clientsApi, type Client, type ViesLookupResult } from '@/api/clients'
 import { projectsApi, type Project } from '@/api/projects'
 import { codebooksApi, type VatRate, type Currency, type Unit } from '@/api/codebooks'
 import { useToast } from '@/composables/useToast'
+import { useSupplierStore } from '@/stores/supplier'
 import { formatMoney } from '@/composables/useFormat'
 import { focusLastRow } from '@/composables/useRowFocus'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
@@ -17,6 +18,12 @@ const { t } = useI18n()
 const toast = useToast()
 const route = useRoute()
 const router = useRouter()
+const supplierStore = useSupplierStore()
+
+// Aktivní dodavatel — neplátce DPH fakturuje bez DPH (žádné DPH UI ani sazba), stejně
+// jako u ruční faktury (InvoiceEditor). Backend (RecurringInvoiceGenerator) to navíc
+// vynucuje při generování, takže to platí i pro šablony uložené dřív.
+const supplierIsVatPayer = computed(() => supplierStore.currentSupplier?.is_vat_payer ?? true)
 
 const isEdit = computed(() => route.params.id !== undefined && route.params.id !== 'new')
 const tplId = computed(() => (isEdit.value ? Number(route.params.id) : null))
@@ -144,6 +151,11 @@ function dayFromDate(date: string): number | null {
 const formLoaded = ref(false)
 
 function defaultVatRateId(): number {
+  // Neplátce DPH → vždy 0% Osvobozeno (rate_percent=0, !is_reverse_charge), jako InvoiceEditor.
+  if (!supplierIsVatPayer.value) {
+    const zero = vatRates.value.find(v => Number(v.rate_percent) === 0 && !v.is_reverse_charge)
+    if (zero) return zero.id
+  }
   const def = vatRates.value.find(v => v.is_default)
   return def?.id ?? vatRates.value[0]?.id ?? 0
 }
@@ -174,10 +186,10 @@ function round2(n: number): number {
 // Naplní vat buckety per sazba; v režimu „ceny s DPH" (prices_include_vat) je
 // cena položky brutto a DPH se počítá shora koeficientem (jako InvoiceMath shora).
 function vatBuckets(): Map<number, { rate: number; base: number; vat: number }> {
-  const pricesIncl = form.value.prices_include_vat
+  const pricesIncl = form.value.prices_include_vat && supplierIsVatPayer.value
   const buckets = new Map<number, { rate: number; base: number; vat: number }>()
   for (const item of form.value.items) {
-    const vatRate = form.value.reverse_charge
+    const vatRate = (form.value.reverse_charge || !supplierIsVatPayer.value)
       ? 0
       : vatRates.value.find(v => v.id === item.vat_rate_id)?.rate_percent ?? 0
     const amount = round2((Number(item.quantity) || 0) * (Number(item.unit_price_without_vat) || 0))
@@ -769,11 +781,13 @@ async function submit() {
           </button>
         </div>
         <p class="mb-3 text-xs text-neutral-500">{{ t('invoice.negative_item_hint') }}</p>
-        <label class="flex items-center gap-2 text-sm text-neutral-700 mb-1">
-          <input v-model="form.prices_include_vat" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
-          <span>{{ t('invoice.prices_include_vat') }}</span>
-        </label>
-        <p class="mb-3 text-xs text-neutral-500 ml-6">{{ t('invoice.prices_include_vat_hint') }}</p>
+        <template v-if="supplierIsVatPayer">
+          <label class="flex items-center gap-2 text-sm text-neutral-700 mb-1">
+            <input v-model="form.prices_include_vat" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
+            <span>{{ t('invoice.prices_include_vat') }}</span>
+          </label>
+          <p class="mb-3 text-xs text-neutral-500 ml-6">{{ t('invoice.prices_include_vat_hint') }}</p>
+        </template>
         <!-- Desktop: tabulka -->
         <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm">
@@ -783,7 +797,7 @@ async function submit() {
               <th class="text-right" style="width:8%">{{ t('invoice.items_table.qty') }}</th>
               <th class="text-left" style="width:8%">{{ t('invoice.items_table.unit') }}</th>
               <th class="text-right" style="width:15%">{{ unitPriceHeaderLabel }}</th>
-              <th class="text-left" style="width:14%">{{ t('invoice.items_table.vat') ?? 'DPH' }}</th>
+              <th v-if="supplierIsVatPayer" class="text-left" style="width:14%">{{ t('invoice.items_table.vat') ?? 'DPH' }}</th>
               <th style="width:30px"></th>
             </tr>
           </thead>
@@ -798,7 +812,7 @@ async function submit() {
                 </select>
               </td>
               <td class="py-1.5 pr-2"><input v-model="it.unit_price_without_vat" v-math type="text" inputmode="decimal" :class="['w-full h-8 px-2 border rounded text-right font-mono', itemHasBothNegative(it) ? 'border-danger-400' : 'border-neutral-300']" /></td>
-              <td class="py-1.5 pr-2">
+              <td v-if="supplierIsVatPayer" class="py-1.5 pr-2">
                 <select v-model.number="it.vat_rate_id" class="w-full h-8 px-2 border border-neutral-300 rounded bg-surface">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">
                     {{ Number(r.rate_percent) > 0 ? r.rate_percent + ' %' : (r.is_reverse_charge ? 'RC' : '0 %') }}
@@ -837,12 +851,12 @@ async function submit() {
                 </select>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2">
+            <div :class="supplierIsVatPayer ? 'grid grid-cols-2 gap-2' : ''">
               <div>
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ unitPriceHeaderLabel }}</label>
                 <input v-model="it.unit_price_without_vat" v-math type="text" inputmode="decimal" :class="['w-full h-10 px-3 border rounded text-right font-mono text-sm', itemHasBothNegative(it) ? 'border-danger-400' : 'border-neutral-300']" />
               </div>
-              <div>
+              <div v-if="supplierIsVatPayer">
                 <label class="block text-xs font-medium text-neutral-600 mb-1">{{ t('invoice.items_table.vat') ?? 'DPH' }}</label>
                 <select v-model.number="it.vat_rate_id" class="w-full h-10 px-2 border border-neutral-300 rounded bg-surface text-sm">
                   <option v-for="r in vatRates" :key="r.id" :value="r.id">

@@ -48,6 +48,12 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // /styles/ je mimo web/, servíruje IIS/Apache z repo rootu — neřešit při bundle
         external: [/^\/styles\//],
+        // @vueuse/core má /* #__PURE__ */ anotace na pozicích, které Rolldown neumí
+        // interpretovat — neškodné varování z node_modules, potlačujeme.
+        onwarn(warning, defaultHandler) {
+          if (warning.code === 'INVALID_ANNOTATION') return
+          defaultHandler(warning)
+        },
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {

@@ -9,9 +9,13 @@ import { useYearOptions } from '@/composables/useYearOptions'
 const { t, locale } = useI18n()
 const toast = useToast()
 
+// Default = předchozí měsíc: měsíční export se dělá po uzávěrce právě skončeného
+// měsíce, ne rozpracovaného aktuálního. Date konstruktor normalizuje leden → prosinec
+// předchozího roku (getMonth() - 1 = -1).
 const now = new Date()
-const year = ref(now.getFullYear())
-const month = ref(now.getMonth() + 1)
+const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+const year = ref(prevMonth.getFullYear())
+const month = ref(prevMonth.getMonth() + 1)
 
 // Pořadí částí v UI = pořadí, ve kterém je uživatel zmínil.
 const ALL_PARTS: MonthlyExportPart[] = [

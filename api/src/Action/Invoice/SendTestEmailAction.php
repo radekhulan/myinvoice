@@ -102,6 +102,12 @@ final class SendTestEmailAction
                 $emailAttachments,
             );
         } catch (\Throwable $e) {
+            $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
+            $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
+            $this->logger->log('email.test_failed', $user['id'] ?? null, 'invoice', $id, [
+                'to' => $testRecipient,
+                'error' => mb_substr($e->getMessage(), 0, 500),
+            ], $ip, $request->getHeaderLine('User-Agent'));
             return Json::error($response, 'send_failed', 'Email se nepodařilo odeslat: ' . $e->getMessage(), 502);
         }
 

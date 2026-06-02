@@ -82,4 +82,57 @@ final class ListSentEmailsRecipientsTest extends TestCase
         // `to` jako skalár jiný než string (číslo) → žádný platný příjemce.
         self::assertSame([], $this->extract(['to' => 123]));
     }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function extractError(array $payload): ?string
+    {
+        $action = (new ReflectionClass(ListSentEmailsAction::class))->newInstanceWithoutConstructor();
+        $m = new \ReflectionMethod($action, 'extractError');
+        /** @var ?string $r */
+        $r = $m->invoke($action, $payload);
+        return $r;
+    }
+
+    public function testErrorFromErrorKey(): void
+    {
+        // SendEmailAction / ReminderService loggují pod `error`.
+        self::assertSame('SMTP connect failed', $this->extractError(['error' => 'SMTP connect failed']));
+    }
+
+    public function testErrorFromReasonKey(): void
+    {
+        // PaymentThanksMailer loguje pod `reason`.
+        self::assertSame('mailbox full', $this->extractError(['reason' => 'mailbox full']));
+    }
+
+    public function testErrorPrefersErrorOverReason(): void
+    {
+        self::assertSame('primary', $this->extractError(['error' => 'primary', 'reason' => 'secondary']));
+    }
+
+    public function testErrorNullWhenAbsentOrEmpty(): void
+    {
+        self::assertNull($this->extractError(['to' => ['x@y.cz']]));
+        self::assertNull($this->extractError(['error' => '']));
+        self::assertNull($this->extractError(['error' => 123]));
+    }
+
+    /**
+     * Mapa logický typ → failed varianta: žádná failed akce se nesmí krýt se success
+     * akcí ani se opakovat (jinak by řádek dostal špatný status/typ).
+     */
+    public function testSentToFailedMapIsConsistent(): void
+    {
+        $ref = new ReflectionClass(ListSentEmailsAction::class);
+        /** @var array<string,string> $map */
+        $map = $ref->getConstant('SENT_TO_FAILED');
+
+        $sent = array_keys($map);
+        $failed = array_values($map);
+
+        self::assertSame($failed, array_values(array_unique($failed)), 'failed akce se opakuje');
+        self::assertSame([], array_intersect($sent, $failed), 'failed akce se kryje se success akcí');
+    }
 }

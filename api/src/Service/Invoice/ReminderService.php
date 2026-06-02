@@ -88,22 +88,35 @@ final class ReminderService
             }
         }
 
-        $pdfPath = $this->renderer->render($invoiceId, false, $userId);
-
         $locale = (string) ($invoice['language'] ?? 'cs');
-        $vars = $this->varsBuilder->buildReminder($invoice, $daysOverdue, $locale);
 
-        $templateCode = $invoice['invoice_type'] === 'proforma' ? 'proforma_reminder' : 'invoice_reminder';
-        $this->mailer->sendTemplate(
-            $templateCode,
-            $locale,
-            $to,
-            $vars,
-            null,
-            $cc,
-            [],
-            [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
-        );
+        // Reálné selhání (PDF/SMTP) zalogujeme jako `invoice.reminder_failed`, ať je
+        // v přehledu odeslaných e-mailů vidět „nebylo odesláno". Validační DomainException
+        // výše se sem nedostanou (házejí dřív). Po zalogování chybu propustíme dál —
+        // caller (manual/bulk/cron) si ji ošetří jako dosud.
+        try {
+            $pdfPath = $this->renderer->render($invoiceId, false, $userId);
+            $vars = $this->varsBuilder->buildReminder($invoice, $daysOverdue, $locale);
+            $templateCode = $invoice['invoice_type'] === 'proforma' ? 'proforma_reminder' : 'invoice_reminder';
+            $this->mailer->sendTemplate(
+                $templateCode,
+                $locale,
+                $to,
+                $vars,
+                null,
+                $cc,
+                [],
+                [['path' => $pdfPath, 'name' => basename($pdfPath), 'contentType' => 'application/pdf']],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->log('invoice.reminder_failed', $userId, 'invoice', $invoiceId, [
+                'to'           => $to,
+                'cc'           => $cc,
+                'days_overdue' => $daysOverdue,
+                'error'        => mb_substr($e->getMessage(), 0, 500),
+            ], $ip, $userAgent);
+            throw $e;
+        }
 
         // Status → 'reminded' (z 'paid' nepřechází, protože jsme to vyloučili výše)
         $this->db->pdo()->prepare(

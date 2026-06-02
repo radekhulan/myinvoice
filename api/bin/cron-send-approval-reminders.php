@@ -189,6 +189,11 @@ foreach ($candidates as $inv) {
             $invId, $vs, implode(', ', $to), ((int) $inv['approval_reminder_count']) + 1);
     } catch (\Throwable $e) {
         $report['errors']++;
+        $logger->log('invoice.approval_reminder_failed', null, 'invoice', $invId, [
+            'to' => $to, 'bcc' => $bcc,
+            'reminder_n' => ((int) $inv['approval_reminder_count']) + 1,
+            'error' => mb_substr($e->getMessage(), 0, 500),
+        ]);
         fprintf(STDERR, "  ✗ #%d %s — %s\n", $invId, $vs, $e->getMessage());
     }
 }
