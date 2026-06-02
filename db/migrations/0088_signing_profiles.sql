@@ -1,8 +1,8 @@
 -- MyInvoice.cz — obecné podpisové profily
 --
 -- Datový model pro budoucí správu podpisových profilů per supplier a per user.
--- První runtime iterace dál používá kompatibilní `supplier_default`; tyto tabulky
--- připravují profily, credentials a mapování výstupů bez PyHanko backendu.
+-- Profily jsou primárním místem pro certifikáty, TSA a mapování výstupů.
+-- Starší supplier-level podpis se migruje v 0090 do profilu dodavatele.
 --
 -- Idempotence: CREATE TABLE IF NOT EXISTS. Re-run safe.
 
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS pdf_signature_output_settings (
   output_type VARCHAR(40) NOT NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 1,
   backend VARCHAR(40) NOT NULL DEFAULT 'native',
-  selection_source ENUM('logged_in_user','admin_profile_settings','supplier_default') NOT NULL DEFAULT 'supplier_default',
-  user_profile_fallback ENUM('admin_profile_settings','supplier_default','fail_closed','fallback_unsigned') NOT NULL DEFAULT 'supplier_default',
+  selection_source ENUM('logged_in_user','admin_profile_settings') NOT NULL DEFAULT 'admin_profile_settings',
+  user_profile_fallback ENUM('admin_profile_settings','fail_closed','fallback_unsigned') NOT NULL DEFAULT 'fallback_unsigned',
   default_profile_id BIGINT UNSIGNED NULL,
   failure_policy ENUM('fallback_unsigned','fail_closed','skip_when_unconfigured') NOT NULL DEFAULT 'fallback_unsigned',
   signature_config_json JSON NULL,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS signature_document_overrides (
   `usage` ENUM('pdf','email_smime') NOT NULL,
   entity_type VARCHAR(40) NOT NULL,
   entity_id BIGINT UNSIGNED NOT NULL,
-  selection_source ENUM('logged_in_user','admin_profile_settings','supplier_default') NOT NULL,
+  selection_source ENUM('logged_in_user','admin_profile_settings') NOT NULL,
   admin_profile_id BIGINT UNSIGNED NULL,
   created_by BIGINT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

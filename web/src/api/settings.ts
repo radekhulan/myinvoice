@@ -48,14 +48,6 @@ export interface Supplier {
   email_accent_color: string  // #RRGGBB
   pdf_logo_show_name: boolean // vedle loga v PDF zobrazit i název firmy (migrace 0058)
   has_email_logo?: boolean    // server flag (existence storage/supplier-logos/sup-{id}.png)
-  // Podpis PDF certifikátem (PAdES, migrace 0076)
-  pdf_signing_enabled: boolean
-  signing_tsa_url: string | null  // RFC 3161 TSA endpoint; null = PAdES-B bez razítka
-  signing_reason: string          // legacy supplier-level PDF reason; UI uses per-profile/default-by-document reason
-  has_signing_cert?: boolean       // server flag (existence P12); heslo/cesta se NIKDY nevrací
-  signing_tsa_username: string | null // HTTP Basic auth k TSA serveru
-  signing_tsa_password?: string       // jen pro ODESLÁNÍ (uloží se šifrovaně); nikdy se nevrací
-  has_tsa_password?: boolean          // server flag (heslo k TSA nastaveno)
   // Děkovný e-mail za úhradu (issue #57)
   payment_thanks_enabled: boolean
   payment_thanks_auto_send: boolean
@@ -140,16 +132,6 @@ export interface Unit {
   is_default: boolean
   display_order: number
   items_count?: number
-}
-
-export interface SigningCertMeta {
-  has_cert: boolean
-  cn?: string
-  issuer?: string
-  valid_from?: string
-  valid_to?: string
-  expired?: boolean
-  fingerprint?: string
 }
 
 export interface PdfSigningDiagnostics {
@@ -250,8 +232,8 @@ export interface SigningProfileCredentialMeta {
   expired?: boolean
 }
 
-export type PdfSignatureSelectionSource = 'logged_in_user' | 'admin_profile_settings' | 'supplier_default'
-export type PdfSignatureUserProfileFallback = 'admin_profile_settings' | 'supplier_default' | 'fail_closed' | 'fallback_unsigned'
+export type PdfSignatureSelectionSource = 'logged_in_user' | 'admin_profile_settings'
+export type PdfSignatureUserProfileFallback = 'admin_profile_settings' | 'fail_closed' | 'fallback_unsigned'
 export type PdfSignatureFailurePolicy = 'fallback_unsigned' | 'fail_closed' | 'skip_when_unconfigured'
 
 export interface PdfSignatureOutputSetting {
@@ -357,17 +339,6 @@ export const settingsApi = {
   },
   deleteEmailLogo: () => api.delete('/settings/email-branding/logo').then(r => r.data),
 
-  // Podpis PDF certifikátem (PAdES, migrace 0076)
-  getSigningCert: () => api.get<SigningCertMeta>('/settings/signing-cert').then(r => r.data),
-  uploadSigningCert: (file: File, password: string) => {
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('password', password)
-    return api.post<SigningCertMeta>('/settings/signing-cert', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(r => r.data)
-  },
-  deleteSigningCert: () => api.delete('/settings/signing-cert').then(r => r.data),
   getPdfSigningDiagnostics: () =>
     api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),
   getSigningSettings: () =>

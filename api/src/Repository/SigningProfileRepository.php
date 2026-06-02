@@ -18,8 +18,8 @@ final class SigningProfileRepository
 {
     private const USAGES = ['pdf', 'email_smime'];
     private const PASSPHRASE_POLICIES = ['encrypted_store', 'passphrase_file', 'prompt_on_use'];
-    private const SELECTION_SOURCES = ['logged_in_user', 'admin_profile_settings', 'supplier_default'];
-    private const USER_PROFILE_FALLBACKS = ['admin_profile_settings', 'supplier_default', 'fail_closed', 'fallback_unsigned'];
+    private const SELECTION_SOURCES = ['logged_in_user', 'admin_profile_settings'];
+    private const USER_PROFILE_FALLBACKS = ['admin_profile_settings', 'fail_closed', 'fallback_unsigned'];
     private const FAILURE_POLICIES = ['fallback_unsigned', 'fail_closed', 'skip_when_unconfigured'];
 
     public function __construct(private readonly Connection $db) {}
@@ -362,8 +362,8 @@ final class SigningProfileRepository
     public function upsertOutputSetting(int $supplierId, string $outputType, array $data): void
     {
         $outputType = $this->nonEmpty($outputType, 'output_type', 40);
-        $selectionSource = $this->oneOf((string) ($data['selection_source'] ?? 'supplier_default'), self::SELECTION_SOURCES, 'selection_source');
-        $userProfileFallback = $this->oneOf((string) ($data['user_profile_fallback'] ?? 'supplier_default'), self::USER_PROFILE_FALLBACKS, 'user_profile_fallback');
+        $selectionSource = $this->oneOf((string) ($data['selection_source'] ?? 'admin_profile_settings'), self::SELECTION_SOURCES, 'selection_source');
+        $userProfileFallback = $this->oneOf((string) ($data['user_profile_fallback'] ?? 'fallback_unsigned'), self::USER_PROFILE_FALLBACKS, 'user_profile_fallback');
         $defaultProfileId = $data['default_profile_id'] ?? null;
         $usesAdminProfile = $selectionSource === 'admin_profile_settings'
             || ($selectionSource === 'logged_in_user' && $userProfileFallback === 'admin_profile_settings');
@@ -422,8 +422,8 @@ final class SigningProfileRepository
                 'output_type' => $outputType,
                 'enabled' => true,
                 'backend' => 'native',
-                'selection_source' => 'supplier_default',
-                'user_profile_fallback' => 'supplier_default',
+                'selection_source' => 'admin_profile_settings',
+                'user_profile_fallback' => 'fallback_unsigned',
                 'default_profile_id' => null,
                 'failure_policy' => 'fallback_unsigned',
                 'signature_config' => [],
@@ -584,10 +584,10 @@ final class SigningProfileRepository
             throw new \RuntimeException('Podpisový profil neexistuje v aktuálním supplier scope.');
         }
         if (($profile['owner_user_id'] ?? null) !== null) {
-            throw new \InvalidArgumentException('Admin profil nesmí být uživatelský podpisový profil.');
+            throw new \InvalidArgumentException('Profil dodavatele nesmí být uživatelský podpisový profil.');
         }
         if (!($profile['is_active'] ?? false) || !in_array('pdf', $profile['allowed_usages'] ?? [], true)) {
-            throw new \InvalidArgumentException('Admin profil není aktivní nebo nepodporuje PDF podpis.');
+            throw new \InvalidArgumentException('Profil dodavatele není aktivní nebo nepodporuje PDF podpis.');
         }
     }
 

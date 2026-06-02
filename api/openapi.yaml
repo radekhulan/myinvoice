@@ -5111,7 +5111,6 @@ components:
         email_branding_enabled: { type: boolean }
         email_accent_color: { type: string, example: "#3B2D83" }
         has_email_logo: { type: boolean }
-        has_signing_cert: { type: boolean, description: "Je nahrán podpisový certifikát (PAdES)" }
         auto_send_reminders: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }

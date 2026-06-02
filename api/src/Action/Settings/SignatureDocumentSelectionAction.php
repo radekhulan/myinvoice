@@ -22,7 +22,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 final class SignatureDocumentSelectionAction
 {
     private const ENTITY_TYPES = ['invoice', 'work_report'];
-    private const SELECTION_SOURCES = ['logged_in_user', 'admin_profile_settings', 'supplier_default'];
+    private const SELECTION_SOURCES = ['logged_in_user', 'admin_profile_settings'];
 
     public function __construct(
         private readonly SigningProfileRepository $profiles,

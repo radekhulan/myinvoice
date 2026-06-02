@@ -1474,7 +1474,6 @@ async function updateApprovalStatus() {
                   <option value="inherit">{{ t('invoice.signing.source_inherit') }}</option>
                   <option value="logged_in_user">{{ t('settings.signing_output_source_logged_in_user') }}</option>
                   <option value="admin_profile_settings">{{ t('settings.signing_output_source_admin_profile_settings') }}</option>
-                  <option value="supplier_default">{{ t('settings.signing_output_source_supplier_default') }}</option>
                 </select>
               </td>
               <td class="px-3 py-2">

@@ -148,7 +148,7 @@ final class PdfSigningService
             return false;
         }
 
-        return (string) ($outputSetting['selection_source'] ?? 'supplier_default') === 'logged_in_user';
+        return (string) ($outputSetting['selection_source'] ?? 'admin_profile_settings') === 'logged_in_user';
     }
 
     /**
@@ -342,27 +342,6 @@ final class PdfSigningService
 
     /**
      * @param array<string,mixed> $supplierRow
-     */
-    private function supplierDefaultProfile(array $supplierRow, string $documentType): ?SigningProfile
-    {
-        $cfg = SigningConfig::fromSupplierRow($supplierRow, $documentType);
-        if ($cfg === null) {
-            return null;
-        }
-
-        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
-        return new SigningProfile(
-            code: 'supplier_default',
-            ownerType: 'supplier',
-            ownerId: $supplierId,
-            backend: 'native',
-            pdfConfig: $cfg,
-            metadata: ['source' => 'supplier'],
-        );
-    }
-
-    /**
-     * @param array<string,mixed> $supplierRow
      * @param array<string,mixed>|null $outputSetting
      */
     private function selectProfile(
@@ -371,11 +350,10 @@ final class PdfSigningService
         ?int $userId,
         string $documentType,
     ): ?SigningProfile {
-        $source = (string) ($outputSetting['selection_source'] ?? 'supplier_default');
+        $source = (string) ($outputSetting['selection_source'] ?? 'admin_profile_settings');
 
         if ($source === 'admin_profile_settings') {
-            $profile = $this->profileById($supplierRow, (int) ($outputSetting['default_profile_id'] ?? 0), $documentType);
-            return $profile ?? $this->fallbackProfile($supplierRow, $outputSetting, 'admin_profile_settings', $documentType);
+            return $this->profileById($supplierRow, (int) ($outputSetting['default_profile_id'] ?? 0), $documentType);
         }
 
         if ($source === 'logged_in_user') {
@@ -383,7 +361,7 @@ final class PdfSigningService
             return $profile ?? $this->fallbackProfile($supplierRow, $outputSetting, 'logged_in_user', $documentType);
         }
 
-        return $this->supplierDefaultProfile($supplierRow, $documentType);
+        return null;
     }
 
     /**
@@ -392,18 +370,10 @@ final class PdfSigningService
      */
     private function fallbackProfile(array $supplierRow, ?array $outputSetting, string $source, string $documentType): ?SigningProfile
     {
-        $fallback = (string) ($outputSetting['user_profile_fallback'] ?? 'supplier_default');
-
-        if ($source === 'admin_profile_settings') {
-            $fallback = 'supplier_default';
-        }
+        $fallback = (string) ($outputSetting['user_profile_fallback'] ?? 'fallback_unsigned');
 
         if ($fallback === 'admin_profile_settings') {
             return $this->profileById($supplierRow, (int) ($outputSetting['default_profile_id'] ?? 0), $documentType);
-        }
-
-        if ($fallback === 'supplier_default') {
-            return $this->supplierDefaultProfile($supplierRow, $documentType);
         }
 
         return null;
@@ -484,10 +454,10 @@ final class PdfSigningService
             return null;
         }
 
-        $tsa = $this->profileOrSupplierValue($profile['pdf_tsa_url'] ?? null, $supplierRow['signing_tsa_url'] ?? null);
-        $tsaUser = $this->profileOrSupplierValue($profile['pdf_tsa_username'] ?? null, $supplierRow['signing_tsa_username'] ?? null);
+        $tsa = $this->stringOrNull($profile['pdf_tsa_url'] ?? null);
+        $tsaUser = $this->stringOrNull($profile['pdf_tsa_username'] ?? null);
         $profileTsaPasswordEnc = $this->profiles->profilePdfTsaPasswordEnc($supplierId, $profileId);
-        $tsaPasswordEnc = $this->profileOrSupplierValue($profileTsaPasswordEnc, $supplierRow['signing_tsa_password_enc'] ?? null);
+        $tsaPasswordEnc = $this->stringOrNull($profileTsaPasswordEnc);
         $reason = $this->stringOrNull($profile['pdf_reason'] ?? null) ?? SigningConfig::defaultReason($documentType);
         $cfg = new SigningConfig(
             certPath: SigningConfig::absCertPath((string) ($credential['certificate_path'] ?? '')),
@@ -526,21 +496,6 @@ final class PdfSigningService
         }
         $passwordEnc = trim((string) ($credential['encrypted_passphrase'] ?? ''));
         return $passwordEnc !== '' ? $passwordEnc : null;
-    }
-
-    /**
-     * @param mixed $profileValue
-     * @param mixed $supplierValue
-     */
-    private function profileOrSupplierValue($profileValue, $supplierValue): ?string
-    {
-        $profileValue = trim((string) ($profileValue ?? ''));
-        if ($profileValue !== '') {
-            return $profileValue;
-        }
-
-        $supplierValue = trim((string) ($supplierValue ?? ''));
-        return $supplierValue !== '' ? $supplierValue : null;
     }
 
     /**
@@ -686,10 +641,11 @@ final class PdfSigningService
      */
     public function diagnosticsForSupplier(array $supplierRow): array
     {
-        $storedCert = trim((string) ($supplierRow['signing_cert_path'] ?? ''));
-        $certPath = $storedCert !== '' ? SigningConfig::absCertPath($storedCert) : '';
+        $supplierId = (int) ($supplierRow['id'] ?? 0) ?: null;
+        $outputSetting = $this->outputSetting($supplierId, 'invoice');
+        $profile = $this->selectProfile($supplierRow, $outputSetting, null, 'invoice');
+        $certPath = $profile?->pdfConfig?->certPath ?? '';
         $hasCert = $certPath !== '' && is_file($certPath);
-        $profile = $this->supplierDefaultProfile($supplierRow, 'invoice');
         $backend = $this->nativeBackend;
         $health = $backend->healthCheck($profile);
         $capabilities = $backend->capabilities();
@@ -729,23 +685,23 @@ final class PdfSigningService
                 ],
             ],
             'profile' => [
-                'code' => 'supplier_default',
+                'code' => $profile?->code,
                 'available' => $profile !== null,
-                'owner_type' => 'supplier',
-                'owner_id' => (int) ($supplierRow['id'] ?? 0) ?: null,
-                'source' => 'supplier',
+                'owner_type' => $profile?->ownerType,
+                'owner_id' => $profile?->ownerId,
+                'source' => $profile?->metadata['source'] ?? null,
             ],
             'certificate' => [
-                'configured' => $storedCert !== '',
+                'configured' => $certPath !== '',
                 'exists' => $hasCert,
-                'storage' => $storedCert !== '' && !preg_match('#^(/|[A-Za-z]:[\\\\/])#', $storedCert)
+                'storage' => $certPath !== '' && !preg_match('#^(/|[A-Za-z]:[\\\\/])#', $certPath)
                     ? 'data_dir_relative'
-                    : ($storedCert !== '' ? 'absolute_legacy' : 'none'),
+                    : ($certPath !== '' ? 'absolute' : 'none'),
             ],
             'tsa' => [
-                'configured' => !empty($supplierRow['signing_tsa_url']),
-                'auth_configured' => !empty($supplierRow['signing_tsa_username'])
-                    || !empty($supplierRow['signing_tsa_password_enc']),
+                'configured' => !empty($profile?->pdfConfig?->tsaUrl),
+                'auth_configured' => !empty($profile?->pdfConfig?->tsaUsername)
+                    || !empty($profile?->pdfConfig?->tsaPasswordEnc),
             ],
         ];
     }

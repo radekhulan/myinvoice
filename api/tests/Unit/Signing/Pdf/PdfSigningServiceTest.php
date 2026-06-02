@@ -91,9 +91,9 @@ final class PdfSigningServiceTest extends TestCase
         );
     }
 
-    public function testLegacySupplierDisabledFlagDoesNotSkipSigning(): void
+    public function testLegacySupplierCertificateDoesNotCreateRuntimeProfile(): void
     {
-        $tmpPath = $this->tempPdfPath('legacy-supplier-disabled');
+        $tmpPath = $this->tempPdfPath('legacy-supplier-cert');
         file_put_contents($tmpPath, $this->minimalClassicPdf());
 
         $service = $this->service(
@@ -108,17 +108,18 @@ final class PdfSigningServiceTest extends TestCase
                 ],
             ],
             activity: $this->activityLoggerExpecting(function (array $params, array $payload): void {
-                self::assertSame('signing.failed', $params[2]);
+                self::assertSame('signing.skipped', $params[2]);
                 self::assertSame('invoice', $params[3]);
                 self::assertSame(321, $params[4]);
-                self::assertSame('fallback_unsigned', $payload['status']);
-                self::assertSame('supplier_default', $payload['profile_code']);
+                self::assertSame('skipped', $payload['status']);
+                self::assertSame('missing_profile', $payload['reason']);
+                self::assertNull($payload['profile_code']);
             }),
         );
 
         $result = $service->signSupplierPdfIfEnabled(
             $tmpPath,
-            $this->supplierRow(['pdf_signing_enabled' => 0]),
+            $this->supplierRow(['signing_cert_path' => '/tmp/myinvoice-secret/legacy.p12']),
             'invoice',
             321,
             5,
@@ -170,7 +171,7 @@ final class PdfSigningServiceTest extends TestCase
         self::assertFileExists($tmpPath);
     }
 
-    public function testSignerFailureFallsBackToUnsignedPdfAndSanitizesAuditError(): void
+    public function testMissingProfileFallsBackToUnsignedPdf(): void
     {
         $tmpPath = $this->tempPdfPath('fallback');
         file_put_contents($tmpPath, $this->minimalClassicPdf());
@@ -187,13 +188,12 @@ final class PdfSigningServiceTest extends TestCase
                 ],
             ],
             activity: $this->activityLoggerExpecting(function (array $params, array $payload): void {
-                self::assertSame('signing.failed', $params[2]);
+                self::assertSame('signing.skipped', $params[2]);
                 self::assertSame('invoice', $params[3]);
-                self::assertSame('fallback_unsigned', $payload['status']);
+                self::assertSame('skipped', $payload['status']);
                 self::assertSame('native', $payload['backend']);
-                self::assertSame('supplier_default', $payload['profile_code']);
-                self::assertStringContainsString('[path]', $payload['error']);
-                self::assertStringNotContainsString('/tmp/myinvoice-secret', $payload['error']);
+                self::assertSame('missing_profile', $payload['reason']);
+                self::assertNull($payload['profile_code']);
             }),
         );
 

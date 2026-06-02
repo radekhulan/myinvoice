@@ -6,15 +6,12 @@ import {
   type PdfSignatureOutputSetting,
   type PdfSignatureTestResult,
   type PdfSignatureUserDefault,
-  type PdfSigningDiagnostics,
-  type SigningCertMeta,
   type SigningCredentialPassphrasePolicy,
   type SigningProfile,
   type SigningProfileCredentialMeta,
   type SigningProfilePayload,
   type SigningProfileUsage,
   type SigningSettings,
-  type Supplier,
 } from '@/api/settings'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -24,17 +21,6 @@ const toast = useToast()
 const auth = useAuthStore()
 
 const loading = ref(true)
-const supplier = ref<Supplier | null>(null)
-
-const signingCert = ref<SigningCertMeta>({ has_cert: false })
-const signingDiagnostics = ref<PdfSigningDiagnostics | null>(null)
-const signingDiagnosticsLoading = ref(false)
-const certFileInput = ref<HTMLInputElement | null>(null)
-const certFile = ref<File | null>(null)
-const certUploading = ref(false)
-const certPassword = ref('')
-const tsaPassword = ref('')
-const supplierTsaEnabled = ref(false)
 const signingSettings = ref<SigningSettings | null>(null)
 const signingProfiles = ref<SigningProfile[]>([])
 const signingProfilesLoading = ref(false)
@@ -87,46 +73,13 @@ const contentVisible = computed(() => isAdmin.value || accountantProfilesEnabled
 async function load() {
   loading.value = true
   try {
-    if (isAdmin.value) {
-      supplier.value = await settingsApi.getSupplier()
-      supplierTsaEnabled.value = Boolean((supplier.value.signing_tsa_url || '').trim())
-      await Promise.all([
-        loadSigningMeta(),
-        loadSigningDiagnostics(true),
-        loadSigningProfiles(true),
-      ])
-    } else {
-      supplier.value = null
-      signingCert.value = { has_cert: false }
-      signingDiagnostics.value = null
-      supplierTsaEnabled.value = false
-      await loadSigningProfiles(true)
-    }
+    await loadSigningProfiles(true)
   } finally {
     loading.value = false
   }
 }
 
 onMounted(load)
-
-async function loadSigningMeta() {
-  try { signingCert.value = await settingsApi.getSigningCert() } catch { /* ignore */ }
-}
-
-async function loadSigningDiagnostics(silent = true) {
-  signingDiagnosticsLoading.value = true
-  try {
-    signingDiagnostics.value = await settingsApi.getPdfSigningDiagnostics()
-  } catch (e: any) {
-    if (!silent) toast.error(e?.response?.data?.error?.message || t('common.error'))
-  } finally {
-    signingDiagnosticsLoading.value = false
-  }
-}
-
-function signingUnavailableLabel(reason: string | null | undefined): string {
-  return t(`settings.signing_diag_reason_${reason || 'ready'}`)
-}
 
 function signingProfileUsageLabel(usage: SigningProfileUsage): string {
   return t(`settings.signing_profile_usage_${usage}`)
@@ -500,13 +453,6 @@ function normalizePdfOutputAdminProfile(setting: PdfSignatureOutputSetting) {
   }
 }
 
-function onSupplierTsaToggle() {
-  if (!supplier.value || supplierTsaEnabled.value) return
-  supplier.value.signing_tsa_url = null
-  supplier.value.signing_tsa_username = null
-  tsaPassword.value = ''
-}
-
 function onSigningProfileTsaToggle() {
   if (signingProfileTsaEnabled.value) return
   signingProfileDraft.pdf_tsa_url = null
@@ -574,70 +520,6 @@ async function testPdfOutputSetting(setting: PdfSignatureOutputSetting) {
   }
 }
 
-async function saveSigning(silent = false) {
-  if (!supplier.value) return
-  if (supplierTsaEnabled.value && !String(supplier.value.signing_tsa_url || '').trim()) {
-    toast.error(t('settings.signing_tsa_url_required'))
-    return
-  }
-  try {
-    const payload: any = {
-      signing_tsa_enabled: supplierTsaEnabled.value,
-      signing_tsa_url: supplierTsaEnabled.value ? String(supplier.value.signing_tsa_url || '').trim() : null,
-      signing_tsa_username: supplierTsaEnabled.value ? (String(supplier.value.signing_tsa_username || '').trim() || null) : null,
-    }
-    if (!supplierTsaEnabled.value) payload.signing_tsa_password = ''
-    else if (tsaPassword.value !== '') payload.signing_tsa_password = tsaPassword.value
-    const updated = await settingsApi.updateSupplier(payload)
-    supplier.value = { ...supplier.value, ...updated }
-    supplierTsaEnabled.value = Boolean((supplier.value.signing_tsa_url || '').trim())
-    tsaPassword.value = ''
-    await loadSigningDiagnostics(true)
-    if (!silent) toast.success(t('settings.signing_saved'))
-  } catch (e: any) {
-    toast.error(e?.response?.data?.error?.message || t('common.error'))
-  }
-}
-
-function pickCert() { certFileInput.value?.click() }
-
-function onCertSelected(ev: Event) {
-  certFile.value = (ev.target as HTMLInputElement).files?.[0] ?? null
-}
-
-async function uploadCert() {
-  if (!supplier.value || !certFile.value || !certPassword.value) return
-  certUploading.value = true
-  try {
-    signingCert.value = await settingsApi.uploadSigningCert(certFile.value, certPassword.value)
-    supplier.value.has_signing_cert = true
-    certPassword.value = ''
-    certFile.value = null
-    if (certFileInput.value) certFileInput.value.value = ''
-    await loadSigningDiagnostics(true)
-    toast.success(t('settings.signing_cert_uploaded'))
-  } catch (e: any) {
-    toast.error(e?.response?.data?.error?.message || t('common.error'))
-  } finally {
-    certUploading.value = false
-  }
-}
-
-async function removeCert() {
-  if (!supplier.value) return
-  if (!window.confirm(t('settings.signing_cert_remove_confirm'))) return
-  try {
-    await settingsApi.deleteSigningCert()
-    signingCert.value = { has_cert: false }
-    supplier.value.has_signing_cert = false
-    certFile.value = null
-    if (certFileInput.value) certFileInput.value.value = ''
-    await loadSigningDiagnostics(true)
-    toast.success(t('settings.signing_cert_removed'))
-  } catch (e: any) {
-    toast.error(e?.response?.data?.error?.message || t('common.error'))
-  }
-}
 </script>
 
 <template>
@@ -928,7 +810,6 @@ async function removeCert() {
                   </td>
                   <td class="px-3 py-2">
                     <select v-model="setting.selection_source" @change="normalizePdfOutputAdminProfile(setting)" class="h-8 w-44 px-2 border border-neutral-300 rounded-md text-xs">
-                      <option value="supplier_default">{{ t('settings.signing_output_source_supplier_default') }}</option>
                       <option value="admin_profile_settings">{{ t('settings.signing_output_source_admin_profile_settings') }}</option>
                       <option value="logged_in_user">{{ t('settings.signing_output_source_logged_in_user') }}</option>
                     </select>
@@ -948,7 +829,6 @@ async function removeCert() {
                   <td class="px-3 py-2">
                     <select v-model="setting.user_profile_fallback" @change="normalizePdfOutputAdminProfile(setting)" class="h-8 w-44 px-2 border border-neutral-300 rounded-md text-xs">
                       <option value="admin_profile_settings">{{ t('settings.signing_output_fallback_admin_profile_settings') }}</option>
-                      <option value="supplier_default">{{ t('settings.signing_output_fallback_supplier_default') }}</option>
                       <option value="fallback_unsigned">{{ t('settings.signing_output_fallback_unsigned') }}</option>
                       <option value="fail_closed">{{ t('settings.signing_output_fallback_fail_closed') }}</option>
                     </select>
@@ -978,100 +858,6 @@ async function removeCert() {
           </div>
       </section>
 
-      <section v-if="isAdmin && supplier" class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm space-y-4">
-        <div>
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('settings.signing_supplier_default_title') }}</h2>
-          <p class="text-xs text-neutral-500 mt-1">{{ t('settings.signing_supplier_default_hint') }}</p>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('settings.signing_cert') }}</label>
-          <p class="text-xs text-neutral-500 mb-2">{{ t('settings.signing_cert_hint') }}</p>
-          <div v-if="signingCert.has_cert" class="mb-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
-            <div><span class="text-neutral-500">{{ t('settings.signing_cert_cn') }}:</span> <span class="font-medium">{{ signingCert.cn }}</span></div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_cert_issuer') }}:</span> {{ signingCert.issuer }}</div>
-            <div>
-              <span class="text-neutral-500">{{ t('settings.signing_cert_validity') }}:</span>
-              <span :class="signingCert.expired ? 'text-danger-600 font-semibold' : 'text-success-600'">
-                {{ (signingCert.valid_from || '').slice(0,10) }} – {{ (signingCert.valid_to || '').slice(0,10) }}
-                <template v-if="signingCert.expired"> ({{ t('settings.signing_cert_expired') }})</template>
-              </span>
-            </div>
-            <div class="font-mono text-[10px] text-neutral-400 mt-1 break-all">SHA-256: {{ signingCert.fingerprint }}</div>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <button @click="pickCert" type="button"
-              class="cursor-pointer px-3 h-9 text-sm border border-neutral-300 rounded-md hover:bg-neutral-50">
-              {{ t('settings.signing_cert_choose') }}
-            </button>
-            <span class="text-xs truncate max-w-[14rem]" :class="certFile ? 'text-neutral-700 font-medium' : 'text-neutral-400'">
-              {{ certFile ? certFile.name : t('settings.signing_cert_none_selected') }}
-            </span>
-            <input v-model="certPassword" type="password" :placeholder="t('settings.signing_password')"
-              class="h-9 w-48 px-3 border border-neutral-300 rounded-md text-sm" autocomplete="new-password" />
-            <button @click="uploadCert" type="button" :disabled="!certFile || !certPassword || certUploading"
-              class="cursor-pointer px-3 h-9 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-              {{ certUploading ? t('common.loading') : (signingCert.has_cert ? t('settings.signing_cert_replace') : t('settings.signing_cert_upload')) }}
-            </button>
-            <button v-if="signingCert.has_cert" @click="removeCert" type="button"
-              class="cursor-pointer text-sm text-danger-600 hover:text-danger-700">{{ t('common.remove') }}</button>
-            <input ref="certFileInput" @change="onCertSelected" type="file" accept=".p12,.pfx,application/x-pkcs12" class="hidden" />
-          </div>
-        </div>
-
-        <div v-if="signingDiagnostics" class="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <div class="flex items-center gap-2">
-              <span class="inline-block h-2 w-2 rounded-full"
-                :class="signingDiagnostics.effective_can_sign ? 'bg-success-500' : 'bg-warning-500'"></span>
-              <span class="font-medium text-neutral-700">{{ t('settings.signing_diag_title') }}</span>
-              <span :class="signingDiagnostics.effective_can_sign ? 'text-success-700' : 'text-warning-700'">
-                {{ signingUnavailableLabel(signingDiagnostics.unavailable_reason) }}
-              </span>
-            </div>
-            <button @click="() => loadSigningDiagnostics(false)" type="button"
-              class="cursor-pointer text-neutral-500 hover:text-neutral-700 disabled:opacity-50"
-              :disabled="signingDiagnosticsLoading"
-              :title="t('common.refresh')">↻</button>
-          </div>
-          <div class="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_backend') }}:</span> <span class="font-mono">{{ signingDiagnostics.backend.effective }}</span></div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_policy') }}:</span> <span class="font-mono">{{ signingDiagnostics.failure_policy }}</span></div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_cert') }}:</span> {{ signingDiagnostics.certificate.exists ? t('common.yes') : t('common.no') }}</div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_tsa') }}:</span> {{ signingDiagnostics.tsa.configured ? 'PAdES-T' : 'PAdES-B' }}</div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_visible') }}:</span> {{ signingDiagnostics.backend.capabilities.supports_visible ? t('common.yes') : t('common.no') }}</div>
-            <div><span class="text-neutral-500">{{ t('settings.signing_diag_external') }}:</span> {{ signingDiagnostics.backend.capabilities.requires_external_binary ? t('common.yes') : t('common.no') }}</div>
-          </div>
-        </div>
-
-        <div>
-          <label class="inline-flex items-center gap-2 text-sm text-neutral-700">
-            <input v-model="supplierTsaEnabled" @change="onSupplierTsaToggle" type="checkbox" class="h-4 w-4 accent-primary-600" />
-            <span class="font-medium">{{ t('settings.signing_tsa_enabled') }}</span>
-          </label>
-          <div v-if="supplierTsaEnabled" class="mt-2 space-y-2">
-            <p class="text-xs text-neutral-500">{{ t('settings.signing_tsa_hint') }}</p>
-            <input v-model="supplier.signing_tsa_url" type="text" required placeholder="http://tsa.cesnet.cz:3161/tsa"
-              class="h-10 w-full max-w-3xl px-3 border border-neutral-300 rounded-md text-sm font-mono" />
-            <p class="text-xs text-neutral-500">{{ t('settings.signing_tsa_auth_hint') }}</p>
-            <div class="flex flex-wrap items-center gap-2">
-              <input v-model="supplier.signing_tsa_username" type="text" :placeholder="t('settings.signing_tsa_user')"
-                autocomplete="off"
-                class="h-9 w-44 px-3 border border-neutral-300 rounded-md text-sm" />
-              <input v-model="tsaPassword" type="password"
-                :placeholder="supplier.has_tsa_password ? t('settings.signing_tsa_pass_set') : t('settings.signing_tsa_pass')"
-                autocomplete="new-password"
-                class="h-9 w-44 px-3 border border-neutral-300 rounded-md text-sm" />
-            </div>
-          </div>
-        </div>
-
-        <div class="pt-1">
-          <button @click="() => saveSigning(false)" class="cursor-pointer px-4 h-10 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-md">
-            {{ t('settings.signing_save') }}
-          </button>
-        </div>
-      </section>
     </div>
 
     <div v-else class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
