@@ -945,6 +945,9 @@
     "issue_final_failed": "Vystavení daňového dokladu selhalo",
     "delete_draft": "Smazat",
     "pdf": "PDF",
+    "download_pdf": "Stáhnout PDF",
+    "download_pdf_tooltip_signed": "Stáhne aktuální PDF faktury. Po úpravě se automaticky přegeneruje z aktuálních dat a elektronicky podepíše (PAdES).",
+    "signed_badge": "Podepsáno",
     "send_test": "Test odeslání",
     "send_to_client": "Odeslat klientovi",
     "mark_paid": "Označit zaplaceno",
@@ -2748,6 +2751,7 @@
     },
     "ai": {
       "tab": "AI extrakce",
+      "settings_title": "Nastavení AI (API klíč a model)",
       "credentials_title": "Anthropic Claude API",
       "credentials_hint": "BYOK — vytvoř si vlastní API klíč na console.anthropic.com a vlož sem. AI extrahuje data z PDF faktur bez ISDOC.",
       "privacy_title": "Upozornění: zpracování PDF na cizím serveru",

@@ -945,6 +945,9 @@
     "issue_final_failed": "Failed to issue the final tax document",
     "delete_draft": "Delete",
     "pdf": "PDF",
+    "download_pdf": "Download PDF",
+    "download_pdf_tooltip_signed": "Downloads the current invoice PDF. After any edit it is automatically regenerated from current data and electronically signed (PAdES).",
+    "signed_badge": "Signed",
     "send_test": "Send test",
     "send_to_client": "Send to client",
     "mark_paid": "Mark as paid",
@@ -2748,6 +2751,7 @@
     },
     "ai": {
       "tab": "AI extraction",
+      "settings_title": "AI settings (API key & model)",
       "credentials_title": "Anthropic Claude API",
       "credentials_hint": "BYOK — create your own API key at console.anthropic.com and paste it here. AI extracts data from PDF invoices without ISDOC.",
       "privacy_title": "Notice: PDF processing on a third-party server",

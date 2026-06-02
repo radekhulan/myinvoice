@@ -51,16 +51,17 @@ nasazuje). Zbytek je psaný pro běžného uživatele — bez programátorského
 18. [Více dodavatelů z jedné instalace](18_Multi_supplier.md)
 19. [Nastavení (dodavatel, číselníky, uživatelé, e-mail šablony)](19_Nastaveni.md)
 20. [Bezpečnost (2FA, IP allowlist, role, activity log)](20_Bezpecnost.md)
-21. [Aktualizace na novou verzi](21_Aktualizace.md)
+21. [Elektronické podpisy](28_Elektronicke_podpisy.md) - nové
+22. [Aktualizace na novou verzi](21_Aktualizace.md)
 
 ### Pokročilé
 
-22. [REST API (automatizace a integrace)](22_API.md)
-23. [CRM dashboard (revenue/costs/profit/aging/DSO)](23_CRM.md) — **nové ve v4.0.0**
-24. [Výkazy DPH (DPHDP3 + KH + SH)](24_Vykazy_DPH.md) — **nové ve v4.0.0**
-25. [Daň z příjmů (DPFO / DPPO)](25_Dan_z_prijmu.md) — **nové ve v4.0.0** (MVP foundation)
-26. [Daňový optimalizátor (OSVČ)](26_Danovy_optimalizator.md) — **nové**
-27. [Dokumenty (úložiště souborů, ZFO, párování)](27_Dokumenty.md) — **nové**
+23. [REST API (automatizace a integrace)](22_API.md)
+24. [CRM dashboard (revenue/costs/profit/aging/DSO)](23_CRM.md) — **nové ve v4.0.0**
+25. [Výkazy DPH (DPHDP3 + KH + SH)](24_Vykazy_DPH.md) — **nové ve v4.0.0**
+26. [Daň z příjmů (DPFO / DPPO)](25_Dan_z_prijmu.md) — **nové ve v4.0.0** (MVP foundation)
+27. [Daňový optimalizátor (OSVČ)](26_Danovy_optimalizator.md) — **nové**
+28. [Dokumenty (úložiště souborů, ZFO, párování)](27_Dokumenty.md) — **nové**
 
 ### Reference
 
