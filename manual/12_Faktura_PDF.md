@@ -152,6 +152,15 @@ Typické použití: smlouva, cenová nabídka, fotodokumentace, předávací pro
 > 💡 Přílohy přežijí editaci faktury i přečíslování — jsou navázané přes
 > `invoice_id`. Smazání faktury (jen u konceptů) přílohy odstraní spolu s ní.
 
+### 12.4.5 Elektronický podpis e-mailu (S/MIME)
+
+Odchozí e-maily lze volitelně podepisovat S/MIME certifikátem. Nastavuje se v
+**Systém -> Elektronické podpisy** per dodavatel a per typ e-mailového výstupu.
+Podpis se aplikuje až na sestavený e-mail včetně příloh; příjemce ho ověří v
+běžném e-mailovém klientovi.
+
+Detail nastavení je v [kapitole 21. Elektronické podpisy](28_Elektronicke_podpisy.md).
+
 ## 12.5 Historie PDF
 
 V detailu faktury je sekce **Historie PDF** — seznam všech archivovaných
