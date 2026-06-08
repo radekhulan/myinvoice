@@ -28,26 +28,33 @@ Formulář:
 | Pole | Význam |
 |---|---|
 | Formát | `PDF ZIP` / `ISDOC` / `Pohoda XML` |
-| Období | Měsíc-rok (např. „Duben 2026") |
+| Období | Měsíc-rok (např. „Duben 2026") nebo celé čtvrtletí (`Q1` až `Q4`) |
+| Filtrovat podle | Datum vystavení nebo DUZP (u DUZP se při prázdné hodnotě použije datum vystavení) |
 | Typ | Všechny / Faktury / Zálohové / Dobropisy |
-| Stav | Vystavené (default) / Zaplacené / Vše |
 
 Klik **Stáhnout** → soubor stažen do prohlížeče.
+
+Měsíční export použij pro běžné předání dokladů za jeden měsíc. Čtvrtletní
+export použij hlavně pro účetní předání za kvartál; aplikace vybere všechny
+doklady v rozsahu příslušného čtvrtletí podle zvoleného data filtru.
 
 ## 15.2 PDF ZIP
 
 Nejjednodušší archivace. ZIP obsahuje:
 
 ```
-faktury-2026-04.zip
-├── 2604001-Faktura.pdf
-├── 2604002-Faktura.pdf
-├── 92604001-Zalohova.pdf
-├── 72604001-Dobropis.pdf
+myinvoice-2026-Q2.zip
+├── Faktura-2604001.pdf
+├── Faktura-2604002.pdf
+├── Faktura-2605001.pdf
+├── Faktura-2606001.pdf
+├── Proforma-92604001.pdf
+├── Dobropis-72604001.pdf
 └── ...
 ```
 
-Název souboru: `<varsymbol>-<typ>.pdf`.
+Název ZIPu obsahuje zvolené období (`2026-04` nebo `2026-Q2`). Název
+jednotlivých PDF vychází z typu dokladu a variabilního symbolu.
 
 Použití: **roční archivace** pro účetní (předáš ZIP/měsíc), **založení do
 spisu**, **odeslání e-mailem revizorovi**.

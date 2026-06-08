@@ -110,7 +110,7 @@ POST /api/bank-transactions/{id}/ignore
 - **Email šablony (M9):** plná CRUD nad `/api/admin/email-templates/{code}/{locale}` (locale = `cs|en`).
 - **Reminders:** `/api/invoices/{id}/reminder`, `reminder-test` a `bulk-reminder` (po splatnosti).
 - **PDF historie:** `/api/invoices/{id}/pdfs` listuje archivované PDF, `/{archiveId}` stahuje konkrétní snapshot.
-- **Generic export/import (M6/M7):** `/api/admin/export?format=pdf-zip|isdoc|pohoda&month=YYYY-MM`, `/api/admin/import` (Pohoda XML / ISDOC, single i ZIP).
+- **Generic export/import (M6/M7):** `/api/admin/export?format=pdf-zip|isdoc|pohoda&month=YYYY-MM` nebo `period=quarterly&year=YYYY&quarter=1..4`, `/api/admin/import` (Pohoda XML / ISDOC, single i ZIP).
 - **TOTP/2FA:** `/api/auth/totp/*` pro nastavení a aktivaci.
 - **IP allowlist a další security policies** se konfigurují v `cfg.php` (resp. v DB přes setup), **nikoli** přes API. Endpointy `/admin/security/*`, `/admin/smtp/test`, `/admin/sessions` neexistují.
 
@@ -670,9 +670,13 @@ Legacy endpoint pro ZIP export PDF za měsíc. Query: `?month=YYYY-MM[&type=invo
 ### `GET /admin/export`
 
 Generic export. Query:
-- `?format=pdf-zip&month=YYYY-MM` — ZIP s PDF faktur
-- `?format=isdoc&month=YYYY-MM` — ZIP s ISDOC XML
-- `?format=pohoda&month=YYYY-MM` — Pohoda XML pro hromadný import
+- `?format=pdf-zip&month=YYYY-MM` — ZIP s PDF faktur za měsíc (legacy zkratka)
+- `?format=isdoc&period=monthly&year=YYYY&month=M` — ZIP s ISDOC XML za měsíc
+- `?format=pohoda&period=quarterly&year=YYYY&quarter=1..4` — Pohoda XML za celé čtvrtletí
+
+Společné volitelné parametry:
+- `type=invoice|proforma|credit_note` — omezení typu vystaveného dokladu
+- `date_by=issue|tax` — filtrování podle data vystavení nebo DUZP (`tax_date`, fallback `issue_date`)
 
 ### `POST /admin/import`
 

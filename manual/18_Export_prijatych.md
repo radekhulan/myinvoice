@@ -1,7 +1,7 @@
 # 18. Export přijatých faktur (naše PDF / ISDOC / Pohoda)
 
 Přijaté faktury (viz [Přijaté faktury](17_Prijate_faktury.md)) lze předat účetní
-ve třech formátech — per doklad i hromadně za měsíc.
+ve třech formátech — per doklad i hromadně za měsíc nebo celé čtvrtletí.
 
 V detailu přijaté faktury najdeš tlačítko **„Exporty"** s dropdown menu:
 
@@ -24,15 +24,16 @@ původní vendor, *zákazník* = naše firma (opak vystavené).
 Pohoda dataPack XML pro import do účetního software Pohoda. Direction =
 purchase (`<pur:purchase>` místo `<inv:invoice>`).
 
-### Hromadný export za měsíc
+### Hromadný export za období
 
-V hlavním menu **Přijaté faktury → Exporty** vyber měsíc + formát:
+V hlavním menu **Přijaté faktury → Exporty** vyber období + formát:
 
 - **PDF ZIP** — preferuje archivovaný **originál** od dodavatele (`Prijata-{vs}-{vendor}.pdf`); pokud originál chybí, doplní se **naše rekonstrukce** z dat faktury (`…-rekonstrukce.pdf`, ať ji účetní pozná). Faktura se přeskočí jen když selže i rekonstrukce.
 - **ISDOC ZIP** — jeden `.isdoc` XML soubor za fakturu, sbaleno do ZIP.
-- **Pohoda XML** — sloučený `<dataPack>` se všemi fakturami za měsíc (přímý import do Pohody, direction = purchase).
+- **Pohoda XML** — sloučený `<dataPack>` se všemi fakturami za zvolené období (přímý import do Pohody, direction = purchase).
 
-„Datum dle" volí, podle kterého data se faktura zařadí do měsíce: DUZP (tax),
+Období může být jeden měsíc nebo celé čtvrtletí (`Q1` až `Q4`). „Datum dle"
+volí, podle kterého data se faktura zařadí do zvoleného období: DUZP (tax),
 datum vystavení (issue, default) nebo datum přijetí (received).
 
 > [!TIP]

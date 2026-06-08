@@ -2,25 +2,54 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { purchaseInvoicesApi } from '@/api/purchaseInvoices'
+import { useYearOptions } from '@/composables/useYearOptions'
 
 const { t } = useI18n()
 
 type Format = 'pdf-zip' | 'pohoda' | 'isdoc'
 type DateBy = 'tax' | 'issue' | 'received'
+type PeriodType = 'monthly' | 'quarterly'
 
+const now = new Date()
+const currentYear = now.getFullYear()
+const currentMonth = now.getMonth() + 1
 const format = ref<Format>('pdf-zip')
 // Default "issue" (datum vystavení) — odpovídá tomu, co je na fakturách napsané a co
 // uživatel typicky používá k organizaci archivu. tax (DUZP) má smysl pro DPH výkazy
 // a received (přijetí) jen pro audit kdy faktura přišla.
 const dateBy = ref<DateBy>('issue')
-const month = ref<string>((() => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-})())
+const periodType = ref<PeriodType>('monthly')
+const month = ref<string>(`${currentYear}-${String(currentMonth).padStart(2, '0')}`)
+const year = ref(currentYear)
+const quarter = ref(Math.ceil(currentMonth / 3))
+const yearOptions = useYearOptions('purchase_invoices', year)
+const quarterOptions = [1, 2, 3, 4]
+
+const monthParts = computed(() => {
+  const [y, m] = month.value.split('-').map(Number)
+  return {
+    year: Number.isFinite(y) ? y : currentYear,
+    month: Number.isFinite(m) ? m : currentMonth,
+  }
+})
+
+const selectedPeriodLabel = computed(() => {
+  if (periodType.value === 'quarterly') return `Q${quarter.value} ${year.value}`
+  const months = t('common.months_long') as unknown as string[]
+  const m = monthParts.value.month
+  return `${months[m - 1] || String(m).padStart(2, '0')} ${monthParts.value.year}`
+})
+
+const exportPeriod = computed(() => {
+  if (periodType.value === 'quarterly') {
+    return { type: 'quarterly' as const, year: year.value, quarter: quarter.value }
+  }
+  return { type: 'monthly' as const, year: monthParts.value.year, month: monthParts.value.month }
+})
 
 function download() {
   window.open(
-    purchaseInvoicesApi.exportUrl(month.value, dateBy.value, format.value),
+    purchaseInvoicesApi.exportUrl(exportPeriod.value, dateBy.value, format.value),
     '_blank',
   )
 }
@@ -70,12 +99,44 @@ const isComingSoon = computed(() => false)
         </div>
       </div>
 
-      <!-- Měsíc -->
+      <!-- Období -->
+      <div>
+        <label class="block text-sm font-medium text-neutral-700 mb-2">{{ t('purchase_invoice.export.period_label') }}</label>
+        <div class="flex rounded-md border border-neutral-300 overflow-hidden text-sm">
+          <button type="button" @click="periodType = 'monthly'"
+            :class="periodType === 'monthly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
+            class="cursor-pointer flex-1 h-10 px-3">
+            {{ t('purchase_invoice.export.period_month') }}
+          </button>
+          <button type="button" @click="periodType = 'quarterly'"
+            :class="periodType === 'quarterly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
+            class="cursor-pointer flex-1 h-10 px-3 border-l border-neutral-300">
+            {{ t('purchase_invoice.export.period_quarter') }}
+          </button>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
+        <div v-if="periodType === 'monthly'">
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('purchase_invoice.export.month_label') }}</label>
           <input v-model="month" type="month" required
-                 class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm" />
+                 class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm" />
+          <p class="text-xs text-neutral-500 mt-1">{{ selectedPeriodLabel }}</p>
+        </div>
+        <div v-else class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('purchase_invoice.export.quarter_label') }}</label>
+            <select v-model.number="quarter" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+              <option v-for="q in quarterOptions" :key="q" :value="q">Q{{ q }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('purchase_invoice.export.year_label') }}</label>
+            <select v-model.number="year" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+              <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
+            </select>
+          </div>
+          <p class="col-span-2 text-xs text-neutral-500">{{ selectedPeriodLabel }}</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('purchase_invoice.export.date_by_label') }}</label>

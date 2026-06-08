@@ -2875,7 +2875,7 @@ paths:
   /api/v1/purchase-invoices/export:
     get:
       tags: [Purchase invoices]
-      summary: Hromadný export přijatých faktur za měsíc (PDF ZIP / ISDOC ZIP / Pohoda dataPack)
+      summary: Hromadný export přijatých faktur za měsíc nebo čtvrtletí (PDF ZIP / ISDOC ZIP / Pohoda dataPack)
       description: |
         `pdf-zip`: ZIP s jedním PDF na fakturu. Preferuje archivovaný **originál**
         od dodavatele (`Prijata-{vs}-{vendor}.pdf`); pokud originál chybí, doplní
@@ -2883,9 +2883,15 @@ paths:
         Počet rekonstrukcí je v hlavičce `X-Export-Reconstructed`.
 
         `isdoc` / `pohoda`: generují XML z dat faktury (PDF nepotřebují).
+
+        Období lze zadat legacy parametrem `month=YYYY-MM`, nebo explicitně
+        `period=monthly&year=YYYY&month=M` / `period=quarterly&year=YYYY&quarter=1..4`.
       parameters:
         - $ref: '#/components/parameters/SupplierIdHeader'
-        - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }
+        - { in: query, name: month, schema: { oneOf: [{ type: string, pattern: '^\d{4}-\d{2}$' }, { type: integer, minimum: 1, maximum: 12 }] } }
+        - { in: query, name: period, schema: { type: string, enum: [monthly, quarterly] } }
+        - { in: query, name: year, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+        - { in: query, name: quarter, schema: { type: integer, minimum: 1, maximum: 4 } }
         - { in: query, name: format, required: true, schema: { type: string, enum: [pdf-zip, isdoc, pohoda] } }
         - { in: query, name: date_by, schema: { type: string, enum: [tax, issue, received] } }
       responses:

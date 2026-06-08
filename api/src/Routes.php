@@ -349,7 +349,7 @@ final class Routes
         $app->get    ('/api/admin/cron-jobs',       CronJobsAction::class);
         $app->post   ('/api/admin/cron-jobs/{script:cron-[a-z0-9-]+}/run', RunCronJobAction::class);
         $app->get    ('/api/admin/invoices-zip',    InvoicesZipAction::class);  // legacy — drží se kvůli historickým bookmark URL
-        $app->get    ('/api/admin/export',          ExportAction::class);       // generic export (?format=pdf-zip|isdoc|pohoda&month=YYYY-MM)
+        $app->get    ('/api/admin/export',          ExportAction::class);       // generic export (?format=pdf-zip|isdoc|pohoda&month=YYYY-MM nebo period=quarterly)
         $app->post   ('/api/admin/import',          ImportAction::class);       // import vystavených faktur z Pohoda XML / ISDOC (single nebo ZIP)
 
         // iDoklad API import (fáze 2a) — credentials + background job lifecycle

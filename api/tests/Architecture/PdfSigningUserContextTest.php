@@ -19,7 +19,7 @@ final class PdfSigningUserContextTest extends TestCase
         $root = dirname(__DIR__, 3);
         $expectations = [
             '/api/src/Action/Admin/ExportAction.php' => [
-                'buildPdfZip($ids, $month, $type, $userId)',
+                'buildPdfZip($ids, $period, $type, $userId)',
                 '$this->pdf->render($id, false, $userId)',
             ],
             '/api/src/Action/Admin/InvoicesZipAction.php' => [

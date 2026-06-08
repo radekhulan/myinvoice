@@ -1,16 +1,46 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useYearOptions } from '@/composables/useYearOptions'
 
 const { t } = useI18n()
 
 type Format = 'pdf-zip' | 'isdoc' | 'pohoda'
+type PeriodType = 'monthly' | 'quarterly'
+
+const now = new Date()
+const currentYear = now.getFullYear()
+const currentMonth = now.getMonth() + 1
+
 const format = ref<Format>('pdf-zip')
-const month = ref(new Date().toISOString().slice(0, 7)) // YYYY-MM
+const periodType = ref<PeriodType>('monthly')
+const month = ref(`${currentYear}-${String(currentMonth).padStart(2, '0')}`) // YYYY-MM
+const year = ref(currentYear)
+const quarter = ref(Math.ceil(currentMonth / 3))
 const type = ref<'' | 'invoice' | 'proforma' | 'credit_note'>('')
 const dateBy = ref<'issue' | 'tax'>('issue')
 const downloading = ref(false)
 const error = ref('')
+const yearOptions = useYearOptions('invoices', year)
+const quarterOptions = [1, 2, 3, 4]
+
+const monthParts = computed(() => {
+  const [y, m] = month.value.split('-').map(Number)
+  return {
+    year: Number.isFinite(y) ? y : currentYear,
+    month: Number.isFinite(m) ? m : currentMonth,
+  }
+})
+
+const periodFileLabel = computed(() => {
+  if (periodType.value === 'quarterly') return `${year.value}-Q${quarter.value}`
+  return `${monthParts.value.year}-${String(monthParts.value.month).padStart(2, '0')}`
+})
+
+const selectedPeriodLabel = computed(() => {
+  if (periodType.value === 'quarterly') return `Q${quarter.value} ${year.value}`
+  return monthLabel(periodFileLabel.value)
+})
 
 async function downloadExport() {
   downloading.value = true
@@ -18,9 +48,16 @@ async function downloadExport() {
   try {
     const params = new URLSearchParams({
       format: format.value,
-      month: month.value,
       date_by: dateBy.value,
+      period: periodType.value,
     })
+    if (periodType.value === 'quarterly') {
+      params.set('year', String(year.value))
+      params.set('quarter', String(quarter.value))
+    } else {
+      params.set('year', String(monthParts.value.year))
+      params.set('month', String(monthParts.value.month))
+    }
     if (type.value) params.set('type', type.value)
     const url = `/api/admin/export?${params.toString()}`
 
@@ -38,7 +75,7 @@ async function downloadExport() {
     const dispo = resp.headers.get('Content-Disposition') || ''
     const m = dispo.match(/filename="?([^"]+)"?/)
     const ext = format.value === 'pohoda' ? 'xml' : (format.value === 'isdoc' ? 'isdoc' : 'zip')
-    const filename = m ? m[1] : `myinvoice-${month.value}.${ext}`
+    const filename = m ? m[1] : `myinvoice-${periodFileLabel.value}.${ext}`
 
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -57,7 +94,7 @@ async function downloadExport() {
 const monthLabel = (m: string): string => {
   const [y, mm] = m.split('-')
   const months = t('common.months_long') as unknown as string[]
-  return `${months[Number(mm) - 1]} ${y}`
+  return `${months[Number(mm) - 1] || mm} ${y}`
 }
 </script>
 
@@ -98,10 +135,44 @@ const monthLabel = (m: string): string => {
         </div>
 
         <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-2">{{ t('export.period') }} *</label>
+          <div class="flex rounded-md border border-neutral-300 overflow-hidden text-sm">
+            <button type="button" @click="periodType = 'monthly'"
+              :class="periodType === 'monthly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
+              class="cursor-pointer flex-1 h-10 px-3">
+              {{ t('export.period_month') }}
+            </button>
+            <button type="button" @click="periodType = 'quarterly'"
+              :class="periodType === 'quarterly' ? 'bg-primary-600 text-white' : 'bg-surface text-neutral-700 hover:bg-neutral-50'"
+              class="cursor-pointer flex-1 h-10 px-3 border-l border-neutral-300">
+              {{ t('export.period_quarter') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="periodType === 'monthly'">
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('export.month') }} *</label>
           <input v-model="month" type="month" required
-            class="w-full h-10 px-3 border border-neutral-300 rounded-md text-sm font-mono" />
-          <p class="text-xs text-neutral-500 mt-1">{{ monthLabel(month) }}</p>
+            class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm font-mono" />
+          <p class="text-xs text-neutral-500 mt-1">{{ selectedPeriodLabel }}</p>
+        </div>
+
+        <div v-else>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('export.quarter') }} *</label>
+              <select v-model.number="quarter" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+                <option v-for="q in quarterOptions" :key="q" :value="q">Q{{ q }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('export.year') }} *</label>
+              <select v-model.number="year" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+                <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
+              </select>
+            </div>
+          </div>
+          <p class="text-xs text-neutral-500 mt-1">{{ selectedPeriodLabel }}</p>
         </div>
 
         <div>

@@ -10,6 +10,8 @@ use MyInvoice\Infrastructure\Database\Connection;
 use MyInvoice\Middleware\AuthMiddleware;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Service\ActivityLogger;
+use MyInvoice\Service\Export\ExportPeriod;
+use MyInvoice\Service\Export\ExportPeriodResolver;
 use MyInvoice\Service\Export\IsdocExporter;
 use MyInvoice\Service\Export\PohodaXmlExporter;
 use MyInvoice\Service\IpMatcher;
@@ -20,11 +22,12 @@ use Slim\Psr7\Stream;
 use ZipArchive;
 
 /**
- * Generický export faktur za měsíc do různých formátů:
+ * Generický export faktur za měsíc nebo čtvrtletí do různých formátů:
  *
  *   GET /api/admin/export?format=pdf-zip|isdoc|pohoda&month=YYYY-MM[&type=invoice][&date_by=issue|tax]
+ *   GET /api/admin/export?format=pdf-zip|isdoc|pohoda&period=quarterly&year=YYYY&quarter=1..4
  *
- * Sdílený filter: month + type + date_by + supplier_id (z X-Supplier-Id middleware).
+ * Sdílený filter: period + type + date_by + supplier_id (z X-Supplier-Id middleware).
  * Per-format: výstup MIME a filename.
  *
  * Přístup: admin nebo accountant.
@@ -37,6 +40,7 @@ final class ExportAction
         private readonly InvoicePdfRenderer $pdf,
         private readonly IsdocExporter $isdoc,
         private readonly PohodaXmlExporter $pohoda,
+        private readonly ExportPeriodResolver $periodResolver,
         private readonly ActivityLogger $logger,
         private readonly IpMatcher $ipMatcher,
     ) {}
@@ -51,26 +55,31 @@ final class ExportAction
 
         $q = $request->getQueryParams();
         $format = (string) ($q['format'] ?? 'pdf-zip');
-        $month = (string) ($q['month'] ?? '');
-        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
-            return Json::error($response, 'validation_failed', 'Parametr month musí být YYYY-MM.', 400);
+        try {
+            $period = $this->periodResolver->resolve($q);
+        } catch (\InvalidArgumentException $e) {
+            return Json::error($response, 'validation_failed', $e->getMessage(), 400);
         }
         $dateBy = (string) ($q['date_by'] ?? 'issue');
         $type   = (string) ($q['type'] ?? '');
         $sid    = SupplierGuard::currentId($request);
 
-        // Najdi faktury za měsíc + supplier scope
-        $ids = $this->findInvoiceIds($sid, $month, $dateBy, $type);
+        // Najdi faktury za období + supplier scope.
+        try {
+            $ids = $this->findInvoiceIds($sid, $period, $dateBy, $type);
+        } catch (\InvalidArgumentException $e) {
+            return Json::error($response, 'validation_failed', $e->getMessage(), 400);
+        }
         if (empty($ids)) {
-            return Json::error($response, 'no_invoices', "Za měsíc $month nejsou žádné vystavené faktury.", 404);
+            return Json::error($response, 'no_invoices', "Za období {$period->label} nejsou žádné vystavené faktury.", 404);
         }
 
         try {
             $userId = isset($user['id']) ? (int) $user['id'] : null;
             [$filename, $content, $mime] = match ($format) {
-                'pdf-zip' => $this->buildPdfZip($ids, $month, $type, $userId),
-                'isdoc'   => $this->buildIsdoc($ids, $month),
-                'pohoda'  => $this->buildPohoda($ids, $sid, $month),
+                'pdf-zip' => $this->buildPdfZip($ids, $period, $type, $userId),
+                'isdoc'   => $this->buildIsdoc($ids, $period),
+                'pohoda'  => $this->buildPohoda($ids, $sid, $period),
                 default   => throw new \InvalidArgumentException("Neznámý formát: $format"),
             };
         } catch (\InvalidArgumentException $e) {
@@ -81,7 +90,15 @@ final class ExportAction
 
         $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
         $this->logger->log('invoices.exported', $user['id'] ?? null, null, null, [
-            'format' => $format, 'month' => $month, 'type' => $type ?: null, 'count' => count($ids),
+            'format' => $format,
+            'period' => $period->label,
+            'period_type' => $period->type,
+            'month' => $period->month,
+            'quarter' => $period->quarter,
+            'date_from' => $period->dateFrom,
+            'date_to_exclusive' => $period->dateToExclusive,
+            'type' => $type ?: null,
+            'count' => count($ids),
         ], $ip, $request->getHeaderLine('User-Agent'));
 
         // Stream content out
@@ -93,10 +110,13 @@ final class ExportAction
     }
 
     /** @return int[] */
-    private function findInvoiceIds(int $sid, string $month, string $dateBy, string $type): array
+    private function findInvoiceIds(int $sid, ExportPeriod $period, string $dateBy, string $type): array
     {
+        if (!in_array($dateBy, ['issue', 'tax'], true)) {
+            throw new \InvalidArgumentException('Parametr date_by musí být issue nebo tax.');
+        }
         $dateExpr = $dateBy === 'tax' ? 'COALESCE(tax_date, issue_date)' : 'issue_date';
-        $params = [$sid, $month];
+        $params = [$sid, $period->dateFrom, $period->dateToExclusive];
         $typeFilter = '';
         if ($type !== '' && in_array($type, ['invoice', 'proforma', 'credit_note', 'cancellation'], true)) {
             $typeFilter = ' AND invoice_type = ?';
@@ -104,7 +124,8 @@ final class ExportAction
         }
         $sql = "SELECT id FROM invoices
                  WHERE supplier_id = ?
-                   AND DATE_FORMAT($dateExpr, '%Y-%m') = ?
+                   AND $dateExpr >= ?
+                   AND $dateExpr < ?
                    AND status IN ('issued','sent','reminded','paid')
                    $typeFilter
               ORDER BY $dateExpr, id";
@@ -117,7 +138,7 @@ final class ExportAction
      * @param int[] $ids
      * @return array{0:string,1:string,2:string} [filename, content, mime]
      */
-    private function buildPdfZip(array $ids, string $month, string $type, ?int $userId): array
+    private function buildPdfZip(array $ids, ExportPeriod $period, string $type, ?int $userId): array
     {
         $tmpZip = tempnam(sys_get_temp_dir(), 'inv-zip-') . '.zip';
         $zip = new ZipArchive();
@@ -146,7 +167,7 @@ final class ExportAction
 
         $content = (string) file_get_contents($tmpZip);
         @unlink($tmpZip);
-        $base = "myinvoice-$month" . ($type ? "-$type" : '');
+        $base = "myinvoice-{$period->label}" . ($type ? "-$type" : '');
         return ["$base.zip", $content, 'application/zip'];
     }
 
@@ -154,9 +175,9 @@ final class ExportAction
      * @param int[] $ids
      * @return array{0:string,1:string,2:string}
      */
-    private function buildIsdoc(array $ids, string $month): array
+    private function buildIsdoc(array $ids, ExportPeriod $period): array
     {
-        $r = $this->isdoc->export($ids, $month);
+        $r = $this->isdoc->export($ids, $period->label);
         return [$r['filename'], $r['content'], $r['mime']];
     }
 
@@ -164,9 +185,9 @@ final class ExportAction
      * @param int[] $ids
      * @return array{0:string,1:string,2:string}
      */
-    private function buildPohoda(array $ids, int $sid, string $month): array
+    private function buildPohoda(array $ids, int $sid, ExportPeriod $period): array
     {
-        $r = $this->pohoda->export($ids, $sid, $month);
+        $r = $this->pohoda->export($ids, $sid, $period->label);
         return [$r['filename'], $r['content'], $r['mime']];
     }
 }
