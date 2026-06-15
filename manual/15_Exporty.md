@@ -123,10 +123,11 @@ zakázka se podle `project_number` najde nebo automaticky vytvoří.
 
 ### 15.3.5 ISDOC v PDF příloze (3.6.2+)
 
-Při generování PDF faktury se ISDOC XML přibalí jako PDF/A-3 attachment
-(`/Names /EmbeddedFiles` + `/AF` v catalog). Účetní programy si data
-extrahují přímo z PDF — stačí přeposlat jediný soubor. Pod variabilním
-symbolem se v PDF zobrazí vizuální `ISDOC` badge.
+Samotné PDF je konformní **PDF/A-3b** (ISO 19005-3, viz
+[§ 11.2.2](11_Faktura_PDF.md#1122-pdfa-3b-archivni-format)). Při generování se
+do něj ISDOC XML přibalí jako příloha (PDF/A-3 associated file). Účetní
+programy si data extrahují přímo z PDF — stačí přeposlat jediný soubor. Pod
+variabilním symbolem se v PDF zobrazí vizuální `ISDOC` badge.
 
 - Vkládá se jen pro **CZK faktury s přiděleným VS**.
 - Lze vypnout per-dodavatel v *Nastavení → Dodavatel → Vkládat ISDOC XML

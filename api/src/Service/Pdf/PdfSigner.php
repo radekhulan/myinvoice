@@ -204,7 +204,11 @@ final class PdfSigner
         $newSize = $size + 2;
         $xrefOffset = strlen($base) + strlen($body);
         $xref = $this->buildXref($offsets);
-        $trailerOut = "trailer\n<< /Size $newSize /Root $rootNum 0 R /Prev $prevXref >>\n"
+        // PDF/A vyžaduje /ID v traileru (ISO 19005-3 clause 6.1.3). Inkrementální
+        // update musí původní /ID zachovat, jinak podepsané PDF přestane být PDF/A
+        // (ověřeno veraPDF). Přeneseme /ID z posledního traileru vstupního PDF.
+        $id = preg_match('~/ID\s*\[\s*<[^>]*>\s*<[^>]*>\s*\]~', $trailer, $m) ? ' ' . $m[0] : '';
+        $trailerOut = "trailer\n<< /Size $newSize /Root $rootNum 0 R /Prev $prevXref$id >>\n"
                     . "startxref\n$xrefOffset\n%%EOF\n";
 
         return $base . $body . $xref . $trailerOut;

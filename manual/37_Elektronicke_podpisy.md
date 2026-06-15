@@ -27,6 +27,11 @@ nastaveným TSA serverem o **PAdES-T**. Odchozí e-mail se podepisuje jako
 **S/MIME** zpráva. S/MIME podpis potvrzuje odesílatele a integritu zprávy,
 ale e-mail nešifruje.
 
+> 📁 **Podpis zachovává archivní formát.** Faktury se generují jako PDF/A-3b
+> ([§ 11.2.2](11_Faktura_PDF.md#1122-pdfa-3b-archivni-format)) a elektronický
+> podpis tuto archivní konformitu **zachová** — podepsaný dokument je stále
+> validní PDF/A-3b (ověřeno nástrojem veraPDF).
+
 ## 37.1 Základní pojmy
 
 | Pojem | Význam |

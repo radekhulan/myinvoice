@@ -64,6 +64,14 @@ final class MpdfFontConfig
         ];
 
         return [
+            // PDF/A-3b (ISO 19005-3) — archivní formát pro VŠECHNY PDF výstupy.
+            // Tuto sdílenou konfiguraci spreadují všechny renderery (Invoice,
+            // PurchaseInvoice, WorkReport, DphBook, 3× Logbook), takže PDF/A se
+            // zapne jedním místem. mPDF doplní sRGB OutputIntent + XMP pdfaid;
+            // CMYK obrázky PDFAauto převede do sRGB (jeden OutputIntent).
+            'PDFA'             => true,
+            'PDFAversion'      => '3-B',
+            'PDFAauto'         => true,
             'fontDir'          => array_merge($defCfg['fontDir'], [self::fontDir()]),
             'fontdata'         => $fontData,
             'default_font'     => self::DEFAULT_FONT,

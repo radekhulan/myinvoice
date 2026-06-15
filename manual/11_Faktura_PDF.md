@@ -116,6 +116,27 @@ Pokud je faktura starší a nemá zafixovaný kurz (legacy data), MyInvoice ho
 **doplní automaticky** při příštím otevření detailu nebo PDF (cache → ČNB →
 poslední známý). Detail viz [§ 10.4.2 Faktura v cizí měně](10_Faktura_editor.md#1042-faktura-v-cizi-mene-eur-usd-prepocet-do-czk).
 
+### 11.2.2 PDF/A-3b (archivní formát)
+
+Všechna generovaná PDF (faktury, přijaté faktury, výkazy práce, Kniha DPH,
+Kniha jízd) jsou ve formátu **PDF/A-3b** (ISO 19005-3) — standardu pro
+**dlouhodobou archivaci**. Dokument je soběstačný a vykreslí se stejně na
+každém zařízení i tiskárně, dnes i za 20 let.
+
+- **Vložené fonty** — písmo je součástí souboru, takže text jde vyhledávat
+  a kopírovat a nikde nedojde k záměně fontu.
+- **Barevný profil** — dokument nese barevný profil **sRGB**. Logo nebo obrázek
+  v jiném barevném prostoru (CMYK) se **automaticky převede** na sRGB, aby
+  archiv zůstal konzistentní (PDF/A nepovoluje míchání barevných prostorů).
+- **ISDOC příloha** — strukturovaná data faktury jsou vložená přímo v PDF jako
+  příloha, viz [§ 15.3.5](15_Exporty.md).
+- **Elektronický podpis** — PAdES podpis archivní konformitu **zachová**,
+  viz [§ 37](37_Elektronicke_podpisy.md).
+
+> 🔎 **Ověření konformity.** Výstup je validován referenčním ISO validátorem
+> **veraPDF** (ISO 19005-3, flavour `3b`). Procházejí všechny varianty — faktury
+> i přijaté faktury, s logem (RGB i CMYK) i bez, podepsané i nepodepsané.
+
 ## 11.3 QR platba
 
 ![QR platba na PDF](img/10_qr_platba.webp)
