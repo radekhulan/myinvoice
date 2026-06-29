@@ -310,19 +310,37 @@ final class IdokladClient
 
     /**
      * Stáhne PDF pro vydanou fakturu (rendered iDoklad PDF). Endpoint:
-     *   GET /v3/IssuedInvoices/{id}/Document  (application/pdf bytes).
+     *   GET /v2/IssuedInvoices/{id}/GetPdf  (Accept: application/json).
+     *
+     * Pozn.: PDF render je dostupný JEN na v2 API — v3 vrací UnsupportedApiVersion,
+     * a cesta je /GetPdf, ne /Document (/Document 404). Tělo je bare base64 JSON
+     * string (celé tělo je "JVBERi0..."), tj. json_decode → base64 → %PDF bajty.
      */
     public function downloadIssuedPdf(int $supplierId, int $idokladInvoiceId): ?string
     {
         $token = $this->getToken($supplierId);
-        $url = self::API_BASE . '/IssuedInvoices/' . $idokladInvoiceId . '/Document';
+        $url = str_replace('/v3', '/v2', self::API_BASE) . '/IssuedInvoices/' . $idokladInvoiceId . '/GetPdf';
         $this->throttle($supplierId);
         $resp = $this->http->get($url, [
-            'headers' => ['Authorization' => 'Bearer ' . $token, 'Accept' => 'application/pdf'],
+            'headers' => ['Authorization' => 'Bearer ' . $token, 'Accept' => 'application/json'],
         ]);
         if ($resp->getStatusCode() !== 200) return null;
-        $body = (string) $resp->getBody();
-        return str_starts_with($body, '%PDF') ? $body : null;
+        return self::decodeIssuedPdfBody((string) $resp->getBody());
+    }
+
+    /**
+     * Rozbalí tělo v2 GetPdf odpovědi (JSON string literal s base64 PDF) na surové
+     * PDF bajty. Vrátí null, pokud tělo není validní base64 PDF dokument.
+     */
+    public static function decodeIssuedPdfBody(string $body): ?string
+    {
+        $b64 = json_decode($body, true);
+        if (!is_string($b64) || $b64 === '') {
+            return null;
+        }
+        $pdf = base64_decode($b64, true);
+
+        return ($pdf !== false && str_starts_with($pdf, '%PDF')) ? $pdf : null;
     }
 
     /**
