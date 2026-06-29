@@ -7,11 +7,12 @@ namespace MyInvoice\Service;
 /**
  * Najde CLI `php` binárku pro spouštění detached workerů (import, cron).
  *
- * Pod IIS / FastCGI je `PHP_BINARY` typicky `php-cgi.exe`, který CLI skripty
- * (`if (PHP_SAPI !== 'cli') exit;`) spustí špatně, a `php` často NENÍ na PATH
- * procesu w3wp.exe. Holé `php` ve spawn příkazu proto tiše selže a worker se
- * nikdy nespustí (job zůstane navždy „queued"). Tento helper vrátí skutečnou
- * cestu k CLI php.exe (sibling vedle php-cgi, běžné instalační cesty, …).
+ * Pod IIS / FastCGI je `PHP_BINARY` typicky `php-cgi.exe`, a pod **php-fpm**
+ * (oficiální Docker image) je `PHP_BINARY` přímo binárka `php-fpm` — obojí CLI
+ * skripty (`if (PHP_SAPI !== 'cli') exit;`) spustí špatně. php-fpm navíc CLI
+ * argumenty/skript nepochopí, vypíše usage a skončí, takže worker se nikdy
+ * nespustí (job zůstane navždy „queued"). Tento helper takové ne-CLI SAPI
+ * binárky přeskočí a vrátí skutečnou cestu k CLI php (sibling, běžné cesty, …).
  */
 final class PhpCliLocator
 {
@@ -38,9 +39,8 @@ final class PhpCliLocator
         }
 
         foreach ($candidates as $c) {
-            $name = strtolower(basename($c));
-            // Vyhneme se php-cgi.exe / php-win.exe / phpdbg.exe — chceme jen CLI.
-            if ($name === 'php-cgi.exe' || $name === 'php-cgi' || $name === 'php-win.exe' || str_starts_with($name, 'phpdbg')) {
+            // Vyhneme se ne-CLI SAPI binárkám (php-cgi, php-win, phpdbg, php-fpm) — chceme jen CLI.
+            if (self::isNonCliSapiName(basename($c))) {
                 continue;
             }
             if (str_contains($c, DIRECTORY_SEPARATOR) || str_contains($c, '/')) {
@@ -54,5 +54,20 @@ final class PhpCliLocator
         }
 
         return null;
+    }
+
+    /**
+     * Je `$name` (basename binárky) ne-CLI SAPI, kterou nelze použít pro spuštění
+     * CLI workeru? Pokrývá php-cgi / php-win / phpdbg a — klíčové pod php-fpm —
+     * `php-fpm` (tam je `PHP_BINARY` právě tato binárka).
+     */
+    public static function isNonCliSapiName(string $name): bool
+    {
+        $name = strtolower($name);
+
+        return $name === 'php-cgi.exe' || $name === 'php-cgi'
+            || $name === 'php-win.exe'
+            || str_starts_with($name, 'phpdbg')
+            || str_starts_with($name, 'php-fpm');
     }
 }
