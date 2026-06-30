@@ -516,7 +516,8 @@
       "upload_error": "Upload failed: {error}"
     },
     "source": {
-      "download": "Source document (ISDOC)"
+      "download": "Source document (ISDOC)",
+      "badge_title": "Machine-readable source document — click to download"
     },
     "extraction": {
       "isdoc_found": "ISDOC detected in PDF. Fields prefilled from attachment.",

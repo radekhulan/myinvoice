@@ -516,7 +516,8 @@
       "upload_error": "Nahrání selhalo: {error}"
     },
     "source": {
-      "download": "Zdrojový doklad (ISDOC)"
+      "download": "Zdrojový doklad (ISDOC)",
+      "badge_title": "Strojový originál dokladu — klikni pro stažení"
     },
     "extraction": {
       "isdoc_found": "Z PDF jsem rozpoznal ISDOC. Pole jsou předvyplněna z přílohy.",

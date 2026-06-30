@@ -536,6 +536,12 @@ const purchaseActions = computed<ActionItem[]>(() => {
         <span class="text-xs px-2 py-0.5 rounded font-normal bg-neutral-100 text-neutral-600">
           {{ t(`purchase_invoice.document_kind.${invoice.document_kind}`) }}
         </span>
+        <a
+          v-if="invoice.source_format"
+          :href="purchaseInvoicesApi.sourceUrl(invoice.id)"
+          class="text-xs px-2 py-0.5 rounded font-normal bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+          :title="t('purchase_invoice.source.badge_title')"
+        >{{ invoice.source_format.toUpperCase() }}</a>
       </h1>
       <ActionBar :actions="purchaseActions" />
     </div>
