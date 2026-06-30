@@ -156,9 +156,20 @@
     <td class="label">{% if locale == 'en' %}VAT total{% else %}DPH celkem{% endif %}</td>
     <td class="num">{{ totals.vat|number_format(2, ',', ' ') }} {{ currency }}</td>
   </tr>
-  <tr class="grand">
-    <td class="label">{% if locale == 'en' %}Total inc. VAT{% else %}Celkem k úhradě{% endif %}</td>
+  {% set rnd = invoice.rounding|default(0) %}
+  {% if rnd != 0 %}
+  <tr>
+    <td class="label">{% if locale == 'en' %}Total inc. VAT{% else %}Celkem s DPH{% endif %}</td>
     <td class="num">{{ totals.with_vat|number_format(2, ',', ' ') }} {{ currency }}</td>
+  </tr>
+  <tr>
+    <td class="label">{% if locale == 'en' %}Rounding{% else %}Zaokrouhlení{% endif %}</td>
+    <td class="num">{{ rnd|number_format(2, ',', ' ') }} {{ currency }}</td>
+  </tr>
+  {% endif %}
+  <tr class="grand">
+    <td class="label">{% if locale == 'en' %}Total due{% else %}Celkem k úhradě{% endif %}</td>
+    <td class="num">{{ (totals.with_vat + rnd)|number_format(2, ',', ' ') }} {{ currency }}</td>
   </tr>
 </table>
 

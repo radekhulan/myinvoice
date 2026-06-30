@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Vygenerované PDF přijaté faktury („Náš PDF") nově zobrazuje zaokrouhlení.** Rekonstrukční PDF dokladu u faktur se zaokrouhlením ukazovalo v souhrnu jen „Celkem k úhradě" = základ + DPH, takže chybělo haléřové zaokrouhlení a částka k úhradě byla o haléře vedle skutečnosti. Nově se u dokladů se zaokrouhlením vypíše samostatný řádek **Zaokrouhlení** a „Celkem k úhradě" = celkem s DPH + zaokrouhlení (u dokladů bez zaokrouhlení beze změny).
 - **Import ISDOC u dokladů se zaokrouhlením — „k úhradě" nově sedí na doklad.** Přijatá faktura z ISDOC se zaokrouhlením „k úhradě" (typicky e-faktury z e-shopů) se dosud naimportovala s částkou k úhradě = přesný součet položek, takže `K úhradě` bylo o haléře vedle skutečné částky na dokladu (a nepárovalo se přesně s platbou v bance). Import nově čte z ISDOC `<LegalMonetaryTotal>/<PayableAmount>` a haléřový rozdíl uloží jako zaokrouhlení — stejně jako už dělá rozpoznávání z PDF přes AI. Příklad: doklad se základem+DPH 999,99 a zaokrouhlením +0,01 se nově naimportuje tak, že `K úhradě` = 1 000,00. Základ a DPH zůstávají nezměněné (správně pro přiznání DPH a kontrolní hlášení). Sémantika `amount_to_pay` se nemění — zaokrouhlení se i nadále vede mimo něj (pole *Zaokrouhlení*) a do „k úhradě" se promítá stejnou cestou jako u AI importu (QR, platební příkaz, PDF, UI).
 
 ## [4.43.2] — 2026-06-29
