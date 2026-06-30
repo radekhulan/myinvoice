@@ -93,6 +93,11 @@ final class InvoiceImportService
                         'content'  => $pkg['isdoc'],
                         'pdf'      => $pkg['pdf'],
                         'pdf_name' => $pkg['pdf_name'] ?? preg_replace('/\.isdocx?$/i', '.pdf', basename($f['name'])),
+                        // Zdrojový artefakt = ORIGINÁLNÍ .isdocx as-is (NEROZBALENÉ — zachová
+                        // podpis ZIP obálky; vnitřní .isdoc XML jde do `content` jen pro parsing).
+                        'source'        => $f['content'],
+                        'source_name'   => basename($f['name']),
+                        'source_format' => 'isdocx',
                     ];
                 } else {
                     // Nepodařilo se rozbalit → necháme na parseRaw čitelnou chybu.
@@ -117,6 +122,13 @@ final class InvoiceImportService
         foreach ($flat as $f) {
             $r = $this->parseRaw($f['name'], $f['content']);
             $entry = ['file' => $f['name']] + $r;
+            // Zdrojový artefakt: ISDOCX nese originál .isdocx z rozbalení (flat entry) —
+            // přebije `source` z parseRaw (ten viděl jen vnitřní .isdoc XML).
+            if (isset($f['source'])) {
+                $entry['source']        = $f['source'];
+                $entry['source_name']   = $f['source_name'] ?? null;
+                $entry['source_format'] = $f['source_format'] ?? null;
+            }
             $pdf     = $f['pdf'] ?? null;
             $pdfName = $f['pdf_name'] ?? null;
             if ($pdf === null && $this->isPdf($f['name'], $f['content']) && str_starts_with($f['content'], '%PDF')) {
@@ -163,7 +175,11 @@ final class InvoiceImportService
                     if ($route === 'issued') {
                         $r = $this->processOne($inv, $supplierId, $userId, $emailMap);
                     } elseif ($route === 'purchase') {
-                        $r = $this->processPurchase($inv, $supplierId, $userId, $entry['pdf'] ?? null, $entry['pdf_name'] ?? null);
+                        $r = $this->processPurchase(
+                            $inv, $supplierId, $userId,
+                            $entry['pdf'] ?? null, $entry['pdf_name'] ?? null,
+                            $entry['source'] ?? null, $entry['source_name'] ?? null, $entry['source_format'] ?? null,
+                        );
                     } else {
                         // 'reject' — ISDOC patří jinému plátci (neshoda IČO s tenantem)
                         $r = ['status' => 'failed', 'reason' => $route];
@@ -255,8 +271,16 @@ final class InvoiceImportService
      * @param string|null $pdfBytes Čitelné PDF k archivaci (ISDOCX balíček / nahrané PDF/A-3).
      * @return array<string,mixed>
      */
-    private function processPurchase(array $inv, int $supplierId, int $userId, ?string $pdfBytes = null, ?string $pdfName = null): array
-    {
+    private function processPurchase(
+        array $inv,
+        int $supplierId,
+        int $userId,
+        ?string $pdfBytes = null,
+        ?string $pdfName = null,
+        ?string $sourceBytes = null,
+        ?string $sourceName = null,
+        ?string $sourceFormat = null,
+    ): array {
         try {
             $r = $this->purchaseMapper->map($inv, $supplierId, $userId);
             // Čitelné PDF (z ISDOCX balíčku nebo nahraného PDF/A-3 s embedded ISDOC)
@@ -268,6 +292,17 @@ final class InvoiceImportService
                     $supplierId,
                     $pdfBytes,
                     $pdfName,
+                );
+            }
+            // Strojový ZDROJOVÝ artefakt (ISDOC/ISDOCX/Pohoda XML) → source_* (write-once,
+            // oddělený sources/ podstrom). Důkazní stopa s možností re-extrakce (issue #175).
+            if ($sourceBytes !== null && $sourceBytes !== '' && $sourceFormat !== null) {
+                $this->pdfArchiver->archiveSourceBytes(
+                    (int) $r['purchase_invoice_id'],
+                    $supplierId,
+                    $sourceBytes,
+                    $sourceName,
+                    $sourceFormat,
                 );
             }
             return [
@@ -290,6 +325,10 @@ final class InvoiceImportService
      */
     private function parseRaw(string $name, string $content): array
     {
+        // Zdrojový artefakt = originál nahraných bajtů as-is (ISDOCX přebije volající).
+        $sourceBytes  = $content;
+        $sourceName   = basename($name);
+        $sourceFormat = null;
         try {
             if ($this->isPdf($name, $content)) {
                 $extracted = $this->pdfIsdoc->extract($content);
@@ -297,11 +336,17 @@ final class InvoiceImportService
                     return ['error' => 'PDF neobsahuje ISDOC přílohu (PDF/A-3). Nahraj prosím .isdoc / .xml soubor, nebo PDF, který má ISDOC embed.'];
                 }
                 $content = $extracted;
+                // Embedded ISDOC v PDF/A-3 → zdroj je vytažený XML (PDF samotné jde do pdf_*).
+                $sourceBytes  = $extracted;
+                $sourceName   = preg_replace('/\.pdf$/i', '.isdoc', basename($name)) ?: basename($name);
+                $sourceFormat = 'isdoc';
             }
             $content = self::stripBom($content);
-            $parsed = self::looksLikeIsdoc($name, $content)
+            $isIsdoc = self::looksLikeIsdoc($name, $content);
+            $parsed = $isIsdoc
                 ? $this->isdoc->parse($content)
                 : $this->pohoda->parse($content);
+            $sourceFormat ??= ($isIsdoc ? 'isdoc' : 'pohoda_xml');
         } catch (\Throwable $e) {
             return ['error' => $e->getMessage()];
         }
@@ -316,7 +361,12 @@ final class InvoiceImportService
         }
         unset($inv);
 
-        return ['invoices' => $invoices];
+        return [
+            'invoices'      => $invoices,
+            'source'        => $sourceBytes,
+            'source_name'   => $sourceName,
+            'source_format' => $sourceFormat,
+        ];
     }
 
     /**

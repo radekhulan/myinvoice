@@ -82,6 +82,7 @@ use MyInvoice\Action\PurchaseInvoice\DismissExtractionWarningAction;
 use MyInvoice\Action\PurchaseInvoice\LinkAdvancePurchaseInvoiceAction;
 use MyInvoice\Action\PurchaseInvoice\UnlinkAdvancePurchaseInvoiceAction;
 use MyInvoice\Action\PurchaseInvoice\DownloadPurchaseInvoicePdfAction;
+use MyInvoice\Action\PurchaseInvoice\DownloadPurchaseInvoiceSourceAction;
 use MyInvoice\Action\PurchaseInvoice\OurPdfPurchaseInvoiceAction;
 use MyInvoice\Action\PurchaseInvoice\ExportPurchaseInvoiceAction;
 use MyInvoice\Action\PurchaseInvoice\ExportPurchaseInvoicesAction;
@@ -337,6 +338,7 @@ final class Routes
         $app->delete ('/api/purchase-invoices/{id:[0-9]+}/advance-suggestion', DismissAdvanceSuggestionAction::class);
         $app->post   ('/api/purchase-invoices/{id:[0-9]+}/pdf',            UploadPurchaseInvoicePdfAction::class);
         $app->get    ('/api/purchase-invoices/{id:[0-9]+}/pdf',            DownloadPurchaseInvoicePdfAction::class);
+        $app->get    ('/api/purchase-invoices/{id:[0-9]+}/source',         DownloadPurchaseInvoiceSourceAction::class);
         $app->delete ('/api/purchase-invoices/{id:[0-9]+}/pdf',            DeletePurchaseInvoicePdfAction::class);
         // Our generated PDF + Pohoda/ISDOC export pro přijatou
         $app->get    ('/api/purchase-invoices/{id:[0-9]+}/our-pdf',        OurPdfPurchaseInvoiceAction::class);

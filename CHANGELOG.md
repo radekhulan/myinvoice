@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Uchování strojového zdroje přijaté faktury (ISDOC/ISDOCX) — důkazní stopa.** Při importu přijaté faktury ze strukturovaného zdroje (`.isdoc`, `.isdocx`, nebo ISDOC vložený v PDF/A-3) se nově **trvale archivuje originální strojově čitelný doklad** vedle vizuálního PDF. Originál (často digitálně podepsaný) má pro audit a kontrolu z FÚ při 10leté archivační lhůtě vyšší hodnotu než PDF render a umožňuje zpětnou rekonstrukci dat. V detailu přijaté faktury přibyla akce **„Zdrojový doklad (ISDOC)"** ke stažení (jen je-li zdroj uložený). Bajty se ukládají as-is — `.isdocx` se NErozbaluje (zachová podpis ZIP obálky), embedded ISDOC v PDF se uloží jako vytažené XML. Zápis je write-once (originál se nikdy nepřepíše). Pokrývá dávkový import i nahrání přes dropzone/AI. Formát-agnostické (`source_format`), takže příští zdroje (Pohoda XML / iDoklad / Fakturoid) půjdou doplnit bez další migrace. (migrace 0123)
+
 ### Fixed
 
 - **Import ISDOC u dokladů se zaokrouhlením — „k úhradě" nově sedí na doklad.** Přijatá faktura z ISDOC se zaokrouhlením „k úhradě" (typicky e-faktury z e-shopů) se dosud naimportovala s částkou k úhradě = přesný součet položek, takže `K úhradě` bylo o haléře vedle skutečné částky na dokladu (a nepárovalo se přesně s platbou v bance). Import nově čte z ISDOC `<LegalMonetaryTotal>/<PayableAmount>` a haléřový rozdíl uloží jako zaokrouhlení — stejně jako už dělá rozpoznávání z PDF přes AI. Příklad: doklad se základem+DPH 999,99 a zaokrouhlením +0,01 se nově naimportuje tak, že `K úhradě` = 1 000,00. Základ a DPH zůstávají nezměněné (správně pro přiznání DPH a kontrolní hlášení). Sémantika `amount_to_pay` se nemění — zaokrouhlení se i nadále vede mimo něj (pole *Zaokrouhlení*) a do „k úhradě" se promítá stejnou cestou jako u AI importu (QR, platební příkaz, PDF, UI).

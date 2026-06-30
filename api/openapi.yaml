@@ -6549,6 +6549,12 @@ components:
         pdf_size_bytes: { type: integer, nullable: true }
         pdf_original_name: { type: string, nullable: true }
         pdf_uploaded_at: { type: string, format: date-time, nullable: true }
+        source_path: { type: string, nullable: true, description: "Relative path to machine-readable source artifact within archive_storage (sources/ subtree)" }
+        source_hash: { type: string, nullable: true, description: "SHA-256 hex of source artifact" }
+        source_size_bytes: { type: integer, nullable: true }
+        source_original_name: { type: string, nullable: true }
+        source_format: { type: string, nullable: true, enum: [isdoc, isdocx, pdf, pohoda_xml, idoklad_json, fakturoid_json], description: "Format of the archived authoritative source document" }
+        source_uploaded_at: { type: string, format: date-time, nullable: true }
         vat_classification_code: { type: string, nullable: true }
         vat_overrides:
           type: array

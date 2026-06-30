@@ -471,6 +471,8 @@ const purchaseActions = computed<ActionItem[]>(() => {
 
   items.push({ key: 'orig', label: t('purchase_invoice.pdf.download_original'), icon: 'doc', tier: 'overflow', variant: 'neutral',
     show: !!inv.pdf_path, href: purchaseInvoicesApi.pdfUrl(inv.id) })
+  items.push({ key: 'source', label: t('purchase_invoice.source.download'), icon: 'inbox', tier: 'overflow', variant: 'neutral',
+    show: !!inv.source_format, href: purchaseInvoicesApi.sourceUrl(inv.id) })
   items.push({ key: 'exp-pdf', label: t('purchase_invoice.export.our_pdf'), icon: 'doc', tier: 'overflow', variant: 'neutral',
     href: purchaseInvoicesApi.ourPdfUrl(inv.id) })
   items.push({ key: 'exp-isdoc', label: t('purchase_invoice.export.isdoc'), icon: 'inbox', tier: 'overflow', variant: 'primary',

@@ -43,9 +43,9 @@ final class PurchaseInvoicePdfArchiver
      * `supplier-{id}/{2}/{16}.pdf`. Jediný zdroj pravdy pro layout; používají ji VŠECHNY
      * cesty zapisující do purchase-invoices / invoices-imported úložiště.
      */
-    public static function shardedRelPath(int $supplierId, string $hash): string
+    public static function shardedRelPath(int $supplierId, string $hash, string $ext = 'pdf'): string
     {
-        return 'supplier-' . $supplierId . '/' . substr($hash, 0, 2) . '/' . substr($hash, 0, 16) . '.pdf';
+        return 'supplier-' . $supplierId . '/' . substr($hash, 0, 2) . '/' . substr($hash, 0, 16) . '.' . ltrim($ext, '.');
     }
 
     /**
@@ -118,6 +118,72 @@ final class PurchaseInvoicePdfArchiver
         } catch (\Throwable) {
             // Silent.
         }
+    }
+
+    /** Přípona souboru na disku pro daný source_format (strojový originál). */
+    private const SOURCE_EXT = [
+        'isdoc'          => 'isdoc',
+        'isdocx'         => 'isdocx',
+        'pdf'            => 'pdf',
+        'pohoda_xml'     => 'xml',
+        'idoklad_json'   => 'json',
+        'fakturoid_json' => 'json',
+    ];
+
+    /**
+     * Uloží ZDROJOVÝ artefakt (strojově čitelný originál — ISDOC/ISDOCX/Pohoda XML/…)
+     * přijaté faktury do odděleného `sources/` podstromu archivu + zapíše `source_*`
+     * metadata (write-once přes {@see PurchaseInvoiceRepository::setSourceMetadata}).
+     *
+     * Bajty se ukládají AS-IS — u `.isdocx` NEROZBALENÉ (zachová podpis ZIP obálky),
+     * u embedded ISDOC v PDF/A-3 vytažený XML. Magic-byte sanity check dle formátu,
+     * ať se neuloží podvržený obsah. Silent-fail jako PDF archivace (import přednější).
+     *
+     * @param string $format Hodnota ENUM `source_format` (isdoc/isdocx/pdf/pohoda_xml/…).
+     */
+    public function archiveSourceBytes(int $invoiceId, int $supplierId, string $bytes, ?string $originalName, string $format): void
+    {
+        $ext = self::SOURCE_EXT[$format] ?? null;
+        if ($bytes === '' || $ext === null || !self::sourceMagicOk($format, $bytes)) {
+            return;
+        }
+        try {
+            $contentSha = hash('sha256', $bytes);
+            $rel = 'sources/' . self::shardedRelPath($supplierId, $contentSha, $ext);
+            $abs = rtrim($this->archiveRoot(), '/\\') . DIRECTORY_SEPARATOR
+                 . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+            $dir = dirname($abs);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            if (!is_file($abs)) {
+                @file_put_contents($abs, $bytes);
+            }
+            $this->repo->setSourceMetadata(
+                $invoiceId,
+                $supplierId,
+                $rel,
+                $contentSha,
+                (int) @filesize($abs),
+                $originalName ?: ('source.' . $ext),
+                $format,
+            );
+        } catch (\Throwable) {
+            // Silent — úspěšný import faktury je důležitější než archivace zdroje.
+        }
+    }
+
+    /** Magic-byte sanity check podle formátu (ať se neuloží podvržený obsah). */
+    private static function sourceMagicOk(string $format, string $bytes): bool
+    {
+        $head = substr($bytes, 0, 64);
+        return match ($format) {
+            'isdoc', 'pohoda_xml'            => str_contains($head, '<'),
+            'isdocx'                         => str_starts_with($bytes, "PK\x03\x04"),
+            'pdf'                            => str_starts_with($bytes, '%PDF'),
+            'idoklad_json', 'fakturoid_json' => str_contains($head, '{') || str_contains($head, '['),
+            default                          => false,
+        };
     }
 
     /** Adresář archivu pro tenanta (vytvoří ho, pokud chybí). */

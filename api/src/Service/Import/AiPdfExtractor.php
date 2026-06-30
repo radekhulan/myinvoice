@@ -66,7 +66,8 @@ final class AiPdfExtractor
         if (IsdocxExtractor::isZip($pdfBytes)) {
             $pkg = (new IsdocxExtractor())->unwrap($pdfBytes);
             if ($pkg !== null) {
-                return $this->createFromIsdocx($pkg, $supplierId, $userId, $originalFilename);
+                // $pdfBytes = ORIGINÁLNÍ .isdocx (předáme dál k archivaci as-is).
+                return $this->createFromIsdocx($pkg, $supplierId, $userId, $originalFilename, $pdfBytes);
             }
         }
 
@@ -110,6 +111,13 @@ final class AiPdfExtractor
                     $r = $this->isdocMapper->map($parsed['invoices'][0], $supplierId, $userId);
                     // Attach PDF k vytvořené přijaté faktuře
                     $this->attachPdf((int) $r['purchase_invoice_id'], $supplierId, $pdfBytes, $originalFilename);
+                    // Zdrojový artefakt = vytažený ISDOC XML (embedded v PDF/A-3) — issue #175.
+                    $srcName = ($originalFilename !== null && $originalFilename !== '')
+                        ? preg_replace('/\.[^.\\/]+$/', '.isdoc', $originalFilename)
+                        : 'source.isdoc';
+                    $this->pdfArchiver->archiveSourceBytes(
+                        (int) $r['purchase_invoice_id'], $supplierId, $isdocXml, $srcName, 'isdoc',
+                    );
                     return [
                         'ok'                  => true,
                         'purchase_invoice_id' => $r['purchase_invoice_id'],
@@ -267,7 +275,7 @@ final class AiPdfExtractor
      * @param array{isdoc:string, isdoc_name:string, pdf:?string, pdf_name:?string} $pkg
      * @return array{ok:bool, purchase_invoice_id?:int, vendor_id?:int, source:string, error?:string, duplicate?:bool, message?:string}
      */
-    private function createFromIsdocx(array $pkg, int $supplierId, int $userId, ?string $originalFilename): array
+    private function createFromIsdocx(array $pkg, int $supplierId, int $userId, ?string $originalFilename, ?string $isdocxBytes = null): array
     {
         $innerPdf = $pkg['pdf'];
 
@@ -308,6 +316,15 @@ final class AiPdfExtractor
                     : null)
                 ?: 'isdocx-imported.pdf';
             $this->attachPdf((int) $r['purchase_invoice_id'], $supplierId, $innerPdf, $pdfName);
+        }
+
+        // Zdrojový artefakt = ORIGINÁLNÍ .isdocx as-is (NEROZBALENÉ — zachová podpis ZIP
+        // obálky). Write-once přes source_* (issue #175).
+        if ($isdocxBytes !== null && $isdocxBytes !== '') {
+            $this->pdfArchiver->archiveSourceBytes(
+                (int) $r['purchase_invoice_id'], $supplierId, $isdocxBytes,
+                $originalFilename ?: 'source.isdocx', 'isdocx',
+            );
         }
 
         return [

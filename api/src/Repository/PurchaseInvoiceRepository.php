@@ -1587,6 +1587,21 @@ final class PurchaseInvoiceRepository
     }
 
     /**
+     * Zápis metadat ZDROJOVÉHO artefaktu (strojový originál — ISDOC/ISDOCX/…).
+     * Write-once: `AND source_path IS NULL` zaručí, že re-import / re-extrakce
+     * nepřepíše evidenční stopu (kterou už jednou uloženou nesmíme měnit).
+     */
+    public function setSourceMetadata(int $id, int $supplierId, string $path, string $hash, int $size, ?string $originalName, string $format): void
+    {
+        $this->db->pdo()->prepare(
+            'UPDATE purchase_invoices
+                SET source_path = ?, source_hash = ?, source_size_bytes = ?, source_original_name = ?,
+                    source_format = ?, source_uploaded_at = NOW()
+              WHERE id = ? AND supplier_id = ? AND source_path IS NULL'
+        )->execute([$path, $hash, $size, $originalName, $format, $id, $supplierId]);
+    }
+
+    /**
      * Update totals na úrovni jedné položky (volá Calculator).
      */
     public function updateItemTotals(int $itemId, float $withoutVat, float $vatAmount, float $withVat): void

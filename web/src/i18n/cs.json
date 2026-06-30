@@ -515,6 +515,9 @@
       "duplicate": "Stejný PDF dokument už je archivován u jiné faktury.",
       "upload_error": "Nahrání selhalo: {error}"
     },
+    "source": {
+      "download": "Zdrojový doklad (ISDOC)"
+    },
     "extraction": {
       "isdoc_found": "Z PDF jsem rozpoznal ISDOC. Pole jsou předvyplněna z přílohy.",
       "ai_pending": "Toto PDF neobsahuje ISDOC. Vyplň pole ručně, nebo použij AI extrakci v Externí integrace → AI.",

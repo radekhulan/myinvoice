@@ -168,6 +168,13 @@ export interface PurchaseInvoice {
   pdf_size_bytes: number | null
   pdf_original_name: string | null
   pdf_uploaded_at: string | null
+  /** Strojově čitelný zdrojový originál (ISDOC/ISDOCX/…) — důkazní stopa. */
+  source_path: string | null
+  source_hash: string | null
+  source_size_bytes: number | null
+  source_original_name: string | null
+  source_format: 'isdoc' | 'isdocx' | 'pdf' | 'pohoda_xml' | 'idoklad_json' | 'fakturoid_json' | null
+  source_uploaded_at: string | null
   vat_classification_code: string | null
   expense_category_id: number | null
   /** Název + kód kategorie nákladu (join z expense_categories, jen v detailu). */
@@ -473,6 +480,14 @@ export const purchaseInvoicesApi = {
     if (inline) params.set('inline', '1')
     const qs = params.toString()
     return `/api/purchase-invoices/${id}/pdf${qs ? '?' + qs : ''}`
+  },
+  /** URL ke stažení strojového zdrojového originálu (ISDOC/ISDOCX/…) — vždy attachment. */
+  sourceUrl: (id: number) => {
+    const sid = localStorage.getItem('myinvoice.current_supplier_id')
+    const params = new URLSearchParams()
+    if (sid && /^\d+$/.test(sid)) params.set('supplier_id', sid)
+    const qs = params.toString()
+    return `/api/purchase-invoices/${id}/source${qs ? '?' + qs : ''}`
   },
 
   /** Naše vygenerované PDF (mPDF z dat). Když nemáme originál nebo chceme vlastní layout. */
