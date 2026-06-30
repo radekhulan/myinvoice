@@ -5,6 +5,12 @@ All notable changes to MyInvoice.cz are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Import ISDOC u dokladů se zaokrouhlením — „k úhradě" nově sedí na doklad.** Přijatá faktura z ISDOC se zaokrouhlením „k úhradě" (typicky e-faktury z e-shopů) se dosud naimportovala s částkou k úhradě = přesný součet položek, takže `K úhradě` bylo o haléře vedle skutečné částky na dokladu (a nepárovalo se přesně s platbou v bance). Import nově čte z ISDOC `<LegalMonetaryTotal>/<PayableAmount>` a haléřový rozdíl uloží jako zaokrouhlení — stejně jako už dělá rozpoznávání z PDF přes AI. Příklad: doklad se základem+DPH 999,99 a zaokrouhlením +0,01 se nově naimportuje s `K úhradě` = 1 000,00. Základ a DPH zůstávají nezměněné (správně pro přiznání DPH a kontrolní hlášení). Zároveň `K úhradě` napříč fakturami (vydanými i přijatými) teď zahrnuje pole *Zaokrouhlení* — beze změny u dosavadních dokladů (ty mají zaokrouhlení nulové). (migrace 0123)
+
 ## [4.43.2] — 2026-06-29
 
 ### Fixed

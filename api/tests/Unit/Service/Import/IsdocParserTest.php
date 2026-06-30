@@ -92,6 +92,31 @@ XML;
         self::assertSame(21.0, $inv['items'][0]['vat_rate']);
     }
 
+    public function testPayableAmountNullWhenNoMonetaryTotal(): void
+    {
+        $inv = $this->parser->parse($this->minimalIsdoc())['invoices'][0];
+        self::assertNull($inv['payable_amount'], 'bez <LegalMonetaryTotal> je payable_amount null');
+    }
+
+    public function testExtractsPayableAmountWithRounding(): void
+    {
+        // Doklad se zaokrouhlením: základ+DPH 999,99, k úhradě po zaokrouhlení
+        // 1000,00 (PayableRoundingAmount +0,01). Parser musí vrátit 1000,00.
+        $monetary = <<<XML
+  <LegalMonetaryTotal>
+    <TaxExclusiveAmount>826.44</TaxExclusiveAmount>
+    <TaxInclusiveAmount>999.99</TaxInclusiveAmount>
+    <PayableRoundingAmount>0.01</PayableRoundingAmount>
+    <PaidDepositsAmount>0</PaidDepositsAmount>
+    <PayableAmount>1000.00</PayableAmount>
+  </LegalMonetaryTotal>
+
+XML;
+        $xml = str_replace('</Invoice>', $monetary . '</Invoice>', $this->minimalIsdoc());
+        $inv = $this->parser->parse($xml)['invoices'][0];
+        self::assertSame(1000.0, $inv['payable_amount'], 'payable_amount = PayableAmount (k úhradě po zaokrouhlení)');
+    }
+
     public function testPaymentAccountAbsentWhenOnlyDueDate(): void
     {
         $inv = $this->parser->parse($this->minimalIsdoc())['invoices'][0];

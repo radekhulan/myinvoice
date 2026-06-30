@@ -160,12 +160,49 @@ final class IsdocToPurchaseInvoiceMapper
             isset($parsed['exchange_rate']) ? (float) $parsed['exchange_rate'] : null,
         );
 
+        // Zaokrouhlení „k úhradě" z ISDOC <LegalMonetaryTotal>/<PayableAmount>.
+        // Až po recompute/seederu/ČNB (kdy je total_with_vat finální).
+        $this->applyRoundingFromPayable($id, $supplierId, $parsed, $payload['document_kind'] === 'credit_note');
+
         return [
             'purchase_invoice_id' => $id,
             'vendor_id'           => $resolved['id'],
             'vendor_created'      => $resolved['created'],
             'duplicate'           => false,
         ];
+    }
+
+    /**
+     * Uloží haléřové zaokrouhlení „k úhradě" z ISDOC <PayableAmount> jako rounding offset.
+     *
+     * Doklad nese přesnou částku k úhradě (už po <PayableRoundingAmount>); rozdíl proti
+     * našemu deterministickému součtu položek (`total_with_vat`) = zaokrouhlení dodavatele.
+     * Uloží se jen haléřový rozdíl (< 1 Kč), aby se nezapekla skutečná nesrovnalost dokladu.
+     * Zrcadlí AiPdfExtractor::applyRoundingFromPdfTotal (PDF cesta), aby ISDOC i AI import
+     * skončily se stejným amount_to_pay. `total_with_vat` zůstává základ+DPH (pro DPH/KH).
+     *
+     * @param array<string,mixed> $parsed
+     */
+    private function applyRoundingFromPayable(int $id, int $supplierId, array $parsed, bool $isCredit): void
+    {
+        $payable = isset($parsed['payable_amount']) && $parsed['payable_amount'] !== null
+            ? abs((float) $parsed['payable_amount'])
+            : null;
+        if ($payable === null || $payable === 0.0) return;
+
+        $current = $this->repo->find($id, $supplierId);
+        if ($current === null) return;
+        $exactTotal = abs((float) ($current['total_with_vat'] ?? 0));
+        if ($exactTotal === 0.0) return;
+
+        $diff = round($payable - $exactTotal, 2);
+        if (abs($diff) > 0.0 && abs($diff) < 1.0) {
+            try {
+                $this->repo->setRounding($id, $supplierId, $isCredit ? -1.0 * $diff : $diff);
+            } catch (\Throwable) {
+                // rounding je „nice to have" — faktura je vytvořená správně i bez něj.
+            }
+        }
     }
 
     private function fetchTenantIc(int $supplierId): ?string
