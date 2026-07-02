@@ -4,11 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { adminApi, type AdminUser } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
+import { useSupplierStore } from '@/stores/supplier'
 import { useToast } from '@/composables/useToast'
 import { useHotkey } from '@/composables/useHotkey'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const supplierStore = useSupplierStore()
 const toast = useToast()
 
 const users = ref<AdminUser[]>([])
@@ -31,6 +33,7 @@ const form = reactive({
   locale: 'cs' as 'cs' | 'en',
   is_active: true,
   password: '',
+  supplier_ids: [] as number[],
 })
 
 async function load() {
@@ -41,12 +44,20 @@ async function load() {
 onMounted(load)
 
 function openCreate() {
-  Object.assign(form, { id: null, email: '', name: '', role: 'readonly', locale: 'cs', is_active: true, password: '' })
+  Object.assign(form, { id: null, email: '', name: '', role: 'readonly', locale: 'cs', is_active: true, password: '', supplier_ids: [] })
   showForm.value = true
 }
 function openEdit(u: AdminUser) {
-  Object.assign(form, { id: u.id, email: u.email, name: u.name, role: u.role, locale: u.locale, is_active: u.is_active, password: '' })
+  Object.assign(form, { id: u.id, email: u.email, name: u.name, role: u.role, locale: u.locale, is_active: u.is_active, password: '', supplier_ids: [...(u.supplier_ids ?? [])] })
   showForm.value = true
+}
+
+function supplierSummary(u: AdminUser): string {
+  if (u.role === 'admin' || !u.supplier_ids?.length) return t('users.suppliers_all')
+  return supplierStore.availableSuppliers
+    .filter(s => u.supplier_ids.includes(s.id))
+    .map(s => s.company_name)
+    .join(', ') || String(u.supplier_ids.length)
 }
 
 async function save() {
@@ -67,10 +78,12 @@ async function save() {
       if (!form.password) { error.value = t('users.password_required'); return }
       await adminApi.createUser({
         email: form.email, name: form.name, role: form.role, locale: form.locale, password: form.password,
+        supplier_ids: form.role === 'admin' ? [] : form.supplier_ids,
       })
     } else {
       const payload: Record<string, unknown> = {
         name: form.name, role: form.role, locale: form.locale, is_active: form.is_active,
+        supplier_ids: form.role === 'admin' ? [] : form.supplier_ids,
       }
       if (form.password) payload.password = form.password
       await adminApi.updateUser(form.id, payload)
@@ -128,6 +141,7 @@ function roleBadge(role: string): string {
             <th class="px-3 py-2 text-left font-medium">{{ t('users.name') }}</th>
             <th class="px-3 py-2 text-center font-medium">Role</th>
             <th class="px-3 py-2 text-center font-medium">{{ t('users.locale') }}</th>
+            <th class="px-3 py-2 text-left font-medium">{{ t('users.suppliers_column') }}</th>
             <th class="px-3 py-2 text-center font-medium">{{ t('users.active') }}</th>
             <th class="px-3 py-2 text-left font-medium">{{ t('users.last_login') }}</th>
             <th class="px-3 py-2 w-32"></th>
@@ -142,6 +156,7 @@ function roleBadge(role: string): string {
               <span v-if="isLastAdmin(u)" class="ml-1 text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-600" :title="t('users.is_last_admin_lock')">🔒</span>
             </td>
             <td class="px-3 py-2 text-center text-xs">{{ u.locale }}</td>
+            <td class="px-3 py-2 text-xs text-neutral-600 max-w-48 truncate" :title="supplierSummary(u)">{{ supplierSummary(u) }}</td>
             <td class="px-3 py-2 text-center">
               <span v-if="u.is_active" class="text-success-600">✓</span>
               <span v-else class="text-neutral-400">—</span>
@@ -234,6 +249,19 @@ function roleBadge(role: string): string {
                 <option value="en">en</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('users.suppliers_label') }}</label>
+            <p v-if="form.role === 'admin'" class="text-xs text-neutral-500">{{ t('users.suppliers_admin_all') }}</p>
+            <template v-else>
+              <div class="max-h-40 overflow-y-auto border border-neutral-300 rounded-md p-2 space-y-1">
+                <label v-for="s in supplierStore.availableSuppliers" :key="s.id" class="flex items-center gap-2 text-sm">
+                  <input v-model="form.supplier_ids" type="checkbox" :value="s.id" class="rounded border-neutral-300 text-primary-600" />
+                  {{ s.company_name }}
+                </label>
+              </div>
+              <p class="text-xs text-neutral-500 mt-1">{{ t('users.suppliers_hint') }}</p>
+            </template>
           </div>
           <div v-if="form.id !== null">
             <label class="flex items-center gap-2 text-sm">

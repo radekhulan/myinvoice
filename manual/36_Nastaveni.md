@@ -163,6 +163,7 @@ Tabulka uživatelů, kteří se mohou přihlásit. Tlačítko **+ Nový uživate
 | Heslo | Min. 12 znaků |
 | Role | `admin` / `accountant` / `readonly` |
 | Jazyk | `cs` / `en` |
+| Povolení dodavatelé | Omezení uživatele na vybrané firmy (viz § 36.2.3) |
 | Aktivní | Vypnutý uživatel nemůže se přihlásit |
 
 ### 36.2.2 Role
@@ -180,6 +181,18 @@ Tabulka uživatelů, kteří se mohou přihlásit. Tlačítko **+ Nový uživate
 > 🛈 Systém má **guard proti odebrání posledního aktivního admina** — pokud
 > jsi sám admin a zkusíš si snížit roli, vrátí 409. Musí být minimálně 1
 > admin v systému.
+
+### 36.2.3 Povolení dodavatelé
+
+U rolí `accountant` a `readonly` lze uživatele omezit na vybrané dodavatele
+(firmy). Omezený uživatel vidí v přepínači firem jen povolené dodavatele a
+k datům ostatních firem se nedostane ani přímým API voláním (server vrací 403).
+
+- **Žádný výběr = přístup ke všem dodavatelům** (výchozí chování, stávajících
+  uživatelů se nic nemění).
+- Role **admin** vidí vždy všechny dodavatele — případný výběr se na ni
+  neaplikuje.
+- Při smazání dodavatele nebo uživatele se přiřazení uklidí automaticky.
 
 ## 36.3 Můj profil
 

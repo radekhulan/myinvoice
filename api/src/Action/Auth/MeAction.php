@@ -12,6 +12,7 @@ use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Repository\PasskeyCredentialRepository;
 use MyInvoice\Service\Auth\MfaPolicyService;
 use MyInvoice\Service\Auth\SessionLockPolicy;
+use MyInvoice\Service\Auth\UserSupplierAccess;
 use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -25,6 +26,7 @@ final class MeAction
         private readonly MfaPolicyService $mfaPolicy,
         private readonly SessionLockPolicy $lockPolicy,
         private readonly ClockInterface $clock,
+        private readonly UserSupplierAccess $access,
     ) {}
 
     public function __invoke(Request $request, Response $response): Response
@@ -62,6 +64,16 @@ final class MeAction
             // Děkovný e-mail (issue #57) — UI v mark-paid modalu podle nich zobrazí checkbox.
             $s['payment_thanks_enabled']         = (bool) ($s['payment_thanks_enabled'] ?? false);
             $s['payment_thanks_default_checked'] = (bool) ($s['payment_thanks_default_checked'] ?? false);
+        }
+        unset($s);
+
+        // Omezený uživatel dostane do switcheru jen povolené dodavatele.
+        $allowed = $this->access->allowedIdsForUser($user);
+        if ($allowed !== null) {
+            $suppliers = array_values(array_filter(
+                $suppliers,
+                static fn (array $s): bool => in_array($s['id'], $allowed, true),
+            ));
         }
 
         $totpEnabled  = (bool) ($user['totp_enabled'] ?? false);

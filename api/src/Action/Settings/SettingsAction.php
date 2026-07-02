@@ -39,6 +39,7 @@ final class SettingsAction
         private readonly InvoicePdfRenderer $pdf,
         private readonly Config $config,
         private readonly \MyInvoice\Service\Ares\SupplierRegistryEnricher $enricher,
+        private readonly \MyInvoice\Service\Auth\UserSupplierAccess $access,
     ) {}
 
     /** Aktuální supplier (z X-Supplier-Id middleware). */
@@ -73,13 +74,36 @@ final class SettingsAction
             $r['clients_count']  = (int) $r['clients_count'];
             $r['invoices_count'] = (int) $r['invoices_count'];
         }
+        unset($r);
+
+        // Omezený uživatel vidí jen povolené dodavatele.
+        $allowed = $this->allowedIdsFor($request);
+        if ($allowed !== null) {
+            $rows = array_values(array_filter(
+                $rows,
+                static fn (array $r): bool => in_array($r['id'], $allowed, true),
+            ));
+        }
         return Json::ok($response, $rows);
     }
 
     /** GET /api/suppliers/{id}. */
     public function getSupplierById(Request $request, Response $response, array $args): Response
     {
-        return $this->respondSupplier($response, (int) ($args['id'] ?? 0));
+        $id = (int) ($args['id'] ?? 0);
+        // Dodavatel mimo povolený set = jako by neexistoval (404, neleakovat existenci).
+        $allowed = $this->allowedIdsFor($request);
+        if ($allowed !== null && !in_array($id, $allowed, true)) {
+            return Json::error($response, 'not_found', 'Supplier nenalezen.', 404);
+        }
+        return $this->respondSupplier($response, $id);
+    }
+
+    /** Povolená supplier_id přihlášeného uživatele; null = bez omezení. */
+    private function allowedIdsFor(Request $request): ?array
+    {
+        $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
+        return $user === [] ? null : $this->access->allowedIdsForUser($user);
     }
 
     /** POST /api/suppliers — nový supplier (admin). */
@@ -484,6 +508,11 @@ final class SettingsAction
             try {
                 $pdo->prepare('DELETE FROM invoice_counters WHERE supplier_id = ?')->execute([$id]);
                 $pdo->prepare('DELETE FROM currencies WHERE supplier_id = ?')->execute([$id]);
+                // Přiřazení uživatelů mažeme ručně: ON DELETE CASCADE se s vypnutou
+                // FOREIGN_KEY_CHECKS neprovede a osiřelý řádek by omezenému uživateli
+                // nechal v setu neexistujícího dodavatele — fallback MIN(povolených)
+                // by pak ukazoval na smazanou firmu a uživatel by se zamknul.
+                $pdo->prepare('DELETE FROM user_supplier_access WHERE supplier_id = ?')->execute([$id]);
                 $pdo->prepare('DELETE FROM supplier WHERE id = ?')->execute([$id]);
             } finally {
                 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');

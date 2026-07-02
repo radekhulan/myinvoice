@@ -10,6 +10,7 @@ use MyInvoice\Middleware\AuthMiddleware;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\Auth\PasswordHasher;
 use MyInvoice\Service\Auth\SessionManager;
+use MyInvoice\Service\Auth\UserSupplierAccess;
 use MyInvoice\Service\IpMatcher;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -31,6 +32,7 @@ final class UserAdminAction
         private readonly IpMatcher $ipMatcher,
         private readonly PasswordHasher $hasher,
         private readonly SessionManager $sessions,
+        private readonly UserSupplierAccess $access,
     ) {}
 
     public function list(Request $request, Response $response): Response
@@ -44,9 +46,12 @@ final class UserAdminAction
             throw new \RuntimeException('Seznam uživatelů se nepodařilo načíst.');
         }
         $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+        $supplierMap = $this->access->idsByUser();
         foreach ($rows as &$r) {
             $r['id'] = (int) $r['id'];
             $r['is_active'] = (bool) $r['is_active'];
+            // Povolení dodavatelé; [] = bez omezení (vidí vše)
+            $r['supplier_ids'] = $supplierMap[$r['id']] ?? [];
         }
         return Json::ok($response, $rows);
     }
@@ -70,6 +75,11 @@ final class UserAdminAction
         } catch (\InvalidArgumentException $e) {
             return Json::error($response, 'validation_failed', $e->getMessage(), 400);
         }
+        // Volitelné omezení na dodavatele ([] = bez omezení)
+        $supplierIds = $this->normalizeSupplierIds($body['supplier_ids'] ?? []);
+        if ($supplierIds === null) {
+            return Json::error($response, 'validation_failed', 'Neplatné supplier_ids.', 400);
+        }
 
         $hash = $this->hasher->hash($password);
         try {
@@ -85,7 +95,10 @@ final class UserAdminAction
             throw $e;
         }
         $id = (int) $this->db->pdo()->lastInsertId();
-        $this->log($request, 'user.created', $id, ['email' => $email, 'role' => $role]);
+        if ($supplierIds !== []) {
+            $this->access->replaceForUser($id, $supplierIds);
+        }
+        $this->log($request, 'user.created', $id, ['email' => $email, 'role' => $role, 'supplier_ids' => $supplierIds]);
         return Json::ok($response, $this->fetchUser($id), 201);
     }
 
@@ -133,7 +146,15 @@ final class UserAdminAction
             $sets[] = 'password_hash = ?';
             $params[] = $this->hasher->hash((string) $body['password']);
         }
-        if (empty($sets)) return Json::ok($response, $row);
+        // Přiřazení dodavatelů se mění nezávisle na sloupcích tabulky users
+        $supplierIds = null;
+        if (array_key_exists('supplier_ids', $body)) {
+            $supplierIds = $this->normalizeSupplierIds($body['supplier_ids']);
+            if ($supplierIds === null) {
+                return Json::error($response, 'validation_failed', 'Neplatné supplier_ids.', 400);
+            }
+        }
+        if (empty($sets) && $supplierIds === null) return Json::ok($response, $row);
 
         // Guard: nesmí dojít k odebrání posledního aktivního admina
         $willBeAdmin = isset($body['role']) ? ($body['role'] === 'admin') : ($row['role'] === 'admin');
@@ -143,9 +164,15 @@ final class UserAdminAction
             return Json::error($response, 'last_admin', 'Nelze odebrat admin roli ani deaktivovat posledního aktivního admina.', 409);
         }
 
-        $params[] = $id;
-        $sql = 'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = ?';
-        $this->db->pdo()->prepare($sql)->execute($params);
+        // $sets může být prázdné, když přišlo JEN supplier_ids (samostatná změna oprávnění).
+        if (!empty($sets)) {
+            $params[] = $id;
+            $sql = 'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = ?';
+            $this->db->pdo()->prepare($sql)->execute($params);
+        }
+        if ($supplierIds !== null) {
+            $this->access->replaceForUser($id, $supplierIds);
+        }
         $mustRevokeSessions = !empty($body['password'])
             || (array_key_exists('is_active', $body) && !(bool) $body['is_active']);
         if ($mustRevokeSessions) {
@@ -215,7 +242,33 @@ final class UserAdminAction
         if (!$r) return null;
         $r['id'] = (int) $r['id'];
         $r['is_active'] = (bool) $r['is_active'];
+        $r['supplier_ids'] = $this->access->allowedIds($id) ?? [];
         return $r;
+    }
+
+    /**
+     * Validace `supplier_ids` z body — pole id existujících dodavatelů;
+     * `[]` = zrušení omezení (uživatel opět vidí všechny). Vrací null při
+     * nevalidním vstupu (volající pak odpoví 422).
+     *
+     * @return list<int>|null
+     */
+    private function normalizeSupplierIds(mixed $raw): ?array
+    {
+        if (!is_array($raw)) return null;
+        $ids = [];
+        foreach ($raw as $v) {
+            if (!is_int($v) && !(is_string($v) && ctype_digit($v))) return null;
+            if ((int) $v <= 0) return null;
+            $ids[] = (int) $v;
+        }
+        $ids = array_values(array_unique($ids));
+        if ($ids === []) return [];
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->pdo()->prepare("SELECT COUNT(*) FROM supplier WHERE id IN ($in)");
+        $stmt->execute($ids);
+        if ((int) $stmt->fetchColumn() !== count($ids)) return null;
+        return $ids;
     }
 
     /**

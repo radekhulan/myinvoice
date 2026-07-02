@@ -12,6 +12,7 @@ use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Repository\PasskeyCredentialRepository;
 use MyInvoice\Service\Auth\MfaPolicyService;
 use MyInvoice\Service\Auth\SessionLockPolicy;
+use MyInvoice\Service\Auth\UserSupplierAccess;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -53,6 +54,9 @@ final class MeActionTest extends TestCase
                 'allowed_mfa_methods' => ['passkey', 'totp'],
             ],
         ]);
+        // Admin bez omezení na dodavatele → allowedIdsForUser vrací null (vidí vše).
+        $access = $this->createMock(UserSupplierAccess::class);
+        $access->method('allowedIdsForUser')->willReturn(null);
         $action = new MeAction(
             $db,
             $config,
@@ -60,6 +64,7 @@ final class MeActionTest extends TestCase
             new MfaPolicyService($config),
             new SessionLockPolicy($config),
             $clock,
+            $access,
         );
         $request = (new ServerRequestFactory())
             ->createServerRequest('GET', '/api/auth/me')

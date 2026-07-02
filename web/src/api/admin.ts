@@ -130,6 +130,8 @@ export interface AdminUser {
   is_active: boolean
   created_at: string
   last_login_at: string | null
+  /** Povolení dodavatelé; [] = bez omezení (vidí vše) */
+  supplier_ids: number[]
 }
 
 export const adminApi = {
@@ -150,9 +152,9 @@ export const adminApi = {
 
   // Users
   listUsers: () => api.get<AdminUser[]>('/admin/users').then(r => r.data),
-  createUser: (payload: { email: string; name: string; role: AdminUser['role']; locale?: 'cs' | 'en'; password: string }) =>
+  createUser: (payload: { email: string; name: string; role: AdminUser['role']; locale?: 'cs' | 'en'; password: string; supplier_ids?: number[] }) =>
     api.post<AdminUser>('/admin/users', payload).then(r => r.data),
-  updateUser: (id: number, payload: Partial<{ name: string; role: AdminUser['role']; locale: 'cs' | 'en'; is_active: boolean; password: string }>) =>
+  updateUser: (id: number, payload: Partial<{ name: string; role: AdminUser['role']; locale: 'cs' | 'en'; is_active: boolean; password: string; supplier_ids: number[] }>) =>
     api.put<AdminUser>(`/admin/users/${id}`, payload).then(r => r.data),
   deleteUser: (id: number) => api.delete(`/admin/users/${id}`),
 
