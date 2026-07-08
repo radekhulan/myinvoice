@@ -778,6 +778,35 @@ paths:
             application/pdf:
               schema: { type: string, format: binary }
 
+  /api/v1/invoices/{id}/imported-pdf:
+    parameters:
+      - $ref: '#/components/parameters/SupplierIdHeader'
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, format: int64 }
+      - in: query
+        name: inline
+        required: false
+        description: "`1` → Content-Disposition: inline (náhled v prohlížeči); jinak attachment (stažení)."
+        schema: { type: integer, enum: [1] }
+    get:
+      tags: [Invoices]
+      summary: Zdrojové PDF vydané faktury z importu
+      description: |
+        Vrátí archivovaný ZDROJOVÝ PDF vydané faktury tak, jak dorazil z importu
+        (iDoklad/Fakturoid) — nezaměňovat s naším vlastním rendered PDF
+        (`GET /api/v1/invoices/{id}/pdf`). Dostupné jen pro faktury s neprázdným
+        `imported_pdf_path`; jinak `404`.
+      responses:
+        '200':
+          description: PDF stream
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '404':
+          description: Faktura nenalezena, nemá archivovaný zdrojový PDF, nebo soubor chybí na disku.
+
   /api/v1/projects:
     get:
       tags: [Projects]

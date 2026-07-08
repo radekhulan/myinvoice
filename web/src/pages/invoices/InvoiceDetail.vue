@@ -81,6 +81,7 @@ const activity = ref<Array<{ id: number; user_email: string | null; user_name: s
 const activityOpen = ref(false)
 const pdfHistory = ref<Array<{ id: number; filename: string; size_bytes: number; sha256: string; was_sent: boolean; sent_to: string[] | null; reason: string; archived_at: string }>>([])
 const pdfHistoryOpen = ref(false)
+const importedPdfPreviewOpen = ref(false)
 
 // SMTP analýza (box jen pro admina, když je log analýza zapnutá; lazy-load na rozbalení)
 const smtpEnabled = ref(false)
@@ -2228,6 +2229,43 @@ const invoiceActions = computed<ActionItem[]>(() => {
           </span>
           <span class="text-xs text-neutral-500">{{ t('invoice.attachments.drop_here') }}</span>
         </label>
+      </div>
+    </div>
+
+    <!-- Zdrojové PDF z importu (iDoklad/Fakturoid) — originál dokladu, oddělený od našeho rendered PDF -->
+    <div v-if="invoice?.imported_pdf_path" class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="px-4 sm:px-5 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <svg class="w-5 h-5 text-neutral-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 0 0 2-2V9.414a1 1 0 0 0-.293-.707l-5.414-5.414A1 1 0 0 0 12.586 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"/></svg>
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.imported_pdf.title') }}</h3>
+            <div class="text-xs text-neutral-500 truncate" :title="invoice.imported_pdf_original_name || 'invoice.pdf'">
+              {{ invoice.imported_pdf_original_name || 'invoice.pdf' }}
+              <template v-if="Number(invoice.imported_pdf_size_bytes)"> · {{ formatBytes(Number(invoice.imported_pdf_size_bytes)) }}</template>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" @click="importedPdfPreviewOpen = !importedPdfPreviewOpen"
+            class="cursor-pointer px-3 h-9 text-sm border border-neutral-300 text-neutral-700 hover:bg-neutral-50 rounded-md inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            {{ importedPdfPreviewOpen ? t('invoice.imported_pdf.hide') : t('invoice.imported_pdf.show') }}
+          </button>
+          <a :href="invoicesApi.importedPdfUrl(invoice.id, false)" target="_blank"
+             class="cursor-pointer px-3 h-9 text-sm border border-primary-500/40 text-primary-700 hover:bg-primary-50 rounded-md inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            {{ t('common.download') }}
+          </a>
+        </div>
+      </div>
+      <!-- Inline PDF preview přes browser PDF viewer. Musí být ?inline=1 (jinak
+           Content-Disposition: attachment a některé prohlížeče blokují embed). -->
+      <div v-if="importedPdfPreviewOpen" class="bg-neutral-100 border-t border-neutral-200">
+        <iframe
+          :src="invoicesApi.importedPdfUrl(invoice.id, true) + '#view=FitH'"
+          class="w-full h-[80vh] border-0"
+          :title="invoice.imported_pdf_original_name || 'PDF'"
+        ></iframe>
       </div>
     </div>
 

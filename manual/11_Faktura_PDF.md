@@ -15,6 +15,9 @@ Detail ukazuje:
 - **Hlavičku** — variabilní symbol, typ, klient, data, částka, stav
 - **Položky** — read-only zobrazení řádků
 - **Náhled PDF** — embed iframe (lze otevřít na celou obrazovku)
+- **Zdrojové PDF z importu** — jen u faktur naimportovaných z iDoklad/Fakturoid:
+  originální PDF dokladu, jak dorazil ze zdrojového systému (náhled + stažení).
+  Je oddělené od našeho vygenerovaného PDF — viz [16. Importy](16_Importy.md).
 - **Activity log** — kdo a kdy fakturu vytvořil / vystavil / odeslal / označil
   zaplacenou
 

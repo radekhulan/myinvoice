@@ -148,6 +148,10 @@ export interface Invoice {
   paid_at: string | null
   cancelled_at: string | null
   pdf_path: string | null
+  /** Zdrojové PDF z importu (iDoklad/Fakturoid) — oddělené od našeho rendered `pdf_path`. */
+  imported_pdf_path: string | null
+  imported_pdf_original_name?: string | null
+  imported_pdf_size_bytes?: number | string | null
   created_at: string
   updated_at: string
   /** Výsledek děkovného e-mailu (issue #57) — vrací mark-paid, jen když se odesílalo. */
@@ -475,6 +479,17 @@ export const invoicesApi = {
     if (sid && /^\d+$/.test(sid)) params.set('supplier_id', sid)
     const qs = params.toString()
     return `/api/invoices/${id}/pdf${qs ? '?' + qs : ''}`
+  },
+
+  importedPdfUrl: (id: number, inline: boolean = false) => {
+    // Přímá navigace / iframe / <a href> neposílá X-Supplier-Id header (na rozdíl od
+    // axios) — proto přidáváme supplier_id jako query param (middleware ho čte jako fallback).
+    const sid = localStorage.getItem('myinvoice.current_supplier_id')
+    const params = new URLSearchParams()
+    if (inline) params.set('inline', '1')
+    if (sid && /^\d+$/.test(sid)) params.set('supplier_id', sid)
+    const qs = params.toString()
+    return `/api/invoices/${id}/imported-pdf${qs ? '?' + qs : ''}`
   },
 
   listPdfs: (id: number) =>

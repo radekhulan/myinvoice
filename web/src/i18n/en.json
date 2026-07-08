@@ -1395,6 +1395,11 @@
       "no_candidates": "No unlinked advance invoices for this customer.",
       "no_candidates_final": "No unlinked tax documents for this customer."
     },
+    "imported_pdf": {
+      "title": "Imported source PDF",
+      "show": "Show PDF",
+      "hide": "Hide PDF"
+    },
     "pdf_history": {
       "title": "PDF history",
       "sent": "Sent to client",

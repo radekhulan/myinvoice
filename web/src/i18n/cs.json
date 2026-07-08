@@ -1395,6 +1395,11 @@
       "no_candidates": "Žádné nespárované zálohové faktury tohoto odběratele.",
       "no_candidates_final": "Žádné nepropojené daňové doklady tohoto odběratele."
     },
+    "imported_pdf": {
+      "title": "Zdrojové PDF z importu",
+      "show": "Zobrazit PDF",
+      "hide": "Skrýt PDF"
+    },
     "pdf_history": {
       "title": "Historie PDF",
       "sent": "Odesláno klientovi",
