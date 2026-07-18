@@ -136,11 +136,25 @@ final class StatementAccountResolutionTest extends TestCase
         $stmt->execute([$sid]);
         $this->assertSame('2010', (string) $stmt->fetchColumn(), 'výpis musí být pod zvoleným Fio účtem (2010), ne výchozím RB (5500)');
 
+        $this->db->pdo()->prepare(
+            'INSERT INTO bank_statements
+                (source, file_name, file_hash, account_number, bank_code, currency,
+                 statement_date, curr_balance)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            'pdf', 'TEST-206-filter-rb.pdf', hash('sha256', 'test-206-filter-rb'),
+            $account, '5500', 'CZK', '2026-06-30', 2000.00,
+        ]);
+        $rbStatementId = (int) $this->db->pdo()->lastInsertId();
+        $this->statementIds[] = $rbStatementId;
+
         // Regrese seznamu výpisů: list dříve přepsal správné bs.bank_code prvním
         // currencies.bank_code pro stejné číslo účtu (bez ORDER BY), takže zobrazil
         // např. /5500 společně s labelem Fio. Detail přitom správně ukazoval /2010.
         $listResponse = $this->action->list(
-            $this->mockRequest($this->supplierId, 'admin', [], [], ['filter' => ['account' => $account]]),
+            $this->mockRequest($this->supplierId, 'admin', [], [], [
+                'filter' => ['account' => $account, 'bank_code' => '2010'],
+            ]),
             new Response()
         );
         /** @var array{items?:list<array<string,mixed>>} $listBody */
@@ -152,6 +166,8 @@ final class StatementAccountResolutionTest extends TestCase
         $this->assertCount(1, $listed, 'importovaný výpis musí být v seznamu');
         $this->assertSame('2010', (string) ($listed[0]['bank_code'] ?? ''), 'seznam musí respektovat autoritativní bank_code výpisu');
         $this->assertStringContainsString('2010', (string) ($listed[0]['account_label'] ?? ''), 'label seznamu musí patřit ke stejnému účtu');
+        $listedIds = array_map(static fn (array $item): int => (int) ($item['id'] ?? 0), $listBody['items'] ?? []);
+        $this->assertNotContains($rbStatementId, $listedIds, 'filtr Fio /2010 nesmí vrátit RB /5500 se stejným číslem účtu');
     }
 
     /**

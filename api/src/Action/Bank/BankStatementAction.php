@@ -363,6 +363,7 @@ final class BankStatementAction
         $year    = isset($filter['year'])  && $filter['year']  !== '' ? (int) $filter['year']  : null;
         $month   = isset($filter['month']) && $filter['month'] !== '' ? (int) $filter['month'] : null;
         $account = isset($filter['account']) ? trim((string) $filter['account']) : '';
+        $bankCode = isset($filter['bank_code']) ? trim((string) $filter['bank_code']) : '';
 
         // Společný scope filtr (account_number/bank_code z currencies dodavatele).
         $scopeSql = "EXISTS (
@@ -383,6 +384,20 @@ final class BankStatementAction
             $filterSql .= " AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(bs.account_number, ''), '[^0-9]', ''))
                               = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))";
             $filterParams[] = $account;
+            if ($bankCode !== '') {
+                $accountCountStmt = $this->db->pdo()->prepare(
+                    "SELECT COUNT(*) FROM currencies cur
+                      WHERE cur.supplier_id = ?
+                        AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(cur.account_number, ''), '[^0-9]', ''))
+                          = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))"
+                );
+                $accountCountStmt->execute([$sid, $account]);
+                $allowMissingBankCode = (int) $accountCountStmt->fetchColumn() === 1 ? 1 : 0;
+                $filterSql .= " AND (bs.bank_code = ?
+                                  OR ((bs.bank_code IS NULL OR bs.bank_code = '') AND ? = 1))";
+                $filterParams[] = $bankCode;
+                $filterParams[] = $allowMissingBankCode;
+            }
         }
 
         $countStmt = $this->db->pdo()->prepare("SELECT COUNT(*) FROM bank_statements bs WHERE $scopeSql$filterSql");

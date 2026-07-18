@@ -165,6 +165,7 @@ export interface BankListParams {
   year?: number | ''
   month?: number | ''
   account?: string
+  bank_code?: string
 }
 
 /** Jeden bod měsíční řady zůstatku (nativní měna účtu). */
@@ -214,6 +215,7 @@ export const bankApi = {
       ...(params.year !== undefined && params.year !== '' ? { 'filter[year]': params.year } : {}),
       ...(params.month !== undefined && params.month !== '' ? { 'filter[month]': params.month } : {}),
       ...(params.account ? { 'filter[account]': params.account } : {}),
+      ...(params.bank_code ? { 'filter[bank_code]': params.bank_code } : {}),
     } }).then(r => r.data),
   get: (id: number) => api.get<BankStatementDetail>(`/bank-statements/${id}`).then(r => r.data),
   /** Přehled zůstatků na účtech dle GPC výpisů (tabulka + měsíční vývoj + CZK součet). */

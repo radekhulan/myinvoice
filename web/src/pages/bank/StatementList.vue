@@ -31,8 +31,17 @@ const DEFAULT_YEAR = new Date().getFullYear()
 const yearFilter = ref<number | ''>('')
 const monthFilter = ref<number | ''>('')
 const accountFilter = ref<string>('')
+const bankCodeFilter = ref<string>('')
 const years = ref<number[]>([])
 const accounts = ref<BankAccountOption[]>([])
+const accountFilterKey = computed({
+  get: () => accountFilter.value ? `${accountFilter.value}|${bankCodeFilter.value}` : '',
+  set: (value: string) => {
+    const separator = value.lastIndexOf('|')
+    accountFilter.value = separator >= 0 ? value.slice(0, separator) : value
+    bankCodeFilter.value = separator >= 0 ? value.slice(separator + 1) : ''
+  },
+})
 
 // `tm()` vrací raw pole zpráv, `rt()` zformátuje jednotlivé položky (interpolace).
 const monthOptions = computed(() => (tm('common.months_short') as unknown as string[]).map(m => rt(m)))
@@ -59,6 +68,7 @@ function resetFilters() {
   yearFilter.value = ''
   monthFilter.value = ''
   accountFilter.value = ''
+  bankCodeFilter.value = ''
 }
 const uploading = ref(false)
 const scanning = ref(false)
@@ -131,6 +141,7 @@ async function load() {
       year: yearFilter.value,
       month: monthFilter.value,
       account: accountFilter.value || undefined,
+      bank_code: bankCodeFilter.value || undefined,
     })
     statements.value = r.items
     total.value = r.total
@@ -153,6 +164,7 @@ function loadFiltersFromQuery(q: typeof route.query) {
     : ''
   monthFilter.value = typeof q.month === 'string' && q.month !== '' ? Number(q.month) : ''
   accountFilter.value = typeof q.account === 'string' ? q.account : ''
+  bankCodeFilter.value = typeof q.bank === 'string' ? q.bank : ''
 }
 function syncFiltersToUrl() {
   if (suppressUrlSync) return
@@ -160,10 +172,11 @@ function syncFiltersToUrl() {
   if (yearFilter.value !== '') q.year = String(yearFilter.value)
   if (monthFilter.value !== '') q.month = String(monthFilter.value)
   if (accountFilter.value) q.account = accountFilter.value
+  if (bankCodeFilter.value) q.bank = bankCodeFilter.value
   router.replace({ query: q })
 }
 
-watch([yearFilter, monthFilter, accountFilter], () => {
+watch([yearFilter, monthFilter, accountFilter, bankCodeFilter], () => {
   page.value = 1
   syncFiltersToUrl()
   load()
@@ -178,6 +191,7 @@ watch(() => route.query, (newQ) => {
     yearFilter.value = ''
     monthFilter.value = ''
     accountFilter.value = ''
+    bankCodeFilter.value = ''
     page.value = 1
     load()
     setTimeout(() => { suppressUrlSync = false }, 0)
@@ -337,10 +351,14 @@ async function onFileSelected(e: Event) {
         <option :value="''">{{ t('bank.all_months') }}</option>
         <option v-for="(label, i) in monthOptions" :key="i + 1" :value="i + 1">{{ label }}</option>
       </select>
-      <select v-if="accounts.length > 1" v-model="accountFilter"
+      <select v-if="accounts.length > 1" v-model="accountFilterKey"
         class="h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
         <option value="">{{ t('bank.all_accounts') }}</option>
-        <option v-for="a in accounts" :key="a.account_number" :value="a.account_number">{{ accountLabel(a) }}</option>
+        <option
+          v-for="a in accounts"
+          :key="`${a.account_number}|${a.bank_code ?? ''}`"
+          :value="`${a.account_number}|${a.bank_code ?? ''}`"
+        >{{ accountLabel(a) }}</option>
       </select>
     </FilterBar>
 
