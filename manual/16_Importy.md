@@ -196,6 +196,9 @@ Importuje se jen účet, který je jednoznačně namapovaný na aktivní účet
 MyInvoice. Stabilní ID pohybu z iDokladu brání opakovanému vložení stejné
 transakce. Pokud je pohyb v iDokladu spárovaný s dokladem, MyInvoice použije
 jeho ID dokladu před běžným párováním podle variabilního symbolu.
+Rozsah **Bankovní pohyby od/do** umožňuje první import omezit například na
+jeden měsíc. Dry-run u tohoto rozsahu vypíše také počet přímých vazeb na
+již importované vydané faktury; vlastní párování ani platby nezapisuje.
 
 GPC nebo PDF výpis z banky je autoritativnější zdroj. Když stejná platba přijde
 také z iDokladu nebo e-mailového avíza, vazba na úhradu se převede na oficiální

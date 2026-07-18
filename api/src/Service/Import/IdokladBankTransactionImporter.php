@@ -20,14 +20,15 @@ final class IdokladBankTransactionImporter
         private readonly InvoicePaymentService $payments,
     ) {}
 
-    /** @return array{created:int,skipped:int,matched:int,unmapped:int} */
-    public function import(int $supplierId, bool $dryRun): array
+    /** @return array{created:int,skipped:int,matched:int,unmapped:int,document_links:int} */
+    public function import(int $supplierId, bool $dryRun, ?string $dateFrom = null, ?string $dateTo = null): array
     {
-        $result = ['created' => 0, 'skipped' => 0, 'matched' => 0, 'unmapped' => 0];
+        $result = ['created' => 0, 'skipped' => 0, 'matched' => 0, 'unmapped' => 0, 'document_links' => 0];
         $pdo = $this->db->pdo();
         $accounts = $this->mappedAccounts($pdo, $supplierId, $dryRun);
+        $query = $dateFrom !== null ? ['filter' => "DateOfTransaction~gte~{$dateFrom}"] : [];
 
-        foreach ($this->idoklad->getAll($supplierId, 'BankStatements') as $movement) {
+        foreach ($this->idoklad->getAll($supplierId, 'BankStatements', $query) as $movement) {
             $externalId = (int) ($movement['Id'] ?? 0);
             $externalAccountId = (int) ($movement['BankAccountId'] ?? 0);
             if ($externalId <= 0 || $externalAccountId <= 0) {
@@ -45,16 +46,22 @@ final class IdokladBankTransactionImporter
                 $result['unmapped']++;
                 continue;
             }
-            if ($dryRun) {
-                $result['created']++;
-                continue;
-            }
-
             $date = $this->date($movement['DateOfTransaction'] ?? null);
             $amount = abs((float) ($movement['Prices']['TotalWithVat'] ?? 0));
             if ((int) ($movement['MovementType'] ?? 1) < 0) $amount *= -1;
             if ($date === null || abs($amount) < 0.005) {
                 $result['skipped']++;
+                continue;
+            }
+            if (($dateFrom !== null && $date < $dateFrom) || ($dateTo !== null && $date > $dateTo)) {
+                $result['skipped']++;
+                continue;
+            }
+            if ($dryRun) {
+                $result['created']++;
+                if ($this->hasPairedIssuedInvoice($pdo, $supplierId, $movement, $amount, (string) $account['currency'])) {
+                    $result['document_links']++;
+                }
                 continue;
             }
 
@@ -170,26 +177,15 @@ final class IdokladBankTransactionImporter
     /** @param array<string,mixed> $movement */
     private function matchPairedIssuedInvoice(PDO $pdo, int $txId, int $supplierId, array $movement, float $amount, string $date, string $movementCurrency): bool
     {
-        $paired = is_array($movement['PairedDocument'] ?? null) ? $movement['PairedDocument'] : [];
-        $documentId = (int) ($paired['DocumentId'] ?? 0);
-        $type = (int) ($paired['DocumentType'] ?? -1);
-        if ($amount <= 0 || $documentId <= 0 || !in_array($type, [0, 1], true)) return false;
-        $s = $pdo->prepare(
-            'SELECT i.id, i.status, c.code AS currency
-               FROM invoices i JOIN currencies c ON c.id = i.currency_id
-              WHERE i.supplier_id = ? AND i.idoklad_id = ? LIMIT 2'
-        );
-        $s->execute([$supplierId, $documentId]);
-        $rows = $s->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        if (count($rows) !== 1) return false;
-        if (strtoupper($movementCurrency) !== strtoupper((string) $rows[0]['currency'])) return false;
-        $invoiceId = (int) $rows[0]['id'];
-        if ((string) $rows[0]['status'] === 'paid') {
+        $invoice = $this->pairedIssuedInvoice($pdo, $supplierId, $movement, $amount, $movementCurrency);
+        if ($invoice === null) return false;
+        $invoiceId = (int) $invoice['id'];
+        if ((string) $invoice['status'] === 'paid') {
             $pdo->prepare("UPDATE bank_transactions SET matched_invoice_id = ?, match_status = 'auto_exact', matched_at = NOW() WHERE id = ?")
                 ->execute([$invoiceId, $txId]);
             return true;
         }
-        if (!in_array((string) $rows[0]['status'], ['issued', 'sent', 'reminded'], true)) return false;
+        if (!in_array((string) $invoice['status'], ['issued', 'sent', 'reminded'], true)) return false;
         $this->payments->recordPayment($invoiceId, $amount, $date, [
             'source' => 'bank', 'bank_transaction_id' => $txId,
             'variable_symbol' => self::text($movement['VariableSymbol'] ?? null, 20),
@@ -198,6 +194,31 @@ final class IdokladBankTransactionImporter
         $pdo->prepare("UPDATE bank_transactions SET matched_invoice_id = ?, match_status = 'auto_exact', matched_at = NOW() WHERE id = ?")
             ->execute([$invoiceId, $txId]);
         return true;
+    }
+
+    /** @param array<string,mixed> $movement */
+    private function hasPairedIssuedInvoice(PDO $pdo, int $supplierId, array $movement, float $amount, string $currency): bool
+    {
+        return $this->pairedIssuedInvoice($pdo, $supplierId, $movement, $amount, $currency) !== null;
+    }
+
+    /** @param array<string,mixed> $movement @return array<string,mixed>|null */
+    private function pairedIssuedInvoice(PDO $pdo, int $supplierId, array $movement, float $amount, string $movementCurrency): ?array
+    {
+        $paired = is_array($movement['PairedDocument'] ?? null) ? $movement['PairedDocument'] : [];
+        $documentId = (int) ($paired['DocumentId'] ?? 0);
+        $type = (int) ($paired['DocumentType'] ?? -1);
+        if ($amount <= 0 || $documentId <= 0 || !in_array($type, [0, 1], true)) return null;
+        $s = $pdo->prepare(
+            'SELECT i.id, i.status, c.code AS currency
+               FROM invoices i JOIN currencies c ON c.id = i.currency_id
+              WHERE i.supplier_id = ? AND i.idoklad_id = ? LIMIT 2'
+        );
+        $s->execute([$supplierId, $documentId]);
+        $rows = $s->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($rows) !== 1) return null;
+        if (strtoupper($movementCurrency) !== strtoupper((string) $rows[0]['currency'])) return null;
+        return $rows[0];
     }
 
     private function refreshStatement(PDO $pdo, int $statementId): void

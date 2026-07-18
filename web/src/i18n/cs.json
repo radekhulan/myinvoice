@@ -3796,6 +3796,8 @@
       "include_bank_accounts": "Bankovní účty",
       "include_bank_transactions": "Bankovní pohyby",
       "include_bank_transactions_hint": "Importuje pohyby z iDokladu. GPC/PDF výpis zůstává autoritativním zdrojem a duplicitní úhrada se nezapočte.",
+      "bank_date_from": "Bankovní pohyby od",
+      "bank_date_to": "Bankovní pohyby do",
       "include_clients": "Kontakty (clients)",
       "include_issued": "Vydané faktury",
       "include_received": "Přijaté faktury",

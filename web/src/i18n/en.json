@@ -3796,6 +3796,8 @@
       "include_bank_accounts": "Bank accounts",
       "include_bank_transactions": "Bank transactions",
       "include_bank_transactions_hint": "Imports movements from iDoklad. GPC/PDF statements remain authoritative and duplicate payments are not counted twice.",
+      "bank_date_from": "Bank transactions from",
+      "bank_date_to": "Bank transactions to",
       "include_clients": "Contacts (clients)",
       "include_issued": "Issued invoices",
       "include_received": "Received invoices",

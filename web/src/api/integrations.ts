@@ -40,6 +40,8 @@ export interface ImportJob {
 export interface IdokladStartParams {
   include_bank_accounts?: boolean
   include_bank_transactions?: boolean
+  bank_date_from?: string
+  bank_date_to?: string
   include_clients?: boolean
   include_issued?: boolean
   include_received?: boolean

@@ -70,9 +70,21 @@ final class StartIdokladImportAction
         }
 
         $body = (array) ($request->getParsedBody() ?? []);
+        foreach (['bank_date_from', 'bank_date_to'] as $dateField) {
+            $dateValue = trim((string) ($body[$dateField] ?? ''));
+            if ($dateValue !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateValue) !== 1) {
+                return Json::error($response, 'validation_failed', 'Neplatný rozsah data bankovních pohybů.', 422);
+            }
+        }
+        if (!empty($body['bank_date_from']) && !empty($body['bank_date_to'])
+            && (string) $body['bank_date_from'] > (string) $body['bank_date_to']) {
+            return Json::error($response, 'validation_failed', 'Datum od nesmí být po datu do.', 422);
+        }
         $params = [
             'include_bank_accounts'=> $body['include_bank_accounts'] ?? true,
             'include_bank_transactions' => !empty($body['include_bank_transactions']),
+            'bank_date_from'      => self::dateOrNull($body['bank_date_from'] ?? null),
+            'bank_date_to'        => self::dateOrNull($body['bank_date_to'] ?? null),
             'include_clients'      => $body['include_clients']      ?? true,
             'include_issued'       => $body['include_issued']       ?? true,
             'include_received'     => $body['include_received']     ?? true,
@@ -97,6 +109,13 @@ final class StartIdokladImportAction
             'status' => 'queued',
             'params' => $params,
         ], 201);
+    }
+
+    private static function dateOrNull(mixed $value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        if ($value === '') return null;
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1 ? $value : null;
     }
 
     /**
