@@ -3794,6 +3794,8 @@
       "run_title": "Run import",
       "run_hint": "Import runs in background. Status polled every 2 seconds. Can be cancelled.",
       "include_bank_accounts": "Bank accounts",
+      "include_bank_transactions": "Bank transactions",
+      "include_bank_transactions_hint": "Imports movements from iDoklad. GPC/PDF statements remain authoritative and duplicate payments are not counted twice.",
       "include_clients": "Contacts (clients)",
       "include_issued": "Issued invoices",
       "include_received": "Received invoices",

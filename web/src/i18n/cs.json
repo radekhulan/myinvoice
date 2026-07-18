@@ -3794,6 +3794,8 @@
       "run_title": "Spustit import",
       "run_hint": "Import běží na pozadí. Stav se polluje každé 2 sekundy. Můžeš zrušit kdykoli.",
       "include_bank_accounts": "Bankovní účty",
+      "include_bank_transactions": "Bankovní pohyby",
+      "include_bank_transactions_hint": "Importuje pohyby z iDokladu. GPC/PDF výpis zůstává autoritativním zdrojem a duplicitní úhrada se nezapočte.",
       "include_clients": "Kontakty (clients)",
       "include_issued": "Vydané faktury",
       "include_received": "Přijaté faktury",

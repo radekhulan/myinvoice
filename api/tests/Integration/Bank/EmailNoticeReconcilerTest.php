@@ -118,8 +118,8 @@ final class EmailNoticeReconcilerTest extends TestCase
     }
 
     /**
-     * Vloží výpis + jednu transakci. $source = 'gpc'/'email_notice' (statement),
-     * tx source se odvodí ('statement' pro gpc, 'email_notice' pro avízo).
+     * Vloží výpis + jednu transakci. $source = 'gpc'/'email_notice'/'idoklad',
+     * tx source se odvodí ('statement' pro gpc, jinak stejně jako výpis).
      *
      * @return array{0:int,1:int} [statementId, txId]
      */
@@ -139,7 +139,7 @@ final class EmailNoticeReconcilerTest extends TestCase
         ]);
         $statementId = (int) $pdo->lastInsertId();
 
-        $txSource = $source === 'email_notice' ? 'email_notice' : 'statement';
+        $txSource = $source === 'gpc' ? 'statement' : $source;
         $pdo->prepare(
             "INSERT INTO bank_transactions
                 (statement_id, source, posted_at, amount, currency, variable_symbol)
@@ -214,6 +214,42 @@ final class EmailNoticeReconcilerTest extends TestCase
         // matched_count avízo-výpisu klesl na 0 → smazání výpisu se může nabídnout.
         $mc = (int) $this->db->pdo()->query("SELECT matched_count FROM bank_statements WHERE id = $emailStmt")->fetchColumn();
         self::assertSame(0, $mc);
+    }
+
+    public function testGpcTakesOverIdokladPaymentAndMarksSecondaryIgnored(): void
+    {
+        $invA = $this->insertInvoice(self::VS_A, 1000.00);
+        [, $idokladTx] = $this->insertStatementWithTx('idoklad', 1000.00, self::VS_A, 'idoklad');
+        $this->payments->recordPayment($invA, 1000.00, '2099-06-15', [
+            'source' => 'bank', 'bank_transaction_id' => $idokladTx, 'created_by' => $this->userId,
+        ]);
+        $this->markTxMatched($idokladTx, $invA, 'auto_exact');
+
+        [, $gpcTx] = $this->insertStatementWithTx('gpc', 1000.00, self::VS_A, 'gpc');
+        $result = $this->reconciler->takeOverFromEmailNotice($gpcTx);
+
+        self::assertNotNull($result);
+        self::assertSame('idoklad', $result['secondary_source']);
+        self::assertSame(1, $this->paymentCountForTx($gpcTx));
+        self::assertSame(0, $this->paymentCountForTx($idokladTx));
+        $secondary = $this->db->pdo()->query(
+            "SELECT match_status, matched_invoice_id FROM bank_transactions WHERE id = $idokladTx"
+        )->fetch(PDO::FETCH_ASSOC);
+        self::assertSame('ignored', $secondary['match_status']);
+        self::assertNull($secondary['matched_invoice_id']);
+    }
+
+    public function testIdokladIsIgnoredWhenGpcAlreadyExists(): void
+    {
+        [, $gpcTx] = $this->insertStatementWithTx('gpc', 1000.00, self::VS_A, 'gpc-first');
+        [, $idokladTx] = $this->insertStatementWithTx('idoklad', 1000.00, self::VS_A, 'idoklad-second');
+
+        self::assertSame($gpcTx, $this->reconciler->ignoreSecondaryWhenAuthoritativeTwinExists($idokladTx));
+        $status = $this->db->pdo()->query(
+            "SELECT match_status FROM bank_transactions WHERE id = $idokladTx"
+        )->fetchColumn();
+        self::assertSame('ignored', $status);
+        self::assertSame(0, $this->paymentCountForTx($idokladTx));
     }
 
     // ── Převzetí sloučené úhrady (split, migrace 0119) ───────────────────────

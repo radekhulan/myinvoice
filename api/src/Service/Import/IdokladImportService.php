@@ -52,6 +52,7 @@ final class IdokladImportService
         private readonly PurchaseInvoiceCnbApplier $cnbApplier,
         private readonly SnapshotBuilder $snapshots,
         private readonly ImageToPdfConverter $imageToPdf,
+        private readonly IdokladBankTransactionImporter $bankTransactions,
     ) {}
 
     /**
@@ -62,6 +63,7 @@ final class IdokladImportService
      *   - include_issued: bool (default true)
      *   - include_received: bool (default true)
      *   - include_bank_accounts: bool (default true)
+     *   - include_bank_transactions: bool (default false)
      *   - include_receipts: bool (default true) — přijaté účtenky/paragony
      *   - dry_run: bool (default false)
      */
@@ -109,6 +111,15 @@ final class IdokladImportService
             }
             if (!empty($params['include_receipts']) || ($params['include_receipts'] ?? null) === null) {
                 $this->importReceipts($jobId, $supplierId, $userId, $dryRun, $bookmarkSince, $downloadAttachments);
+            }
+            if (!empty($params['include_bank_transactions'])) {
+                $this->checkCancel($jobId);
+                $this->jobs->appendLog($jobId, 'Synchronizuji bankovní pohyby z iDokladu…');
+                $bank = $this->bankTransactions->import($supplierId, $dryRun);
+                $this->jobs->appendLog($jobId, sprintf(
+                    'Bankovní pohyby: vytvořeno %d, spárováno %d, přeskočeno %d, bez mapování účtu %d.%s',
+                    $bank['created'], $bank['matched'], $bank['skipped'], $bank['unmapped'], $dryRun ? ' (dry-run)' : ''
+                ));
             }
 
             // Mark completed + bookmark

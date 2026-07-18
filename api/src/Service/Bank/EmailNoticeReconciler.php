@@ -8,7 +8,7 @@ use MyInvoice\Infrastructure\Database\Connection;
 use PDO;
 
 /**
- * Cross-source deduplikace GPC výpis ↔ e-mailové avízo.
+ * Cross-source deduplikace GPC výpis ↔ sekundární bankovní zdroj.
  *
  * GPC (oficiální bankovní výpis) je zdroj pravdy. Když dorazí GPC transakce, která
  * už předtím přišla e-mailovým avízem (`source='email_notice'`) a je spárovaná, NEMÁ
@@ -35,9 +35,9 @@ final class EmailNoticeReconciler
     public function __construct(private readonly Connection $db) {}
 
     /**
-     * Pokus o převzetí párování z e-mailového avíza pro nově importovanou GPC transakci.
+     * Pokus o převzetí párování z e-mailového avíza nebo iDokladu pro novou GPC transakci.
      *
-     * @return array{email_tx_id:int, email_statement_id:int, match_status:string}|null
+     * @return array{email_tx_id:int,email_statement_id:int,secondary_tx_id:int,secondary_statement_id:int,secondary_source:string,match_status:string}|null
      *         null = nepřevzato (žádný/nejednoznačný kandidát, nebo to není GPC tx)
      */
     public function takeOverFromEmailNotice(int $gpcTxId): ?array
@@ -77,13 +77,15 @@ final class EmailNoticeReconciler
         // přes invoice_payments/payment_matches.supplier_id) se stejnou částkou (vč.
         // znaménka) v okně ±DATE_WINDOW_DAYS kolem data zaúčtování.
         $cand = $pdo->prepare(
-            "SELECT bt.id, bt.match_status, bt.matched_invoice_id, bt.matched_at, bt.matched_by,
+            "SELECT bt.id, bt.source, bt.match_status, bt.matched_invoice_id, bt.matched_at, bt.matched_by,
                     bt.variable_symbol, bt.counterparty_account, bt.currency, bt.statement_id,
-                    bs.account_number AS stmt_account, bs.currency AS stmt_currency
+                    bs.account_number AS stmt_account, bs.bank_code AS stmt_bank, bs.currency AS stmt_currency
                FROM bank_transactions bt
                JOIN bank_statements   bs ON bs.id = bt.statement_id
-              WHERE bt.source = 'email_notice'
-                AND bs.source = 'email_notice'
+              WHERE bt.source IN ('email_notice','idoklad')
+                AND bs.source IN ('email_notice','idoklad')
+                AND ((bt.source = 'email_notice' AND bs.source = 'email_notice')
+                  OR (bt.source = 'idoklad' AND bs.source = 'idoklad'))
                 AND bt.id <> ?
                 AND ABS(bt.amount - ?) <= ?
                 AND bt.posted_at BETWEEN DATE_SUB(?, INTERVAL ? DAY) AND DATE_ADD(?, INTERVAL ? DAY)
@@ -93,6 +95,10 @@ final class EmailNoticeReconciler
                                WHERE ip.bank_transaction_id = bt.id AND ip.supplier_id = ?)
                    OR EXISTS (SELECT 1 FROM payment_matches pm
                                WHERE pm.bank_transaction_id = bt.id AND pm.supplier_id = ?)
+                   OR (bt.source = 'idoklad' AND EXISTS (
+                          SELECT 1 FROM invoices i
+                           WHERE i.id = bt.matched_invoice_id AND i.supplier_id = ?
+                      ))
                 )"
         );
         $cand->execute([
@@ -101,7 +107,7 @@ final class EmailNoticeReconciler
             self::AMOUNT_TOLERANCE,
             $gpc['posted_at'], self::DATE_WINDOW_DAYS,
             $gpc['posted_at'], self::DATE_WINDOW_DAYS,
-            $supplierId, $supplierId,
+            $supplierId, $supplierId, $supplierId,
         ]);
         $rows = $cand->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
@@ -109,6 +115,11 @@ final class EmailNoticeReconciler
         foreach ($rows as $r) {
             // Shoda účtu (= stejný supplier; oba sloupce jsou account_number).
             if (!AccountNumberNormalizer::equals($gpcAccount, (string) ($r['stmt_account'] ?? ''))) {
+                continue;
+            }
+            $gpcBank = trim((string) ($gpc['stmt_bank'] ?? ''));
+            $candidateBank = trim((string) ($r['stmt_bank'] ?? ''));
+            if ($gpcBank !== '' && $candidateBank !== '' && $gpcBank !== $candidateBank) {
                 continue;
             }
             // Měna — když obě známe, musí sedět (null = legacy, nevyřazuje).
@@ -138,6 +149,66 @@ final class EmailNoticeReconciler
         }
 
         return $this->transfer($pdo, $gpcTxId, $matches[0], $supplierId);
+    }
+
+    /**
+     * Opačné pořadí: oficiální GPC/PDF už existuje a právě dorazil iDoklad.
+     * Při jediné silné shodě označí sekundární záznam jako ignorovaný.
+     */
+    public function ignoreSecondaryWhenAuthoritativeTwinExists(int $secondaryTxId): ?int
+    {
+        $pdo = $this->db->pdo();
+        $stmt = $pdo->prepare(
+            "SELECT bt.amount, bt.posted_at, bt.variable_symbol, bt.currency,
+                    bt.counterparty_account, bt.source,
+                    bs.account_number AS stmt_account, bs.bank_code AS stmt_bank,
+                    bs.currency AS stmt_currency
+               FROM bank_transactions bt JOIN bank_statements bs ON bs.id = bt.statement_id
+              WHERE bt.id = ?"
+        );
+        $stmt->execute([$secondaryTxId]);
+        $secondary = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($secondary === false || (string) $secondary['source'] !== 'idoklad') return null;
+        if ($this->resolveSupplierId($pdo, (string) $secondary['stmt_account'], (string) ($secondary['stmt_bank'] ?? '')) === 0) return null;
+
+        $candidates = $pdo->prepare(
+            "SELECT bt.id, bt.variable_symbol, bt.currency, bt.counterparty_account,
+                    bs.account_number AS stmt_account, bs.bank_code AS stmt_bank,
+                    bs.currency AS stmt_currency
+               FROM bank_transactions bt JOIN bank_statements bs ON bs.id = bt.statement_id
+              WHERE bt.source = 'statement' AND bs.source IN ('gpc','pdf')
+                AND ABS(bt.amount - ?) <= ?
+                AND bt.posted_at BETWEEN DATE_SUB(?, INTERVAL ? DAY) AND DATE_ADD(?, INTERVAL ? DAY)"
+        );
+        $candidates->execute([
+            $secondary['amount'], self::AMOUNT_TOLERANCE,
+            $secondary['posted_at'], self::DATE_WINDOW_DAYS,
+            $secondary['posted_at'], self::DATE_WINDOW_DAYS,
+        ]);
+        $matches = [];
+        $vs = VariableSymbolNormalizer::digits((string) ($secondary['variable_symbol'] ?? ''));
+        $currency = $this->effectiveCurrency($secondary['currency'] ?? null, $secondary['stmt_currency'] ?? null);
+        foreach ($candidates->fetchAll(PDO::FETCH_ASSOC) ?: [] as $candidate) {
+            if (!AccountNumberNormalizer::equals((string) $secondary['stmt_account'], (string) $candidate['stmt_account'])) continue;
+            $bank = trim((string) ($secondary['stmt_bank'] ?? ''));
+            $candidateBank = trim((string) ($candidate['stmt_bank'] ?? ''));
+            if ($bank !== '' && $candidateBank !== '' && $bank !== $candidateBank) continue;
+            $candidateCurrency = $this->effectiveCurrency($candidate['currency'] ?? null, $candidate['stmt_currency'] ?? null);
+            if ($currency !== null && $candidateCurrency !== null && strtoupper($currency) !== strtoupper($candidateCurrency)) continue;
+            if ($vs !== '') {
+                if ($vs !== VariableSymbolNormalizer::digits((string) ($candidate['variable_symbol'] ?? ''))) continue;
+            } else {
+                $secondaryAccount = (string) ($secondary['counterparty_account'] ?? '');
+                $candidateAccount = (string) ($candidate['counterparty_account'] ?? '');
+                if ($secondaryAccount === '' || $candidateAccount === ''
+                    || !AccountNumberNormalizer::equals($secondaryAccount, $candidateAccount)) continue;
+            }
+            $matches[] = (int) $candidate['id'];
+        }
+        if (count($matches) !== 1) return null;
+        $pdo->prepare("UPDATE bank_transactions SET match_status = 'ignored' WHERE id = ?")
+            ->execute([$secondaryTxId]);
+        return $matches[0];
     }
 
     /**
@@ -179,12 +250,13 @@ final class EmailNoticeReconciler
      * Přepojí párovací záznamy z e-mailové transakce na GPC a avízo rozpáruje.
      *
      * @param array<string,mixed> $twin
-     * @return array{email_tx_id:int, email_statement_id:int, match_status:string}
+     * @return array{email_tx_id:int,email_statement_id:int,secondary_tx_id:int,secondary_statement_id:int,secondary_source:string,match_status:string}
      */
     private function transfer(PDO $pdo, int $gpcTxId, array $twin, int $supplierId): array
     {
         $emailTxId        = (int) $twin['id'];
         $emailStatementId = (int) $twin['statement_id'];
+        $secondarySource  = (string) ($twin['source'] ?? 'email_notice');
 
         $owns = !$pdo->inTransaction();
         if ($owns) {
@@ -213,13 +285,14 @@ final class EmailNoticeReconciler
                 $gpcTxId,
             ]);
 
-            // Avízo rozpáruj — platby už ukazují na GPC, takže tu nic nezůstává.
+            // Sekundární záznam už není zdrojem úhrady. iDoklad ponecháme jako
+            // auditní stopu `ignored`, avízo zůstává ručně odstranitelné jako dřív.
             $pdo->prepare(
                 "UPDATE bank_transactions
-                    SET match_status = 'unmatched', matched_invoice_id = NULL,
+                    SET match_status = ?, matched_invoice_id = NULL,
                         matched_at = NULL, matched_by = NULL
                   WHERE id = ?"
-            )->execute([$emailTxId]);
+            )->execute([$secondarySource === 'idoklad' ? 'ignored' : 'unmatched', $emailTxId]);
 
             // Přepočti matched_count avízo-výpisu (GPC výpis řeší StatementImporter).
             $pdo->prepare(
@@ -245,6 +318,9 @@ final class EmailNoticeReconciler
         return [
             'email_tx_id'        => $emailTxId,
             'email_statement_id' => $emailStatementId,
+            'secondary_tx_id'        => $emailTxId,
+            'secondary_statement_id' => $emailStatementId,
+            'secondary_source'       => $secondarySource,
             'match_status'       => (string) $twin['match_status'],
         ];
     }

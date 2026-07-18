@@ -81,6 +81,7 @@ async function deleteIdokladCreds() {
 // ── iDoklad import job state ──────────────────────────────────────────
 const startParams = ref({
   include_bank_accounts: true,
+  include_bank_transactions: false,
   include_clients: true,
   include_issued: true,
   include_received: true,
@@ -548,6 +549,10 @@ onUnmounted(() => {
             <label class="flex items-center gap-2 text-sm">
               <input v-model="startParams.include_bank_accounts" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
               {{ t('integrations.idoklad.include_bank_accounts') }}
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              <input v-model="startParams.include_bank_transactions" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
+              <span :title="t('integrations.idoklad.include_bank_transactions_hint')">{{ t('integrations.idoklad.include_bank_transactions') }}</span>
             </label>
             <label class="flex items-center gap-2 text-sm">
               <input v-model="startParams.include_clients" type="checkbox" class="rounded border-neutral-300 text-primary-600" />
