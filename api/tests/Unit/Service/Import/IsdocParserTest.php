@@ -92,6 +92,35 @@ XML;
         self::assertSame(21.0, $inv['items'][0]['vat_rate']);
     }
 
+    public function testParsesLegacyIsdoc52Namespace(): void
+    {
+        // ISDOC 5.2 nese starší namespace .../invoice místo 6.x .../2013; struktura
+        // čtených elementů je shodná, takže se doklad musí naparsovat identicky.
+        // Dřív byl NS natvrdo 2013 → 5.2 nenašel ani <ID> a spadl na zavádějící
+        // „Chybí ISDOC ID" (issue #208).
+        $xml = str_replace(self::NS, 'http://isdoc.cz/namespace/invoice', $this->minimalIsdoc());
+        $result = $this->parser->parse($xml);
+
+        self::assertSame('21370362', $result['supplier_ic']);
+        $inv = $result['invoices'][0];
+        self::assertArrayNotHasKey('__error', $inv);
+        self::assertSame('2605001', $inv['varsymbol']);
+        self::assertSame('Test Klient s.r.o.', $inv['client']['company_name']);
+        self::assertCount(1, $inv['items']);
+        self::assertSame(21.0, $inv['items'][0]['vat_rate']);
+    }
+
+    public function testUnknownNamespaceThrowsClearMessage(): void
+    {
+        // Neznámý namespace nesmí skončit zavádějící „Chybí ISDOC ID", ale jasnou
+        // hláškou o nepodporovaném ISDOC namespace (issue #208).
+        $xml = str_replace(self::NS, 'http://example.com/not-isdoc', $this->minimalIsdoc());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Nepodporovaný ISDOC namespace');
+        $this->parser->parse($xml);
+    }
+
     public function testPayableAmountNullWhenNoMonetaryTotal(): void
     {
         $inv = $this->parser->parse($this->minimalIsdoc())['invoices'][0];
