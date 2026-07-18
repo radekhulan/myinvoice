@@ -17,7 +17,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 /**
  * POST /api/admin/imports/idoklad/start
  *
- * Body: { include_clients?: bool, include_issued?: bool, include_received?: bool, include_receipts?: bool, dry_run?: bool }
+ * Body: { include_bank_accounts?: bool, include_clients?: bool, include_issued?: bool, include_received?: bool, include_receipts?: bool, dry_run?: bool }
  *
  * Vytvoří import_jobs řádek se status='queued' a spustí background worker
  * (detached process — Windows DETACHED_PROCESS, Linux nohup). UI pak polluje
@@ -71,6 +71,7 @@ final class StartIdokladImportAction
 
         $body = (array) ($request->getParsedBody() ?? []);
         $params = [
+            'include_bank_accounts'=> $body['include_bank_accounts'] ?? true,
             'include_clients'      => $body['include_clients']      ?? true,
             'include_issued'       => $body['include_issued']       ?? true,
             'include_received'     => $body['include_received']     ?? true,

@@ -186,6 +186,11 @@ Na téže stránce, sekce **Spustit import**:
 
 Klikni **Spustit import**.
 
+Volba **Bankovní účty** synchronizuje číselník účtů z iDokladu a bezpečně jej
+mapuje na aktivní účty stejné měny v MyInvoice. Přesná shoda se propojí;
+neznámý nebo nejednoznačný účet se pouze označí ke kontrole. Synchronizace
+nikdy automaticky nezakládá ani nepřepisuje lokální bankovní účet.
+
 ### 16.8.4 Co se importuje
 
 | Sekce | Co se vytvoří |

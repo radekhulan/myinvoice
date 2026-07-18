@@ -10,6 +10,7 @@ use MyInvoice\Repository\ImportJobRepository;
 use MyInvoice\Infrastructure\Config\Config;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\PurchaseInvoiceRepository;
+use MyInvoice\Service\Bank\AccountNumberNormalizer;
 use MyInvoice\Service\Invoice\InvoiceCalculator;
 use MyInvoice\Service\Invoice\PurchaseInvoiceCalculator;
 use MyInvoice\Service\Invoice\SnapshotBuilder;
@@ -60,6 +61,7 @@ final class IdokladImportService
      *   - include_clients: bool (default true)
      *   - include_issued: bool (default true)
      *   - include_received: bool (default true)
+     *   - include_bank_accounts: bool (default true)
      *   - include_receipts: bool (default true) — přijaté účtenky/paragony
      *   - dry_run: bool (default false)
      */
@@ -85,6 +87,11 @@ final class IdokladImportService
             if ($incremental && $bookmarkSince !== null) $msg .= ', incremental od ' . $bookmarkSince;
             if ($downloadAttachments) $msg .= ', s přílohami';
             $this->jobs->appendLog($jobId, $msg . '.');
+
+            if (!empty($params['include_bank_accounts']) || ($params['include_bank_accounts'] ?? null) === null) {
+                $this->importBankAccounts($jobId, $supplierId, $dryRun);
+                $this->checkCancel($jobId);
+            }
 
             if (!empty($params['include_clients']) || ($params['include_clients'] ?? null) === null) {
                 $this->importClients($jobId, $supplierId, $userId, $dryRun, $bookmarkSince);
@@ -139,6 +146,85 @@ final class IdokladImportService
         if ($this->jobs->isCancelRequested($jobId)) {
             throw new CancelledException();
         }
+    }
+
+    private function importBankAccounts(int $jobId, int $supplierId, bool $dryRun): void
+    {
+        $this->jobs->appendLog($jobId, 'Synchronizuji bankovní účty z iDokladu…');
+        $pdo = $this->db->pdo();
+        $upsert = $pdo->prepare(
+            "INSERT INTO external_bank_account_mappings
+                (supplier_id, provider, external_account_id, currency_id, external_currency_id,
+                 external_bank_id, account_number, iban, name, is_default, sync_status, synced_at)
+             VALUES (?, 'idoklad', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                currency_id = VALUES(currency_id), external_currency_id = VALUES(external_currency_id),
+                external_bank_id = VALUES(external_bank_id), account_number = VALUES(account_number),
+                iban = VALUES(iban), name = VALUES(name), is_default = VALUES(is_default),
+                sync_status = VALUES(sync_status), synced_at = NOW()"
+        );
+
+        $matched = 0; $unmatched = 0; $ambiguous = 0;
+        foreach ($this->idoklad->getAll($supplierId, 'BankAccounts') as $external) {
+            $externalId = (int) ($external['Id'] ?? 0);
+            if ($externalId <= 0) continue;
+            $code = $this->idokladCurrencyCode($external, $supplierId);
+            $stmt = $pdo->prepare(
+                'SELECT id, account_number, bank_code, iban FROM currencies
+                  WHERE supplier_id = ? AND code = ? AND is_active = 1 ORDER BY id'
+            );
+            $stmt->execute([$supplierId, strtoupper($code)]);
+            $selection = self::matchExternalBankAccount($external, $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []);
+            if ($selection['status'] === 'matched') $matched++;
+            elseif ($selection['status'] === 'ambiguous') $ambiguous++;
+            else $unmatched++;
+            if ($dryRun) continue;
+            $upsert->execute([
+                $supplierId, (string) $externalId, $selection['currency_id'],
+                (string) ($external['CurrencyId'] ?? ''), (string) ($external['BankId'] ?? ''),
+                self::nullableString($external['AccountNumber'] ?? null),
+                self::nullableString($external['Iban'] ?? null),
+                self::nullableString($external['Name'] ?? null),
+                !empty($external['IsDefault']) ? 1 : 0, $selection['status'],
+            ]);
+        }
+        $this->jobs->appendLog($jobId, "Bankovní účty: spárováno {$matched}, bez shody {$unmatched}, nejednoznačné {$ambiguous}." . ($dryRun ? ' (dry-run)' : ''));
+    }
+
+    /**
+     * @param array<string,mixed> $external
+     * @param list<array<string,mixed>> $candidates
+     * @return array{currency_id:?int,status:'matched'|'unmatched'|'ambiguous'}
+     */
+    public static function matchExternalBankAccount(array $external, array $candidates): array
+    {
+        $number = trim((string) ($external['AccountNumber'] ?? ''));
+        $iban = trim((string) ($external['Iban'] ?? ''));
+        $externalBank = AccountNumberNormalizer::czechIbanBankCode($iban) ?? '';
+        $matches = [];
+        foreach ($candidates as $candidate) {
+            $candidateIban = self::nullableString($candidate['iban'] ?? null);
+            $numberMatches = $number !== ''
+                && AccountNumberNormalizer::matchesAny($number, $candidate['account_number'] ?? null, $candidateIban);
+            $ibanMatches = $iban !== '' && $candidateIban !== null
+                && strtoupper(preg_replace('/\s+/', '', $iban) ?? '') === strtoupper(preg_replace('/\s+/', '', $candidateIban) ?? '');
+            if (!$numberMatches && !$ibanMatches) continue;
+            $candidateBank = trim((string) ($candidate['bank_code'] ?? ''));
+            if ($candidateBank === '' && $candidateIban !== null) {
+                $candidateBank = AccountNumberNormalizer::czechIbanBankCode($candidateIban) ?? '';
+            }
+            if ($externalBank !== '' && $candidateBank !== '' && $externalBank !== $candidateBank) continue;
+            $matches[] = (int) $candidate['id'];
+        }
+        if (count($matches) === 1) return ['currency_id' => $matches[0], 'status' => 'matched'];
+        if (count($matches) > 1) return ['currency_id' => null, 'status' => 'ambiguous'];
+        return ['currency_id' => null, 'status' => 'unmatched'];
+    }
+
+    private static function nullableString(mixed $value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        return $value === '' ? null : $value;
     }
 
     /**

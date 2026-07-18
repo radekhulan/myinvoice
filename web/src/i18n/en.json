@@ -3793,6 +3793,7 @@
       "step4": "Copy client_id + client_secret and paste here",
       "run_title": "Run import",
       "run_hint": "Import runs in background. Status polled every 2 seconds. Can be cancelled.",
+      "include_bank_accounts": "Bank accounts",
       "include_clients": "Contacts (clients)",
       "include_issued": "Issued invoices",
       "include_received": "Received invoices",
