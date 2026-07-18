@@ -65,7 +65,8 @@ final class IdokladBankTransactionImporter
                 continue;
             }
 
-            $pdo->beginTransaction();
+            $statementId = 0;
+            $txId = 0;
             try {
                 $statementId = $this->statement($pdo, $supplierId, $externalAccountId, $date, $account);
                 $pdo->prepare(
@@ -94,10 +95,12 @@ final class IdokladBankTransactionImporter
                     }
                 }
                 $this->refreshStatement($pdo, $statementId);
-                $pdo->commit();
                 $result['created']++;
             } catch (\Throwable $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                if (isset($txId) && $txId > 0) {
+                    $pdo->prepare('DELETE FROM bank_transactions WHERE id = ?')->execute([$txId]);
+                }
+                if ($statementId > 0) $this->refreshStatement($pdo, $statementId);
                 throw $e;
             }
         }
