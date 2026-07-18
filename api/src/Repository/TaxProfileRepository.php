@@ -154,6 +154,52 @@ final class TaxProfileRepository
     }
 
     /**
+     * Příjem za konkrétní měsíc (zaplacené faktury, 'YYYY-MM', kasová metoda).
+     * Pro odhad "čistý příjem za minulý měsíc" v daňovém optimalizátoru.
+     */
+    public function monthIncome(int $supplierId, string $ym, bool $isVatPayer): float
+    {
+        $col = $isVatPayer ? 'i.total_without_vat' : 'i.total_with_vat';
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT COALESCE(SUM({$col} * COALESCE(IF(cur.code = 'CZK', 1, i.exchange_rate), 1)), 0)
+               FROM invoices i
+          LEFT JOIN currencies cur ON cur.id = i.currency_id
+              WHERE i.supplier_id = ?
+                AND i.status = 'paid'
+                AND i.paid_at IS NOT NULL
+                AND i.invoice_type IN ('invoice', 'credit_note', 'tax_document')
+                AND COALESCE(i.income_tax_exempt, 0) = 0
+                AND DATE_FORMAT(i.paid_at, '%Y-%m') = ?"
+        );
+        $stmt->execute([$supplierId, $ym]);
+        return round((float) $stmt->fetchColumn(), 2);
+    }
+
+    /**
+     * Náklady za konkrétní měsíc (zaplacené přijaté faktury, 'YYYY-MM', kasová metoda).
+     * Stejná konvence jako PurchaseSummaryAction::advanceCostExclude() — zaplacenou
+     * zálohu spárovanou s vyúčtovací fakturou nepočítej dvakrát.
+     */
+    public function monthExpenses(int $supplierId, string $ym, bool $isVatPayer): float
+    {
+        $col = $isVatPayer ? 'pi.total_without_vat' : 'pi.total_with_vat';
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT COALESCE(SUM({$col} * COALESCE(IF(cur.code = 'CZK', 1, pi.exchange_rate), 1)), 0)
+               FROM purchase_invoices pi
+          LEFT JOIN currencies cur ON cur.id = pi.currency_id
+              WHERE pi.supplier_id = ?
+                AND pi.status = 'paid'
+                AND pi.paid_at IS NOT NULL
+                AND DATE_FORMAT(pi.paid_at, '%Y-%m') = ?
+                AND NOT (COALESCE(pi.document_kind, '') = 'advance'
+                     AND EXISTS (SELECT 1 FROM purchase_invoices adv_s
+                                 WHERE adv_s.advance_purchase_invoice_id = pi.id))"
+        );
+        $stmt->execute([$supplierId, $ym]);
+        return round((float) $stmt->fetchColumn(), 2);
+    }
+
+    /**
      * Roky, za které existují zaplacené faktury (pro přepínač roku).
      * @return list<int>
      */

@@ -14,6 +14,7 @@ const saving = ref(false)
 const error = ref('')
 const analysis = ref<TaxAnalysis | null>(null)
 const year = ref<number>(new Date().getFullYear())
+const lastMonthOpen = ref(false)
 
 const profile = reactive<TaxProfile>({
   activity_rate: 60, use_actual_expenses: false, actual_expenses: 0,
@@ -218,6 +219,34 @@ async function save() {
 
       <!-- ── VÝSLEDKY ── -->
       <div>
+        <!-- Čistý příjem za minulý měsíc (odhad, nezávisle na zvoleném roce) -->
+        <div v-if="analysis.last_month" class="bg-surface border border-neutral-200 rounded-lg shadow-sm mb-6 overflow-hidden">
+          <button type="button" @click="lastMonthOpen = !lastMonthOpen"
+            class="w-full flex items-center justify-between gap-3 px-5 py-4 text-left cursor-pointer hover:bg-neutral-50">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                {{ t('tax.last_month_title', { month: formatMonth(analysis.last_month.ym) }) }}
+              </div>
+              <div class="text-2xl font-bold font-mono text-success-700 mt-1">{{ formatMoney(analysis.last_month.net_income, 'CZK') }}</div>
+            </div>
+            <span class="text-neutral-400 transition-transform shrink-0" :class="lastMonthOpen ? 'rotate-180' : ''">▾</span>
+          </button>
+          <div v-if="lastMonthOpen" class="px-5 pb-5 border-t border-neutral-100">
+            <table class="w-full text-sm mt-3">
+              <tbody>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">{{ t('tax.last_month_revenue') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.revenue, 'CZK') }}</td></tr>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">− {{ t('tax.last_month_expenses') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.expenses, 'CZK') }}</td></tr>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">= {{ t('tax.last_month_profit') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.profit, 'CZK') }}</td></tr>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">{{ t('tax.last_month_tax') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.income_tax, 'CZK') }}</td></tr>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">{{ t('tax.last_month_social') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.social, 'CZK') }}</td></tr>
+                <tr class="border-b border-neutral-100"><td class="py-1.5 text-neutral-600">{{ t('tax.last_month_health') }}</td><td class="py-1.5 text-right font-medium font-mono">{{ formatMoney(analysis.last_month.health, 'CZK') }}</td></tr>
+                <tr><td class="pt-2 font-bold text-success-700">{{ t('tax.last_month_net') }}</td><td class="pt-2 text-right font-bold font-mono text-success-700">{{ formatMoney(analysis.last_month.net_income, 'CZK') }}</td></tr>
+              </tbody>
+            </table>
+            <p class="mt-2 text-[11px] text-neutral-400">{{ t('tax.last_month_hint') }}</p>
+          </div>
+        </div>
+
         <!-- RETROSPEKTIVA (uzavřený rok) -->
         <template v-if="cmp">
           <div class="text-sm text-neutral-500 mb-3">

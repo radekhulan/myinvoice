@@ -289,6 +289,75 @@ final class TaxOptimizer
         ];
     }
 
+    /**
+     * Pravděpodobný čistý příjem za konkrétní (uzavřený) měsíc — odhad.
+     *
+     * Nejde přesně spočítat: daň z příjmu i minima pojistného se počítají z
+     * ROČNÍHO základu, ne po měsících. Proto se měsíc anualizuje (× 12) a
+     * spočítá stejnou logikou jako {@see computeRegular()} (výdajový paušál
+     * NEBO skutečné náklady, odpočty, dětské slevy, minimální vyměřovací
+     * základy pojistného), výsledek se pak vydělí 12. Je to "kdyby tenhle
+     * měsíc reprezentoval celý rok" — nikdy ne přesná částka, jen orientační
+     * odhad (proto `$monthExpenses` = skutečné zaplacené náklady daného
+     * měsíce, ne paušál — reálnější cashflow obrázek).
+     *
+     * @param array<string,mixed> $profile
+     * @param array<string,mixed> $c konstanty roku
+     * @return array<string,mixed>
+     */
+    public function estimateMonthly(array $profile, float $monthIncome, float $monthExpenses, array $c): array
+    {
+        $annualIncome = $monthIncome * 12;
+
+        // Výdaje pro DAŇOVÝ ZÁKLAD (a tím i pro vyměřovací základ pojistného):
+        // stejná volba jako computeRegular() — buď výdajový paušál % z příjmu (se
+        // stropem), nebo skutečné výdaje. Paušál není reálný cashflow, proto se pro
+        // zobrazení "náklady"/"zisk" (informativní, reálná hotovost) níže vždy bere
+        // $monthExpenses (skutečně zaplacené přijaté faktury), bez ohledu na režim.
+        $rate = (int) ($profile['activity_rate'] ?? 40);
+        $useActual = !empty($profile['use_actual_expenses']);
+        $taxExpensesAnnual = $useActual
+            ? $monthExpenses * 12
+            : min($annualIncome * $rate / 100, (float) ($c['expense_caps'][$rate] ?? PHP_INT_MAX));
+
+        $deductions = min((float) ($profile['mortgage_interest'] ?? 0), (float) $c['mortgage_cap'])
+            + min((float) ($profile['pension_contrib'] ?? 0), (float) $c['pension_cap'])
+            + (float) ($profile['life_insurance'] ?? 0)
+            + (float) ($profile['donations'] ?? 0);
+
+        $base = max(0.0, $annualIncome - $taxExpensesAnnual - $deductions);
+
+        $thr = (float) $c['tax_high_threshold'];
+        $tax = $base <= $thr
+            ? $base * $c['tax_rate_low']
+            : $thr * $c['tax_rate_low'] + ($base - $thr) * $c['tax_rate_high'];
+
+        $nonRefundable = (float) $c['credit_taxpayer'] + (!empty($profile['spouse_credit']) ? (float) $c['credit_spouse'] : 0.0);
+        $taxAfterCredits = max(0.0, $tax - $nonRefundable);
+
+        $childTotal = $this->childCreditTotal((int) ($profile['children_count'] ?? 0), $c['child_credits']);
+        $annualIncomeTax = $taxAfterCredits - $childTotal;
+
+        $taxProfit = $annualIncome - $taxExpensesAnnual;
+        $socMin = !empty($profile['is_secondary']) ? (float) $c['social_min_base_secondary'] : (float) $c['social_min_base_main'];
+        $socialBase = max($taxProfit * (float) $c['social_assessment_pct'], $socMin);
+        $healthBase = max($taxProfit * (float) $c['health_assessment_pct'], (float) $c['health_min_base']);
+        $annualSocial = $socialBase * $c['social_rate'];
+        $annualHealth = $healthBase * $c['health_rate'];
+
+        $annualTotal = $annualIncomeTax + $annualSocial + $annualHealth;
+
+        return [
+            'revenue'    => round($monthIncome, 0),
+            'expenses'   => round($monthExpenses, 0),
+            'profit'     => round($monthIncome - $monthExpenses, 0),
+            'income_tax' => round($annualIncomeTax / 12, 0),
+            'social'     => round($annualSocial / 12, 0),
+            'health'     => round($annualHealth / 12, 0),
+            'net_income' => round(($annualIncome - $annualTotal) / 12, 0),
+        ];
+    }
+
     /** @param array<int,int> $credits */
     private function childCreditTotal(int $n, array $credits): float
     {
