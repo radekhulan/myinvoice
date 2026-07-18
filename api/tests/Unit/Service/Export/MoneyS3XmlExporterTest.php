@@ -24,12 +24,10 @@ final class MoneyS3XmlExporterTest extends TestCase
 
     public function testDocumentEnvelopeAndSingleRateBucketsMatchRealSample(): void
     {
-        // Shape mirrors a genuine Money S3 export sample: SazbaDPH1 stays at
-        // the agenda's configured reduced rate (12) even when unused by any
-        // line — it's a fixed agenda constant, not derived per-document (the
-        // real sample itself declares SazbaDPH1=12 with only a 21%-taxed
-        // line). Zaklad22/DPH22 is the legacy "standard rate" bucket
-        // regardless of the literal 21 in its name.
+        // Shape mirrors a genuine Money S3 export sample: a lone 21%-taxed line
+        // fills the standard bucket (Zaklad22/DPH22, legacy name) and drives
+        // SazbaDPH2, while the unused reduced slot SazbaDPH1 falls back to the
+        // current default reduced rate (12) — exactly as in the real sample.
         $xml = $this->exporter->buildXml([$this->invoice()]);
 
         self::assertSame('0', $this->xpathOne($xml, '/MoneyData/@VyberZaznamu'));
@@ -105,15 +103,75 @@ final class MoneyS3XmlExporterTest extends TestCase
         self::assertSame('1000.00', $this->xpathOne($xml, '//SouhrnDPH/Zaklad22'));
     }
 
-    public function testUnsupportedVatRateFailsExport(): void
+    public function testHistoricalReducedRateExportsIntoReducedBucket(): void
     {
-        // Only 0 / 12 / 21 map onto Money S3's fixed agenda buckets; a legacy
-        // or foreign rate (e.g. 15) can't be represented and must hard-fail
-        // rather than silently landing in the wrong bucket.
+        // A pre-2024 reduced rate (15% for 2013–2023) must export, not hard-
+        // fail: rates are derived per document, so a lone 15% line fills the
+        // reduced bucket and drives SazbaDPH1 while the standard slot keeps its
+        // default (21).
+        $xml = $this->exporter->buildXml([$this->invoice([
+            'items' => [$this->item([
+                'vat_rate_snapshot' => 15.0,
+                'total_without_vat' => 1000.0,
+                'total_vat' => 150.0,
+                'total_with_vat' => 1150.0,
+            ])],
+            'total_with_vat' => 1150.0,
+            'amount_to_pay' => 1150.0,
+        ])]);
+
+        self::assertSame('15.00', $this->xpathOne($xml, '//FaktVyd/SazbaDPH1'));
+        self::assertSame('21.00', $this->xpathOne($xml, '//FaktVyd/SazbaDPH2'));
+        self::assertSame('1000.00', $this->xpathOne($xml, '//SouhrnDPH/Zaklad5'));
+        self::assertSame('150.00', $this->xpathOne($xml, '//SouhrnDPH/DPH5'));
+        self::assertSame('0.00', $this->xpathOne($xml, '//SouhrnDPH/Zaklad22'));
+        self::assertSame('0.00', $this->xpathOne($xml, '//SouhrnDPH/DPH22'));
+    }
+
+    public function testHistoricalReducedAndStandardPairSplitsIntoBothBuckets(): void
+    {
+        // 2013–2023 pair 15%/21% — both slots derived from the document, lower
+        // rate to reduced (Zaklad5), higher to standard (Zaklad22).
+        $xml = $this->exporter->buildXml([$this->invoice([
+            'items' => [
+                $this->item([
+                    'vat_rate_snapshot' => 15.0,
+                    'total_without_vat' => 1000.0,
+                    'total_vat' => 150.0,
+                    'total_with_vat' => 1150.0,
+                ]),
+                $this->item([
+                    'vat_rate_snapshot' => 21.0,
+                    'total_without_vat' => 2000.0,
+                    'total_vat' => 420.0,
+                    'total_with_vat' => 2420.0,
+                ]),
+            ],
+            'total_with_vat' => 3570.0,
+            'amount_to_pay' => 3570.0,
+        ])]);
+
+        self::assertSame('15.00', $this->xpathOne($xml, '//FaktVyd/SazbaDPH1'));
+        self::assertSame('21.00', $this->xpathOne($xml, '//FaktVyd/SazbaDPH2'));
+        self::assertSame('1000.00', $this->xpathOne($xml, '//SouhrnDPH/Zaklad5'));
+        self::assertSame('150.00', $this->xpathOne($xml, '//SouhrnDPH/DPH5'));
+        self::assertSame('2000.00', $this->xpathOne($xml, '//SouhrnDPH/Zaklad22'));
+        self::assertSame('420.00', $this->xpathOne($xml, '//SouhrnDPH/DPH22'));
+    }
+
+    public function testMoreThanTwoNonZeroRatesFailsExport(): void
+    {
+        // Money S3's two-bucket model can't hold three distinct non-zero rates
+        // on one document (e.g. the 2015–2023 10/15/21 mix) — hard-fail rather
+        // than silently drop a rate.
         $this->expectException(\RuntimeException::class);
 
         $this->exporter->buildXml([$this->invoice([
-            'items' => [$this->item(['vat_rate_snapshot' => 15.0])],
+            'items' => [
+                $this->item(['vat_rate_snapshot' => 10.0, 'total_without_vat' => 100.0, 'total_vat' => 10.0]),
+                $this->item(['vat_rate_snapshot' => 15.0, 'total_without_vat' => 100.0, 'total_vat' => 15.0]),
+                $this->item(['vat_rate_snapshot' => 21.0, 'total_without_vat' => 100.0, 'total_vat' => 21.0]),
+            ],
         ])]);
     }
 

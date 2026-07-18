@@ -24,13 +24,15 @@ use MyInvoice\Repository\InvoiceRepository;
  * Confirmed quirk from the sample: the VAT-bucket field names in <SouhrnDPH>
  * (Zaklad0/Zaklad5/Zaklad22, DPH5/DPH22) and on <Polozka><SouhrnDPH> are
  * legacy — they date back to when Czech VAT had 5%/22% rates and Money S3 has
- * never renamed them. Today they mean "0% bucket / reduced-rate bucket /
- * standard-rate bucket" regardless of the *current* literal rates (12%/21%),
- * which the document header declares separately via <SazbaDPH1>/<SazbaDPH2>.
- * This was proven by the sample: SazbaDPH1=12/SazbaDPH2=21 with a 21%-taxed
- * line landing its base/VAT in Zaklad22/DPH22, not a bucket literally named
- * "21". Money S3's own UI only supports two non-zero rates per document, so a
- * third distinct rate is a hard error here rather than silently dropped.
+ * never renamed them. They mean "0% bucket / reduced-rate bucket / standard-
+ * rate bucket" regardless of the literal rates in force; the two non-zero
+ * rates are named by the document header via <SazbaDPH1>/<SazbaDPH2>. Because
+ * those rates are per-document, the exporter derives them from the invoice's
+ * own line items (see {@see self::vatBuckets()}) so historical periods export
+ * with their real rates — 15%/21% (2013–2023), 14%/20% (2012), 5%/22%
+ * (1995–2003) — not just the current 12%/21%. Money S3 has only two non-zero
+ * buckets per document, so a third distinct non-zero rate (e.g. the 2015–2023
+ * 10/15/21 mix on one doc) is a hard error rather than a silently dropped line.
  *
  * Manual-confirmed scope limits (money.cz/navod/s3xmlde/, "Konkrétní logika
  * importu a exportu entit" → "Faktury přijaté a vydané"): storno (cancelled)
@@ -342,20 +344,41 @@ final class MoneyS3XmlExporter
         $this->el($xml, $node, 'KodStatu', $address['countryIso']);
     }
 
-    /** Current Czech reduced/standard VAT rates (2024+). */
-    private const REDUCED_VAT_RATE = 12.0;
-    private const STANDARD_VAT_RATE = 21.0;
+    /**
+     * Current Czech reduced/standard VAT rates — used only as the fallback for
+     * an *unused* Money S3 rate slot (an all-zero document, or one that fills
+     * just the other slot). The rates that actually drive bucketing are derived
+     * per-document from the line items, see {@see self::vatBuckets()}.
+     */
+    private const DEFAULT_REDUCED_VAT_RATE = 12.0;
+    private const DEFAULT_STANDARD_VAT_RATE = 21.0;
 
     /**
-     * <SazbaDPH1>/<SazbaDPH2> are the Money S3 *agenda's* configured reduced/
-     * standard VAT rates — fixed constants, not "whichever rates this document
-     * happens to use". Confirmed by the real sample: it declares SazbaDPH1=12
-     * even though its single line item is taxed at 21%, i.e. only the
-     * standard-rate bucket. Line items bucket into the three legacy fields
-     * (0% / reduced / standard — see class docblock) by matching their own
-     * rate against these two constants; any other rate can't be represented
-     * in Money S3's two-non-zero-bucket model and is a hard error, matching
-     * how StereoXmlExporter refuses irreconcilable per-row VAT metadata.
+     * A lone non-zero rate below this threshold goes to the reduced slot, at or
+     * above it to the standard slot. The value sits in the clean gap between
+     * every historical Czech reduced rate (≤ 15%) and every standard rate
+     * (≥ 19%), so a single 10/12/14/15 lands reduced and a single 19/20/21/22
+     * lands standard — matching the real sample, where a lone 21% line fills
+     * the standard bucket while SazbaDPH1 keeps the default reduced rate.
+     */
+    private const REDUCED_STANDARD_SPLIT = 17.0;
+
+    /**
+     * <SazbaDPH1>/<SazbaDPH2> name the document's two non-zero VAT rates, whose
+     * bases/VAT land in the legacy positional buckets Zaklad5/DPH5 (reduced) and
+     * Zaklad22/DPH22 (standard); Zaklad0 holds the 0% base. Because those rates
+     * are per-document, they are derived from the invoice's own line items — the
+     * lower non-zero rate becomes the reduced slot, the higher the standard slot
+     * — so historical periods export with their real rates (15%/21% for
+     * 2013–2023, 14%/20% for 2012, 5%/22% for 1995–2003) rather than being
+     * forced onto the current 12%/21%. A slot with no matching line falls back
+     * to the current default rate.
+     *
+     * Money S3 has only two non-zero buckets per document, so three or more
+     * distinct non-zero rates on one doc (e.g. the 2015–2023 10/15/21 mix)
+     * cannot be represented and is a hard error rather than a silently
+     * mis-bucketed line — matching how StereoXmlExporter refuses irreconcilable
+     * per-row VAT metadata.
      *
      * @param array<string,mixed> $invoice
      * @param list<array<string,mixed>> $items
@@ -363,10 +386,48 @@ final class MoneyS3XmlExporter
      */
     private function vatBuckets(array $invoice, array $items): array
     {
+        $nonZeroRates = [];
+        foreach ($items as $item) {
+            $rate = round((float) ($item['vat_rate_snapshot'] ?? 0), 2);
+            if ($rate > 0.0 && !in_array($rate, $nonZeroRates, true)) {
+                $nonZeroRates[] = $rate;
+            }
+        }
+        sort($nonZeroRates);
+
+        if (count($nonZeroRates) > 2) {
+            throw new \RuntimeException(sprintf(
+                'Money S3 XML umí na dokladu jen dvě nenulové sazby DPH (plus 0). Doklad %s má sazby: %s.',
+                (string) ($invoice['varsymbol'] ?? $invoice['id'] ?? '?'),
+                implode(', ', array_map(fn (float $r): string => $this->fmt($r), $nonZeroRates)),
+            ));
+        }
+
+        // Assign each present rate to a slot: with two rates the lower is
+        // reduced and the higher standard; a lone rate is split by
+        // REDUCED_STANDARD_SPLIT so it keeps its natural reduced/standard sense.
+        $reducedRate = self::DEFAULT_REDUCED_VAT_RATE;
+        $standardRate = self::DEFAULT_STANDARD_VAT_RATE;
+        $slotOf = [];
+        if (count($nonZeroRates) === 2) {
+            [$reducedRate, $standardRate] = $nonZeroRates;
+            $slotOf[$this->fmt($nonZeroRates[0])] = 'reduced';
+            $slotOf[$this->fmt($nonZeroRates[1])] = 'standard';
+        } elseif (count($nonZeroRates) === 1) {
+            $rate = $nonZeroRates[0];
+            if ($rate >= self::REDUCED_STANDARD_SPLIT) {
+                $standardRate = $rate;
+                $slotOf[$this->fmt($rate)] = 'standard';
+            } else {
+                $reducedRate = $rate;
+                $slotOf[$this->fmt($rate)] = 'reduced';
+            }
+        }
+
         $buckets = [
             'zeroBase' => 0.0,
-            'reducedBase' => 0.0, 'reducedVat' => 0.0, 'reducedRate' => self::REDUCED_VAT_RATE,
-            'standardBase' => 0.0, 'standardVat' => 0.0, 'standardRate' => self::STANDARD_VAT_RATE,
+            'reducedBase' => 0.0, 'reducedVat' => 0.0, 'reducedRate' => $reducedRate,
+            'standardBase' => 0.0, 'standardVat' => 0.0, 'standardRate' => $standardRate,
         ];
 
         foreach ($items as $item) {
@@ -376,20 +437,12 @@ final class MoneyS3XmlExporter
 
             if ($rate <= 0.0) {
                 $buckets['zeroBase'] += $base;
-            } elseif ($rate === self::REDUCED_VAT_RATE) {
+            } elseif (($slotOf[$this->fmt($rate)] ?? '') === 'reduced') {
                 $buckets['reducedBase'] += $base;
                 $buckets['reducedVat'] += $vat;
-            } elseif ($rate === self::STANDARD_VAT_RATE) {
+            } else {
                 $buckets['standardBase'] += $base;
                 $buckets['standardVat'] += $vat;
-            } else {
-                throw new \RuntimeException(sprintf(
-                    'Money S3 XML podporuje jen sazby DPH %s a %s (a 0) na dokladu %s. Nalezena sazba: %s.',
-                    $this->fmt(self::REDUCED_VAT_RATE),
-                    $this->fmt(self::STANDARD_VAT_RATE),
-                    (string) ($invoice['varsymbol'] ?? $invoice['id'] ?? '?'),
-                    $this->fmt($rate),
-                ));
             }
         }
 
