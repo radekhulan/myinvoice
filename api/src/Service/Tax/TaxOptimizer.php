@@ -296,10 +296,11 @@ final class TaxOptimizer
      * ROČNÍHO základu, ne po měsících. Proto se měsíc anualizuje (× 12) a
      * spočítá stejnou logikou jako {@see computeRegular()} (výdajový paušál
      * NEBO skutečné náklady, odpočty, dětské slevy, minimální vyměřovací
-     * základy pojistného), výsledek se pak vydělí 12. Je to "kdyby tenhle
-     * měsíc reprezentoval celý rok" — nikdy ne přesná částka, jen orientační
-     * odhad (proto `$monthExpenses` = skutečné zaplacené náklady daného
-     * měsíce, ne paušál — reálnější cashflow obrázek).
+     * základy pojistného), odvody se pak vydělí 12. Čistý příjem = zisk (tržby
+     * − skutečné zaplacené náklady) minus tyto měsíční odvody — reálná hotovost,
+     * co zbyde. Je to "kdyby tenhle měsíc reprezentoval celý rok" — nikdy ne
+     * přesná částka, jen orientační odhad (`$monthExpenses` = skutečné zaplacené
+     * náklady daného měsíce, ne paušál).
      *
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $c konstanty roku
@@ -345,16 +346,28 @@ final class TaxOptimizer
         $annualSocial = $socialBase * $c['social_rate'];
         $annualHealth = $healthBase * $c['health_rate'];
 
-        $annualTotal = $annualIncomeTax + $annualSocial + $annualHealth;
+        // Měsíční odvody = roční / 12 (daň i minima pojistného se počítají z ročního
+        // základu). Zaokrouhlené hodnoty, aby vodopád v UI seděl na korunu.
+        $incomeTax = round($annualIncomeTax / 12, 0);
+        $social    = round($annualSocial / 12, 0);
+        $health    = round($annualHealth / 12, 0);
+
+        $revenue  = round($monthIncome, 0);
+        $expenses = round($monthExpenses, 0);
+        $profit   = round($monthIncome - $monthExpenses, 0);
 
         return [
-            'revenue'    => round($monthIncome, 0),
-            'expenses'   => round($monthExpenses, 0),
-            'profit'     => round($monthIncome - $monthExpenses, 0),
-            'income_tax' => round($annualIncomeTax / 12, 0),
-            'social'     => round($annualSocial / 12, 0),
-            'health'     => round($annualHealth / 12, 0),
-            'net_income' => round(($annualIncome - $annualTotal) / 12, 0),
+            'revenue'    => $revenue,
+            'expenses'   => $expenses,
+            'profit'     => $profit,
+            'income_tax' => $incomeTax,
+            'social'     => $social,
+            'health'     => $health,
+            // Čistý příjem = reálná hotovost, co zbyde: zisk (tržby − skutečné zaplacené
+            // náklady) po odečtení odvodů. Na rozdíl od roční karty (kde jsou „náklady"
+            // paušál, tedy fiktivní, a proto se neodečítají) tato měsíční karta pracuje
+            // se skutečnými náklady, takže je do čistého příjmu započítává — vodopád sedí.
+            'net_income' => $profit - $incomeTax - $social - $health,
         ];
     }
 

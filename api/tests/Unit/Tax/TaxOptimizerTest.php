@@ -103,7 +103,7 @@ final class TaxOptimizerTest extends TestCase
         self::assertSame(3430.0, $r['income_tax']);   // 41 160 / 12
         self::assertSame(6424.0, $r['social']);        // 77 088 / 12
         self::assertSame(3143.0, $r['health']);         // round(37 711 / 12)
-        self::assertSame(87003.0, $r['net_income']);    // round((1 200 000 − 155 959) / 12)
+        self::assertSame(27003.0, $r['net_income']);    // zisk 40 000 − (3430 + 6424 + 3143) odvodů
     }
 
     /**
@@ -118,11 +118,12 @@ final class TaxOptimizerTest extends TestCase
         self::assertSame(10000.0, $r['expenses']);      // reálné náklady, jen pro zobrazení
         self::assertSame(90000.0, $r['profit']);        // 100k − 10k reálný cashflow
         // Daň/pojistné počítané ze 60% paušálu (720k), stejně jako by reálné náklady
-        // byly 60k — proto STEJNÉ hodnoty jako testEstimateMonthlyMatchesAnnualizedRegular.
+        // byly 60k — proto STEJNÉ odvody jako testEstimateMonthlyMatchesAnnualizedRegular.
         self::assertSame(3430.0, $r['income_tax']);
         self::assertSame(6424.0, $r['social']);
         self::assertSame(3143.0, $r['health']);
-        self::assertSame(87003.0, $r['net_income']);
+        // Čistý příjem ale vychází z reálného zisku 90 000 (ne 40 000): 90 000 − odvody.
+        self::assertSame(77003.0, $r['net_income']);
     }
 
     /**
