@@ -86,7 +86,12 @@ final class IdokladBankTransactionImporter
                 ]);
                 $txId = (int) $pdo->lastInsertId();
 
-                if ($this->reconciler->ignoreSecondaryWhenAuthoritativeTwinExists($txId) === null) {
+                $authoritativeTwinId = $this->reconciler->ignoreSecondaryWhenAuthoritativeTwinExists($txId);
+                if ($authoritativeTwinId !== null) {
+                    if ($this->reconcileAuthoritativeInvoice(
+                        $pdo, $authoritativeTwinId, $supplierId, $movement, $amount, (string) $account['currency']
+                    )) $result['matched']++;
+                } else {
                     if ($this->matchPairedIssuedInvoice($pdo, $txId, $supplierId, $movement, $amount, $date, (string) $account['currency'])) {
                         $result['matched']++;
                     } else {
@@ -203,6 +208,39 @@ final class IdokladBankTransactionImporter
     private function hasPairedIssuedInvoice(PDO $pdo, int $supplierId, array $movement, float $amount, string $currency): bool
     {
         return $this->pairedIssuedInvoice($pdo, $supplierId, $movement, $amount, $currency) !== null;
+    }
+
+    /**
+     * iDoklad zná přesné ID dokladu, GPC je zdroj pravdy pro existenci platby.
+     * Opravíme pouze automatickou vazbu bez platebních záznamů; manuální nebo
+     * účetně evidovanou vazbu nikdy nepřepisujeme.
+     *
+     * @param array<string,mixed> $movement
+     */
+    private function reconcileAuthoritativeInvoice(PDO $pdo, int $authoritativeTxId, int $supplierId, array $movement, float $amount, string $currency): bool
+    {
+        $invoice = $this->pairedIssuedInvoice($pdo, $supplierId, $movement, $amount, $currency);
+        if ($invoice === null || (string) $invoice['status'] !== 'paid') return false;
+        $targetInvoiceId = (int) $invoice['id'];
+        $s = $pdo->prepare(
+            "SELECT bt.match_status, bt.matched_invoice_id,
+                    (SELECT COUNT(*) FROM invoice_payments ip WHERE ip.bank_transaction_id = bt.id) AS invoice_payments,
+                    (SELECT COUNT(*) FROM payment_matches pm WHERE pm.bank_transaction_id = bt.id) AS purchase_matches
+               FROM bank_transactions bt
+              WHERE bt.id = ? AND bt.source = 'statement'"
+        );
+        $s->execute([$authoritativeTxId]);
+        $tx = $s->fetch(PDO::FETCH_ASSOC);
+        if ($tx === false) return false;
+        if ((int) ($tx['matched_invoice_id'] ?? 0) === $targetInvoiceId) return true;
+        if (!in_array((string) $tx['match_status'], ['unmatched', 'auto_exact', 'auto_partial'], true)) return false;
+        if ((int) $tx['invoice_payments'] > 0 || (int) $tx['purchase_matches'] > 0) return false;
+        $pdo->prepare(
+            "UPDATE bank_transactions
+                SET matched_invoice_id = ?, match_status = 'auto_exact', matched_at = NOW(), matched_by = NULL
+              WHERE id = ?"
+        )->execute([$targetInvoiceId, $authoritativeTxId]);
+        return true;
     }
 
     /** @param array<string,mixed> $movement @return array<string,mixed>|null */
