@@ -10,6 +10,7 @@ use MyInvoice\Repository\ImportJobRepository;
 use MyInvoice\Infrastructure\Config\Config;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\PurchaseInvoiceRepository;
+use MyInvoice\Service\Bank\AccountNumberNormalizer;
 use MyInvoice\Service\Invoice\InvoiceCalculator;
 use MyInvoice\Service\Invoice\PurchaseInvoiceCalculator;
 use MyInvoice\Service\Invoice\SnapshotBuilder;
@@ -302,7 +303,7 @@ final class IdokladImportService
             'issue_date'       => (string) ($i['DateOfIssue'] ?? date('Y-m-d')),
             'tax_date'         => $invoiceType === 'proforma' ? null : (string) ($i['DateOfTaxing'] ?? $i['DateOfIssue'] ?? date('Y-m-d')),
             'due_date'         => (string) ($i['DateOfMaturity'] ?? $i['DateOfIssue'] ?? date('Y-m-d')),
-            'currency_id'      => $this->resolveCurrencyId($this->idokladCurrencyCode($i, $supplierId), $supplierId, isActive: true),
+            'currency_id'      => $this->resolveIssuedCurrencyId($i, $supplierId),
             'reverse_charge'   => false,
             'language'         => 'cs',
             // varsymbol = číslo dokladu (unikátní per dodavatel), NE platební VariableSymbol (#196).
@@ -890,6 +891,78 @@ final class IdokladImportService
     }
 
     /**
+     * Účet vydané faktury podle historických údajů `MyAddress` z iDokladu.
+     *
+     * Jedna měna může mít v MyInvoice více bankovních účtů. Samotný CurrencyId
+     * proto nestačí: nejprve hledáme přesnou dvojici číslo účtu + kód banky
+     * uloženou na konkrétní faktuře. Výchozí účet měny je pouze fallback pro
+     * doklady bez bankovních údajů nebo bez jednoznačné lokální shody.
+     *
+     * @param array<string,mixed> $doc
+     */
+    private function resolveIssuedCurrencyId(array $doc, int $supplierId): int
+    {
+        $code = $this->idokladCurrencyCode($doc, $supplierId);
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT id, account_number, bank_code, iban FROM currencies
+              WHERE supplier_id = ? AND code = ? AND is_active = 1
+              ORDER BY is_default DESC, id ASC'
+        );
+        $stmt->execute([$supplierId, strtoupper(trim($code)) ?: 'CZK']);
+        $accounts = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        $matchedId = self::matchIssuedBankAccount($doc, $accounts);
+        if ($matchedId !== null) {
+            return $matchedId;
+        }
+
+        $address = is_array($doc['MyAddress'] ?? null) ? $doc['MyAddress'] : [];
+        if (trim((string) ($address['AccountNumber'] ?? '')) !== '') {
+            $this->logger->warning('iDoklad issued invoice bank account was not matched uniquely; using currency default', [
+                'supplier_id' => $supplierId,
+                'idoklad_id'  => (int) ($doc['Id'] ?? 0),
+                'bank_code'   => trim((string) ($address['BankCode'] ?? '')) ?: null,
+                'currency'    => strtoupper(trim($code)) ?: 'CZK',
+            ]);
+        }
+
+        return $this->resolveCurrencyId($code, $supplierId, isActive: true);
+    }
+
+    /**
+     * @param array<string,mixed> $doc
+     * @param list<array{id:mixed,account_number:mixed,bank_code:mixed,iban?:mixed}> $accounts
+     */
+    public static function matchIssuedBankAccount(array $doc, array $accounts): ?int
+    {
+        $address = is_array($doc['MyAddress'] ?? null) ? $doc['MyAddress'] : [];
+        $accountNumber = trim((string) ($address['AccountNumber'] ?? ''));
+        $bankCode = preg_replace('/\D/', '', (string) ($address['BankCode'] ?? '')) ?? '';
+        if ($accountNumber === '') {
+            return null;
+        }
+
+        $matches = [];
+        foreach ($accounts as $account) {
+            $iban = isset($account['iban']) && is_string($account['iban']) ? $account['iban'] : null;
+            if (!AccountNumberNormalizer::matchesAny($accountNumber, $account['account_number'] ?? null, $iban)) {
+                continue;
+            }
+
+            $candidateBank = preg_replace('/\D/', '', (string) ($account['bank_code'] ?? '')) ?? '';
+            if ($candidateBank === '' && $iban !== null) {
+                $candidateBank = AccountNumberNormalizer::czechIbanBankCode($iban) ?? '';
+            }
+            if ($bankCode !== '' && $candidateBank !== $bankCode) {
+                continue;
+            }
+            $matches[] = (int) $account['id'];
+        }
+
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    /**
      * ISO kód měny dokladu. iDoklad list endpointy vrací jen `CurrencyId` (int) — přeložíme
      * přes /Currencies mapu. Fallback na legacy nested `Currency.Code` / `CurrencyCode`, pak CZK.
      */
@@ -1115,7 +1188,7 @@ final class IdokladImportService
                     'issue_date'        => (string) ($i['DateOfIssue'] ?? date('Y-m-d')),
                     'tax_date'          => (string) ($i['DateOfTaxing'] ?? $i['DateOfIssue'] ?? date('Y-m-d')),
                     'due_date'          => (string) ($i['DateOfMaturity'] ?? $i['DateOfIssue'] ?? date('Y-m-d')),
-                    'currency_id'       => $this->resolveCurrencyId($this->idokladCurrencyCode($i, $supplierId), $supplierId, isActive: true),
+                    'currency_id'       => $this->resolveIssuedCurrencyId($i, $supplierId),
                     'reverse_charge'    => false,
                     'language'          => 'cs',
                     // varsymbol = číslo dokladu (unikátní per dodavatel), NE platební VariableSymbol (#196).

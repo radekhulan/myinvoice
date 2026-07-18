@@ -196,6 +196,12 @@ Klikni **Spustit import**.
 | **purchases** | `purchase_invoices` + `purchase_invoice_items`. Klient → `clients` s `is_vendor=true`. |
 | **receipts** | Přijaté **účtenky/paragony** (iDoklad `ReceivedReceipts`) → `purchase_invoices` s `document_kind='receipt'`. Účtenka nemá splatnost ani DUZP → `datum vystavení` = DUZP = splatnost. Hrazená na místě → importuje se rovnou jako **Zaplacená**. Hotovostní účtenka **bez dodavatele** viz poznámka níže. |
 
+U vydané faktury se bankovní účet přebírá z historických údajů `MyAddress`
+konkrétního dokladu (číslo účtu a kód banky). Pokud máš pro jednu měnu více
+účtů, import tak zachová účet skutečně uvedený na faktuře; výchozí účet měny se
+použije pouze tehdy, když doklad účet neobsahuje nebo jej nelze jednoznačně
+spárovat s aktivním účtem v MyInvoice.
+
 ### 16.8.5 Platební stav
 
 API import přebírá **skutečný platební stav ze zdrojového systému** — na rozdíl
