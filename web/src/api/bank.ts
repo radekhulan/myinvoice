@@ -192,7 +192,7 @@ export interface AccountBalance {
   /** Datum, ke kterému aktuální stav platí (výpis / avízo). */
   statement_date: string
   /** Odkud aktuální stav pochází: GPC výpis, nebo disponibilní zůstatek z avíza. */
-  current_source: 'gpc' | 'email_notice'
+  current_source: 'gpc' | 'pdf' | 'email_notice'
   statement_count: number
   months: AccountBalanceMonth[]
 }
@@ -203,6 +203,13 @@ export interface AccountBalancesResponse {
   total_czk: {
     current: number
     months: { month: string; balance_czk: number | null }[]
+    series: {
+      account_id: number
+      label: string
+      account_number: string
+      bank_code: string | null
+      months: { month: string; balance_czk: number | null }[]
+    }[]
   }
   /** Měny bez jakéhokoli kurzu v cache (nešly přepočíst na CZK). */
   missing_rates: string[]

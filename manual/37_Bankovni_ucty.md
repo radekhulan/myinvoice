@@ -26,6 +26,22 @@ nastavuješ stejně jako pro PDF faktury, QR platby a GPC výpisy:
 Nastavení bankovních avíz je oddělené níže, aby se běžné bankovní údaje
 nemíchaly s parsery a IMAP účty.
 
+### Stavy na účtech
+
+Záložka **Stavy na účtech** zobrazuje každý bankovní účet samostatně podle
+čísla účtu, kódu banky a měny. Aktuální stav vychází z posledního oficiálního
+GPC nebo PDF výpisu; pokud je dostupné novější e-mailové avízo s disponibilním
+zůstatkem, použije se novější údaj.
+
+Pod tabulkou je pro každý účet samostatný graf měsíčních konečných zůstatků
+v jeho vlastní měně. Graf **Celkový vývoj v CZK** zobrazuje jednotlivé účty
+i řadu **Celkem**. Cizoměnové účty se pro tento graf přepočítávají kurzem ČNB
+ke konci příslušného měsíce.
+
+Pokud mají dva účty stejné číslo před lomítkem, rozlišují se kódem banky.
+Starý výpis bez uloženého kódu banky se při více možných bankách do zůstatku
+nezapočte, protože jej nelze bezpečně přiřadit.
+
 ## 37.2 Mapování bankovních avíz
 
 Sekce **Mapování bankovních avíz** určuje, jak se vytěžený e-mail napojí na

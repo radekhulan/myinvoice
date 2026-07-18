@@ -514,7 +514,7 @@ final class BankStatementAction
      *   • celkový součet přepočtený na CZK kurzem ČNB ke konci každého měsíce.
      *
      * Zdroje zůstatku (per měsíc/aktuální stav vyhrává novější datum, při shodě GPC):
-     *   • `source = 'gpc'` — autoritativní konečný zůstatek z hlavičky 074,
+     *   • `source IN ('gpc', 'pdf')` — autoritativní konečný zůstatek z výpisu,
      *   • e-mailová avíza (`bank_transactions.balance`) — disponibilní zůstatek
      *     z těla avíza (Creditas/Fio/RB), typicky čerstvější než poslední výpis.
      *
@@ -540,19 +540,22 @@ final class BankStatementAction
         $accStmt->execute([$sid]);
         $currencyAccounts = $accStmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        // GPC výpisy pro konkrétní účet: normalizovaný match čísla účtu (padding/lomítko),
-        // kompatibilní kód banky a měna (disambiguace víceměnového sdíleného čísla — #167).
+        // Oficiální GPC/PDF výpisy pro konkrétní účet: normalizovaný match čísla účtu
+        // (padding/lomítko), přesný kód banky a měna. Starý výpis bez bank_code lze
+        // použít jen tehdy, když je číslo+měna mezi účty dodavatele jednoznačné;
+        // jinak by se při stejném čísle u Fio /2010 a RB /5500 započetl 2× (#206).
         $stStmt = $pdo->prepare(
             "SELECT DATE_FORMAT(bs.statement_date, '%Y-%m') AS ym,
                     bs.statement_date AS sdate,
-                    bs.curr_balance   AS bal
+                    bs.curr_balance   AS bal,
+                    bs.source         AS src
                FROM bank_statements bs
-              WHERE bs.source = 'gpc'
+              WHERE bs.source IN ('gpc', 'pdf')
                 AND bs.statement_date IS NOT NULL
                 AND bs.curr_balance IS NOT NULL
                 AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(bs.account_number, ''), '[^0-9]', ''))
                   = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))
-                AND (bs.bank_code IS NULL OR ? IS NULL OR bs.bank_code = ?)
+                AND (bs.bank_code = ? OR ((bs.bank_code IS NULL OR bs.bank_code = '') AND ? = 1))
                 AND (bs.currency IS NULL OR bs.currency = '' OR bs.currency = ?)
               ORDER BY bs.statement_date ASC, bs.id ASC"
         );
@@ -570,7 +573,7 @@ final class BankStatementAction
                 AND bt.balance IS NOT NULL
                 AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(bs.account_number, ''), '[^0-9]', ''))
                   = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))
-                AND (bs.bank_code IS NULL OR ? IS NULL OR bs.bank_code = ?)
+                AND (bs.bank_code = ? OR ((bs.bank_code IS NULL OR bs.bank_code = '') AND ? = 1))
                 AND (bs.currency IS NULL OR bs.currency = '' OR bs.currency = ?)
               ORDER BY bt.posted_at ASC, bt.id ASC"
         );
@@ -582,9 +585,20 @@ final class BankStatementAction
 
         foreach ($currencyAccounts as $ca) {
             $code = strtoupper((string) $ca['code']);
+            $sameNumberAndCurrency = 0;
+            foreach ($currencyAccounts as $candidate) {
+                if (strtoupper((string) $candidate['code']) !== $code) { continue; }
+                if (\MyInvoice\Service\Bank\AccountNumberNormalizer::equals(
+                    (string) $ca['account_number'],
+                    (string) $candidate['account_number']
+                )) {
+                    $sameNumberAndCurrency++;
+                }
+            }
+            $allowMissingBankCode = $sameNumberAndCurrency === 1 ? 1 : 0;
             $params = [
                 (string) $ca['account_number'],
-                $ca['bank_code'], $ca['bank_code'],
+                $ca['bank_code'], $allowMissingBankCode,
                 $code,
             ];
             $stStmt->execute($params);
@@ -592,14 +606,18 @@ final class BankStatementAction
             $emStmt->execute($params);
             $emailRows = $emStmt->fetchAll(\PDO::FETCH_ASSOC);
             if ($rows === [] && $emailRows === []) {
-                continue; // účet bez GPC výpisů i avíz se zůstatkem se nezobrazuje
+                continue; // účet bez oficiálních výpisů i avíz se zůstatkem se nezobrazuje
             }
 
             // Závěrečný zůstatek za měsíc = poslední záznam v měsíci (řazeno ASC →
-            // přepíše se); avízo přebije GPC jen s ostře novějším datem (shoda → GPC).
+            // přepíše se); avízo přebije výpis jen s ostře novějším datem (shoda → výpis).
             $closings = [];
             foreach ($rows as $r) {
-                $closings[(string) $r['ym']] = ['bal' => (float) $r['bal'], 'date' => (string) $r['sdate'], 'src' => 'gpc'];
+                $closings[(string) $r['ym']] = [
+                    'bal' => (float) $r['bal'],
+                    'date' => (string) $r['sdate'],
+                    'src' => (string) $r['src'],
+                ];
             }
             foreach ($emailRows as $r) {
                 $ym = (string) $r['ym'];
@@ -713,6 +731,7 @@ final class BankStatementAction
 
         // Celkový graf v CZK — společná osa, carry-forward per účet, kurz ke konci měsíce.
         $totalMonths = [];
+        $accountTotalMonths = [];
         if ($allMonths !== []) {
             $ms = array_keys($allMonths);
             sort($ms);
@@ -722,19 +741,35 @@ final class BankStatementAction
                 $monthEnd = date('Y-m-t', (int) strtotime($m . '-01'));
                 $sum = 0.0;
                 $have = false;
-                foreach ($perAcc as $pa) {
+                foreach ($perAcc as $i => $pa) {
                     $bal = null;
                     foreach ($pa['monthClosings'] as $ym => $b) {
                         if ($ym <= $m) { $bal = $b; } else { break; }
                     }
-                    if ($bal === null) { continue; }
-                    $rate = $rateFor($pa['code'], $monthEnd);
-                    if ($rate === null) { continue; } // měna bez kurzu — vynech (flag missing_rates)
-                    $sum += $bal * $rate;
-                    $have = true;
+                    $balanceCzk = null;
+                    if ($bal !== null) {
+                        $rate = $rateFor($pa['code'], $monthEnd);
+                        if ($rate !== null) {
+                            $balanceCzk = round($bal * $rate, 2);
+                            $sum += $balanceCzk;
+                            $have = true;
+                        }
+                    }
+                    $accountTotalMonths[$i][] = ['month' => $m, 'balance_czk' => $balanceCzk];
                 }
                 $totalMonths[] = ['month' => $m, 'balance_czk' => $have ? round($sum, 2) : null];
             }
+        }
+
+        $totalSeries = [];
+        foreach ($perAcc as $i => $pa) {
+            $totalSeries[] = [
+                'account_id'    => (int) $pa['ca']['id'],
+                'label'         => (string) ($pa['ca']['label'] ?? '') !== '' ? (string) $pa['ca']['label'] : $pa['code'],
+                'account_number'=> (string) $pa['ca']['account_number'],
+                'bank_code'     => $pa['ca']['bank_code'] !== null ? (string) $pa['ca']['bank_code'] : null,
+                'months'        => $accountTotalMonths[$i] ?? [],
+            ];
         }
 
         $totalCurrent = 0.0;
@@ -748,6 +783,7 @@ final class BankStatementAction
             'total_czk'     => [
                 'current' => round($totalCurrent, 2),
                 'months'  => $totalMonths,
+                'series'  => $totalSeries,
             ],
             'missing_rates' => $missing,
         ]);

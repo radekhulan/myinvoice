@@ -76,7 +76,29 @@ async function loadBalances() {
 
 const balanceMonthLabels = (a: { months: { month: string }[] }) => a.months.map(m => m.month)
 const balanceMonthValues = (a: { months: { balance: number | null }[] }) => a.months.map(m => m.balance)
-const accountColor = (i: number) => chartColors.value.palette[i % chartColors.value.palette.length]
+// Účty začínají oranžovou a zelenou, aby se navzájem i od fialové řady Celkem
+// daly rychle rozlišit. Další účty pokračují kontrastní kategorickou paletou.
+const accountColorOrder = [7, 9, 0, 8, 3, 5, 2, 4, 6, 1]
+const accountColor = (i: number) => chartColors.value.palette[accountColorOrder[i % accountColorOrder.length]]
+const totalBalanceDatasets = computed(() => {
+  const data = balances.value
+  if (!data) return []
+  const accounts = data.total_czk.series.map((series, i) => ({
+    label: series.label,
+    values: series.months.map(m => m.balance_czk),
+    color: accountColor(i),
+  }))
+  return [
+    ...accounts,
+    {
+      label: t('bank_accounts.balances_total_series'),
+      values: data.total_czk.months.map(m => m.balance_czk),
+      color: chartColors.value.primary,
+      fill: true,
+      emphasis: true,
+    },
+  ]
+})
 
 // Načti hned, když stránka startuje rovnou na téhle záložce (deep-link ?tab=balances).
 onMounted(() => { if (tab.value === 'balances') loadBalances() })
@@ -946,8 +968,8 @@ async function deleteMessage(m: BankEmailProcessedMessage) {
               <div class="h-72">
                 <BalanceTrendChart
                   :labels="balances.total_czk.months.map(m => m.month)"
-                  :values="balances.total_czk.months.map(m => m.balance_czk)"
-                  currency="CZK" fill />
+                  :datasets="totalBalanceDatasets"
+                  currency="CZK" />
               </div>
             </div>
           </section>
