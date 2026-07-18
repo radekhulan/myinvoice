@@ -4032,7 +4032,16 @@
     "social_secondary_cross": "projekce zisku {profit} ho překročí v {month} — budeš platit sociální pojištění",
     "social_secondary_ok": "projekce zisku {profit} zůstává pod limitem — sociální pojištění neplatíš",
     "defer_tip": "Limit 2 M překročíš až {month}. Posunutím prosincových faktur do ledna zůstaneš pod limitem (neplátce + paušál).",
-    "disclaimer": "Orientační výpočet dle aktuálních konstant — nenahrazuje daňové poradenství. Příjmy z vystavených (zaplacených) faktur."
+    "disclaimer": "Orientační výpočet dle aktuálních konstant — nenahrazuje daňové poradenství. Příjmy z vystavených (zaplacených) faktur.",
+    "last_month_title": "Čistý příjem za minulý měsíc ({month})",
+    "last_month_revenue": "Tržby (zaplacené faktury)",
+    "last_month_expenses": "Náklady (zaplacené faktury)",
+    "last_month_profit": "Zisk",
+    "last_month_tax": "− předpokládaná daň z příjmu",
+    "last_month_social": "− předpokládané sociální pojištění",
+    "last_month_health": "− předpokládané zdravotní pojištění",
+    "last_month_net": "= Pravděpodobný čistý příjem",
+    "last_month_hint": "Odhad: měsíc anualizovaný (× 12) a spočtený stejně jako roční daň (paušál/skutečné výdaje, odpočty, dětské slevy, minimální základy pojistného), pak vydělený 12. Nikdy ne přesná částka."
   },
   "workReportTracking": {
     "button": "Poslat odkaz na sledování výkazu práce",

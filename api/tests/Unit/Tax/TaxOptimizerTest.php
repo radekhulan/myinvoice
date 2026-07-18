@@ -88,6 +88,57 @@ final class TaxOptimizerTest extends TestCase
         self::assertSame(17951.0, $r['social']);        // 61 476 × 29,2 % (ne 195 540)
     }
 
+    /**
+     * estimateMonthly() = anualizace (×12) stejnou logikou jako computeRegular(),
+     * pak /12. Použité měsíční příjmy/náklady (100k/60k) anualizované dají přesně
+     * roční čísla z testRegularBasic60Percent (1,2M příjem, 720k výdaje), takže
+     * roční mezivýsledky (income_tax 41160, social 77088, health 37711) musí sedět.
+     */
+    public function testEstimateMonthlyMatchesAnnualizedRegular(): void
+    {
+        $r = $this->opt->estimateMonthly($this->profile(), 100_000.0, 60_000.0, $this->c);
+        self::assertSame(100000.0, $r['revenue']);
+        self::assertSame(60000.0, $r['expenses']);
+        self::assertSame(40000.0, $r['profit']);
+        self::assertSame(3430.0, $r['income_tax']);   // 41 160 / 12
+        self::assertSame(6424.0, $r['social']);        // 77 088 / 12
+        self::assertSame(3143.0, $r['health']);         // round(37 711 / 12)
+        self::assertSame(87003.0, $r['net_income']);    // round((1 200 000 − 155 959) / 12)
+    }
+
+    /**
+     * Regresní test: v paušálním režimu se daň/pojistné musí počítat z výdajového
+     * paušálu (% z příjmu), NE ze skutečných zaplacených nákladů — i když jsou
+     * skutečné náklady mnohem nižší. Skutečné náklady (10k) se použijí jen pro
+     * zobrazení "expenses"/"profit" (reálná hotovost), ne pro daňový základ.
+     */
+    public function testEstimateMonthlyUsesPausalRateForTaxNotRealExpenses(): void
+    {
+        $r = $this->opt->estimateMonthly($this->profile(), 100_000.0, 10_000.0, $this->c);
+        self::assertSame(10000.0, $r['expenses']);      // reálné náklady, jen pro zobrazení
+        self::assertSame(90000.0, $r['profit']);        // 100k − 10k reálný cashflow
+        // Daň/pojistné počítané ze 60% paušálu (720k), stejně jako by reálné náklady
+        // byly 60k — proto STEJNÉ hodnoty jako testEstimateMonthlyMatchesAnnualizedRegular.
+        self::assertSame(3430.0, $r['income_tax']);
+        self::assertSame(6424.0, $r['social']);
+        self::assertSame(3143.0, $r['health']);
+        self::assertSame(87003.0, $r['net_income']);
+    }
+
+    /**
+     * Strop paušálu: expense_caps[rate] = rate % × 2 000 000 (viz TaxConstants) — takže
+     * i při vysokém anualizovaném příjmu (300k/měsíc = 3,6M/rok) paušální výdaje pro
+     * daňový základ nepřekročí 720 000 (60 % z 2M), NE 60 % ze skutečného příjmu (2,16M).
+     */
+    public function testEstimateMonthlyCapsPausalExpensesAt2MIncome(): void
+    {
+        $r = $this->opt->estimateMonthly($this->profile(), 300_000.0, 0.0, $this->c);
+        // Se stropem (720k, NE 60 % × 3,6M = 2 160 000) je roční daňový základ
+        // 3 600 000 − 720 000 = 2 880 000 → měsíční daň 32 256 (ověřeno computeRegular
+        // logikou). Bez stropu by výdaje byly 3× vyšší a daň citelně nižší.
+        self::assertSame(32256.0, $r['income_tax']);
+    }
+
     /** Skutečné výdaje (daňová evidence) místo paušálu. */
     public function testActualExpensesOverridePausal(): void
     {

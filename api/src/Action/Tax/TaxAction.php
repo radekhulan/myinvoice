@@ -60,6 +60,7 @@ final class TaxAction
             // výpočtu daně ani pojistného NEvstupují (jsou už vyloučené v annualIncome);
             // tady jen pro transparentní zobrazení „z toho vyloučeno" v UI.
             'exempt_income'   => $this->profiles->annualExemptIncome($sid, $year, $isVat),
+            'last_month'      => $this->lastMonthEstimate($sid, $isVat, $flags),
         ];
 
         if ($year < $currentYear) {
@@ -162,6 +163,28 @@ final class TaxAction
             $elapsed = max(1, $withData);
         }
         return [round($ytd, 2), $elapsed];
+    }
+
+    /**
+     * Pravděpodobný čistý příjem za minulý kalendářní měsíc — vždy nezávisle na
+     * zvoleném roce v přepínači (viz {@see TaxOptimizer::estimateMonthly()}).
+     * @param array{is_vat_payer: bool, flat_tax_band: string} $flags
+     * @return array<string,mixed>
+     */
+    private function lastMonthEstimate(int $sid, bool $isVat, array $flags): array
+    {
+        $lastMonth = new \DateTimeImmutable('first day of last month');
+        $lmYear = (int) $lastMonth->format('Y');
+        $lmYm   = $lastMonth->format('Y-m');
+
+        $profileRow = $this->profiles->find($sid, $lmYear);
+        $engineProfile = $this->publicProfile($profileRow, $flags) + ['is_vat_payer' => $isVat];
+        $c = $this->constants->forYear($lmYear);
+
+        $income   = $this->profiles->monthIncome($sid, $lmYm, $isVat);
+        $expenses = $this->profiles->monthExpenses($sid, $lmYm, $isVat);
+
+        return ['ym' => $lmYm] + $this->optimizer->estimateMonthly($engineProfile, $income, $expenses, $c);
     }
 
     /**

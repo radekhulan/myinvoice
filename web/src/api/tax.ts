@@ -48,6 +48,18 @@ export interface TaxConstantsData {
   kh_item_threshold: number
 }
 
+/** Pravděpodobný čistý příjem za minulý kalendářní měsíc (odhad, viz TaxOptimizer::estimateMonthly). */
+export interface LastMonthEstimate {
+  ym: string
+  revenue: number
+  expenses: number
+  profit: number
+  income_tax: number
+  social: number
+  health: number
+  net_income: number
+}
+
 export interface TaxAnalysis {
   year: number
   mode: 'retrospective' | 'forecast'
@@ -61,6 +73,7 @@ export interface TaxAnalysis {
   months_elapsed?: number
   /** YoY: příjem + konstanty předchozího roku (jen v retrospektivě, pokud loni byl příjem). */
   prev?: { year: number; income: number; constants: TaxConstantsData } | null
+  last_month: LastMonthEstimate
 }
 
 export const taxApi = {
