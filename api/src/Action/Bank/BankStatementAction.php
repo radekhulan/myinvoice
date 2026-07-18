@@ -393,16 +393,22 @@ final class BankStatementAction
         // přes scalar subselect (LIMIT 1 — sup. může mít jen 1 záznam per account_number+bank_code).
         $stmt = $this->db->pdo()->prepare(
             "SELECT bs.id, bs.source, bs.file_name, bs.account_number,
-                    -- Kód banky autoritativně z konfigurovaného účtu (currencies); GPC výpisy
-                    -- ho neukládají (na rozdíl od e-mailových avíz), tak ať se zobrazí všude.
+                    -- Kód uložený na výpisu je autoritativní. U starších záznamů bez
+                    -- bank_code doplň kód z currencies jen tehdy, když je pro dané číslo
+                    -- účtu jednoznačný; LIMIT 1 by při shodném čísle u více bank zobrazil
+                    -- náhodnou banku (#206).
                     COALESCE(
-                      (SELECT cur.bank_code FROM currencies cur
+                      bs.bank_code,
+                      (SELECT CASE
+                                WHEN COUNT(DISTINCT NULLIF(cur.bank_code, '')) = 1
+                                THEN MAX(NULLIF(cur.bank_code, ''))
+                                ELSE NULL
+                              END
+                         FROM currencies cur
                         WHERE cur.supplier_id = ?
                           AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(cur.account_number, ''), '[^0-9]', ''))
                             = TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(bs.account_number, ''),  '[^0-9]', ''))
-                          AND cur.bank_code IS NOT NULL AND cur.bank_code <> ''
-                        LIMIT 1),
-                      bs.bank_code
+                      )
                     ) AS bank_code,
                     bs.currency, bs.statement_date, bs.statement_number,
                     bs.prev_balance, bs.curr_balance, bs.transaction_count, bs.matched_count, bs.imported_at,

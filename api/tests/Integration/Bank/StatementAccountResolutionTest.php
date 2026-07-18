@@ -135,6 +135,23 @@ final class StatementAccountResolutionTest extends TestCase
         $stmt = $this->db->pdo()->prepare('SELECT bank_code FROM bank_statements WHERE id = ?');
         $stmt->execute([$sid]);
         $this->assertSame('2010', (string) $stmt->fetchColumn(), 'výpis musí být pod zvoleným Fio účtem (2010), ne výchozím RB (5500)');
+
+        // Regrese seznamu výpisů: list dříve přepsal správné bs.bank_code prvním
+        // currencies.bank_code pro stejné číslo účtu (bez ORDER BY), takže zobrazil
+        // např. /5500 společně s labelem Fio. Detail přitom správně ukazoval /2010.
+        $listResponse = $this->action->list(
+            $this->mockRequest($this->supplierId, 'admin', [], [], ['filter' => ['account' => $account]]),
+            new Response()
+        );
+        /** @var array{items?:list<array<string,mixed>>} $listBody */
+        $listBody = json_decode((string) $listResponse->getBody(), true) ?: [];
+        $listed = array_values(array_filter(
+            $listBody['items'] ?? [],
+            static fn (array $item): bool => (int) ($item['id'] ?? 0) === $sid
+        ));
+        $this->assertCount(1, $listed, 'importovaný výpis musí být v seznamu');
+        $this->assertSame('2010', (string) ($listed[0]['bank_code'] ?? ''), 'seznam musí respektovat autoritativní bank_code výpisu');
+        $this->assertStringContainsString('2010', (string) ($listed[0]['account_label'] ?? ''), 'label seznamu musí patřit ke stejnému účtu');
     }
 
     /**
@@ -188,7 +205,7 @@ final class StatementAccountResolutionTest extends TestCase
         return [$resp, $body];
     }
 
-    private function mockRequest(int $sid, string $role, array $files, array $parsedBody): ServerRequestInterface
+    private function mockRequest(int $sid, string $role, array $files, array $parsedBody, array $queryParams = []): ServerRequestInterface
     {
         $req = $this->createStub(ServerRequestInterface::class);
         $req->method('getAttribute')->willReturnCallback(function (string $name, $default = null) use ($sid, $role) {
@@ -198,6 +215,7 @@ final class StatementAccountResolutionTest extends TestCase
         });
         $req->method('getUploadedFiles')->willReturn($files);
         $req->method('getParsedBody')->willReturn($parsedBody);
+        $req->method('getQueryParams')->willReturn($queryParams);
         $req->method('getServerParams')->willReturn([]);
         $req->method('getHeaderLine')->willReturn('');
         return $req;
