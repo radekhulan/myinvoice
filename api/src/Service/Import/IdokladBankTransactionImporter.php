@@ -21,12 +21,13 @@ final class IdokladBankTransactionImporter
     ) {}
 
     /** @return array{created:int,skipped:int,matched:int,unmapped:int,document_links:int} */
-    public function import(int $supplierId, bool $dryRun, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function import(int $supplierId, bool $dryRun, bool $incremental = false): array
     {
         $result = ['created' => 0, 'skipped' => 0, 'matched' => 0, 'unmapped' => 0, 'document_links' => 0];
         $pdo = $this->db->pdo();
         $accounts = $this->mappedAccounts($pdo, $supplierId, $dryRun);
-        $query = $dateFrom !== null ? ['filter' => "DateOfTransaction~gte~{$dateFrom}"] : [];
+        $lastExternalId = $incremental ? $this->lastExternalId($pdo, $supplierId) : null;
+        $query = $lastExternalId !== null ? ['filter' => "Id~gt~{$lastExternalId}"] : [];
 
         foreach ($this->idoklad->getAll($supplierId, 'BankStatements', $query) as $movement) {
             $externalId = (int) ($movement['Id'] ?? 0);
@@ -50,10 +51,6 @@ final class IdokladBankTransactionImporter
             $amount = abs((float) ($movement['Prices']['TotalWithVat'] ?? 0));
             if ((int) ($movement['MovementType'] ?? 1) < 0) $amount *= -1;
             if ($date === null || abs($amount) < 0.005) {
-                $result['skipped']++;
-                continue;
-            }
-            if (($dateFrom !== null && $date < $dateFrom) || ($dateTo !== null && $date > $dateTo)) {
                 $result['skipped']++;
                 continue;
             }
@@ -110,6 +107,19 @@ final class IdokladBankTransactionImporter
             }
         }
         return $result;
+    }
+
+    private function lastExternalId(PDO $pdo, int $supplierId): ?int
+    {
+        $prefix = $supplierId . ':%';
+        $stmt = $pdo->prepare(
+            "SELECT MAX(CAST(SUBSTRING_INDEX(source_ref, ':', -1) AS UNSIGNED))
+               FROM bank_transactions
+              WHERE source = 'idoklad' AND source_ref LIKE ?"
+        );
+        $stmt->execute([$prefix]);
+        $value = $stmt->fetchColumn();
+        return $value === false || $value === null ? null : (int) $value;
     }
 
     private function exists(PDO $pdo, string $externalId): bool

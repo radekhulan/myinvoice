@@ -115,9 +115,7 @@ final class IdokladImportService
             if (!empty($params['include_bank_transactions'])) {
                 $this->checkCancel($jobId);
                 $this->jobs->appendLog($jobId, 'Synchronizuji bankovní pohyby z iDokladu…');
-                $dateFrom = self::optionalDate($params['bank_date_from'] ?? null);
-                $dateTo = self::optionalDate($params['bank_date_to'] ?? null);
-                $bank = $this->bankTransactions->import($supplierId, $dryRun, $dateFrom, $dateTo);
+                $bank = $this->bankTransactions->import($supplierId, $dryRun, $incremental);
                 $this->jobs->appendLog($jobId, sprintf(
                     'Bankovní pohyby: vytvořeno %d, spárováno %d, vazeb na doklad %d, přeskočeno %d, bez mapování účtu %d.%s',
                     $bank['created'], $bank['matched'], $bank['document_links'], $bank['skipped'], $bank['unmapped'], $dryRun ? ' (dry-run)' : ''
@@ -159,12 +157,6 @@ final class IdokladImportService
         if ($this->jobs->isCancelRequested($jobId)) {
             throw new CancelledException();
         }
-    }
-
-    private static function optionalDate(mixed $value): ?string
-    {
-        $value = trim((string) ($value ?? ''));
-        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : null;
     }
 
     private function importBankAccounts(int $jobId, int $supplierId, bool $dryRun): void
