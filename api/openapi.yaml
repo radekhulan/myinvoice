@@ -461,13 +461,18 @@ paths:
         - `isdoc` — ISDOC XML; jeden doklad = samostatný `.isdoc`, víc dokladů = ZIP
         - `pohoda` — Pohoda XML dataPack
         - `stereo` — Stereo (Ježek) XML
+        - `money_s3` — Money S3 (Seyfor) XML, formát „Faktury vydané"
+          (SeznamFaktVyd/FaktVyd). Bez oficiálního veřejného XSD — struktura
+          rekonstruovaná z reálného exportního vzorku. Podporuje jen sazby DPH
+          0 %, 12 % a 21 % (aktuální české sazby); jiná sazba na položce
+          export odmítne (400).
 
         Období: `month=YYYY-MM`, nebo `period=quarterly&year=YYYY&quarter=1..4`.
         `date_by=issue|tax` řídí zařazení do období (default issue; `tax` = DUZP,
         shodné s výkazy DPH).
       parameters:
         - $ref: '#/components/parameters/SupplierIdHeader'
-        - { in: query, name: format, required: true, schema: { type: string, enum: [pdf-zip, isdoc, pohoda, stereo] } }
+        - { in: query, name: format, required: true, schema: { type: string, enum: [pdf-zip, isdoc, pohoda, stereo, money_s3] } }
         - { in: query, name: month, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }
         - { in: query, name: period, schema: { type: string, enum: [monthly, quarterly] } }
         - { in: query, name: year, schema: { type: integer } }
