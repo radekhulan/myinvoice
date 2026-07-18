@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS external_bank_account_mappings (
     id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    supplier_id         BIGINT UNSIGNED NOT NULL,
+    supplier_id         INT UNSIGNED NOT NULL,
     provider            VARCHAR(32) NOT NULL,
     external_account_id VARCHAR(100) NOT NULL,
     currency_id         INT UNSIGNED NULL,
