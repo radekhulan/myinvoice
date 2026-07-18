@@ -385,14 +385,7 @@ final class BankStatementAction
                               = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))";
             $filterParams[] = $account;
             if ($bankCode !== '') {
-                $accountCountStmt = $this->db->pdo()->prepare(
-                    "SELECT COUNT(*) FROM currencies cur
-                      WHERE cur.supplier_id = ?
-                        AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(cur.account_number, ''), '[^0-9]', ''))
-                          = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))"
-                );
-                $accountCountStmt->execute([$sid, $account]);
-                $allowMissingBankCode = (int) $accountCountStmt->fetchColumn() === 1 ? 1 : 0;
+                $allowMissingBankCode = $this->allowMissingBankCode($sid, $account) ? 1 : 0;
                 $filterSql .= " AND (bs.bank_code = ?
                                   OR ((bs.bank_code IS NULL OR bs.bank_code = '') AND ? = 1))";
                 $filterParams[] = $bankCode;
@@ -506,6 +499,33 @@ final class BankStatementAction
     }
 
     /**
+     * Smí se výpis bez uloženého `bank_code` (starší import) přiřadit k tomuto
+     * číslu účtu? Jen když je číslo mezi účty dodavatele jednoznačné — jinak by
+     * se při stejném čísle u dvou bank (Fio /2010 vs RB /5500) započetl do obou
+     * (#206). Volitelně zúženo na měnu (víceměnové sdílené číslo účtu — #167).
+     *
+     * Normalizace čísla je shodná s {@see AccountNumberNormalizer::normalize}
+     * i s párovacími dotazy výše (strip non-digits + ltrim '0'), takže se
+     * uniqueness počítá stejně, jako se pak výpisy párují.
+     */
+    private function allowMissingBankCode(int $supplierId, string $accountNumber, ?string $currencyCode = null): bool
+    {
+        $sql = "SELECT COUNT(*) FROM currencies cur
+                 WHERE cur.supplier_id = ?
+                   AND TRIM(LEADING '0' FROM REGEXP_REPLACE(IFNULL(cur.account_number, ''), '[^0-9]', ''))
+                     = TRIM(LEADING '0' FROM REGEXP_REPLACE(?, '[^0-9]', ''))";
+        $params = [$supplierId, $accountNumber];
+        if ($currencyCode !== null && $currencyCode !== '') {
+            $sql .= ' AND UPPER(cur.code) = ?';
+            $params[] = strtoupper($currencyCode);
+        }
+        $stmt = $this->db->pdo()->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn() === 1;
+    }
+
+    /**
      * GET /api/bank-statements/account-balances
      *
      * Přehled zůstatků na bankovních účtech dodavatele:
@@ -585,17 +605,7 @@ final class BankStatementAction
 
         foreach ($currencyAccounts as $ca) {
             $code = strtoupper((string) $ca['code']);
-            $sameNumberAndCurrency = 0;
-            foreach ($currencyAccounts as $candidate) {
-                if (strtoupper((string) $candidate['code']) !== $code) { continue; }
-                if (\MyInvoice\Service\Bank\AccountNumberNormalizer::equals(
-                    (string) $ca['account_number'],
-                    (string) $candidate['account_number']
-                )) {
-                    $sameNumberAndCurrency++;
-                }
-            }
-            $allowMissingBankCode = $sameNumberAndCurrency === 1 ? 1 : 0;
+            $allowMissingBankCode = $this->allowMissingBankCode($sid, (string) $ca['account_number'], $code) ? 1 : 0;
             $params = [
                 (string) $ca['account_number'],
                 $ca['bank_code'], $allowMissingBankCode,
