@@ -25,6 +25,7 @@ final class IdokladBankTransactionImporter
     {
         $result = ['created' => 0, 'skipped' => 0, 'matched' => 0, 'unmapped' => 0];
         $pdo = $this->db->pdo();
+        $accounts = $this->mappedAccounts($pdo, $supplierId, $dryRun);
 
         foreach ($this->idoklad->getAll($supplierId, 'BankStatements') as $movement) {
             $externalId = (int) ($movement['Id'] ?? 0);
@@ -39,7 +40,7 @@ final class IdokladBankTransactionImporter
                 continue;
             }
 
-            $account = $this->mappedAccount($pdo, $supplierId, (string) $externalAccountId);
+            $account = $accounts[(string) $externalAccountId] ?? null;
             if ($account === null) {
                 $result['unmapped']++;
                 continue;
@@ -103,19 +104,47 @@ final class IdokladBankTransactionImporter
         return (bool) $s->fetchColumn();
     }
 
-    /** @return array<string,mixed>|null */
-    private function mappedAccount(PDO $pdo, int $supplierId, string $externalAccountId): ?array
+    /** @return array<string,array<string,mixed>> keyed by iDoklad BankAccount.Id */
+    private function mappedAccounts(PDO $pdo, int $supplierId, bool $includeDryRunCandidates): array
     {
         $s = $pdo->prepare(
-            "SELECT c.id, c.account_number, c.bank_code, c.code AS currency
+            "SELECT m.external_account_id, c.id, c.account_number, c.bank_code, c.iban, c.code AS currency
                FROM external_bank_account_mappings m
                JOIN currencies c ON c.id = m.currency_id AND c.supplier_id = m.supplier_id
-              WHERE m.supplier_id = ? AND m.provider = 'idoklad' AND m.external_account_id = ?
+              WHERE m.supplier_id = ? AND m.provider = 'idoklad'
                 AND m.sync_status = 'matched' AND c.is_active = 1"
         );
-        $s->execute([$supplierId, $externalAccountId]);
-        $rows = $s->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        return count($rows) === 1 ? $rows[0] : null;
+        $s->execute([$supplierId]);
+        $mapped = [];
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $mapped[(string) $row['external_account_id']] = $row;
+        }
+        if (!$includeDryRunCandidates) return $mapped;
+
+        $currencies = $pdo->prepare(
+            'SELECT id, account_number, bank_code, iban, code AS currency
+               FROM currencies WHERE supplier_id = ? AND is_active = 1 ORDER BY id'
+        );
+        $currencies->execute([$supplierId]);
+        $byCode = [];
+        foreach ($currencies->fetchAll(PDO::FETCH_ASSOC) ?: [] as $currency) {
+            $byCode[strtoupper((string) $currency['currency'])][] = $currency;
+        }
+        $currencyCodes = $this->idoklad->currencyCodeMap($supplierId);
+        foreach ($this->idoklad->getAll($supplierId, 'BankAccounts') as $external) {
+            $externalId = (int) ($external['Id'] ?? 0);
+            if ($externalId <= 0 || isset($mapped[(string) $externalId])) continue;
+            $code = strtoupper((string) ($currencyCodes[(int) ($external['CurrencyId'] ?? 0)] ?? 'CZK'));
+            $selection = IdokladImportService::matchExternalBankAccount($external, $byCode[$code] ?? []);
+            if ($selection['status'] !== 'matched' || $selection['currency_id'] === null) continue;
+            foreach ($byCode[$code] ?? [] as $candidate) {
+                if ((int) $candidate['id'] === $selection['currency_id']) {
+                    $mapped[(string) $externalId] = $candidate;
+                    break;
+                }
+            }
+        }
+        return $mapped;
     }
 
     /** @param array<string,mixed> $account */
