@@ -630,9 +630,13 @@ paths:
       tags: [Invoices]
       summary: Evidované platby faktury
       description: |
-        Seznam plateb (částečných úhrad) faktury nebo zálohové faktury + souhrn:
+        Seznam plateb (částečných úhrad), přímo spárovaných bankovních operací
+        a souhrn faktury nebo zálohové faktury:
         `paid_total`, `remaining` (= `amount_to_pay - paid_total`) a odvozený
         `payment_status` (`unpaid` / `partially_paid` / `paid` / `overpaid`).
+        `bank_transactions` je informační vazba a samo o sobě se nezapočítává
+        do `paid_total`; využívá se mimo jiné pro historické doklady importované
+        jako uhrazené z externího systému.
       responses:
         '200':
           description: OK
@@ -644,6 +648,9 @@ paths:
                   payments:
                     type: array
                     items: { $ref: '#/components/schemas/InvoicePayment' }
+                  bank_transactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/InvoiceRelatedBankTransaction' }
                   paid_total: { type: number, format: float }
                   amount_to_pay: { type: number, format: float }
                   remaining: { type: number, format: float }
@@ -6635,6 +6642,26 @@ components:
         tax_document_status: { type: string, nullable: true, enum: [draft, issued, sent, reminded, paid, cancelled] }
         created_by: { type: integer, nullable: true }
         created_at: { type: string, format: date-time }
+
+    InvoiceRelatedBankTransaction:
+      type: object
+      description: "Bankovní operace přímo spárovaná s fakturou přes matched_invoice_id. Jde o dohledatelnou vazbu; bez odpovídajícího InvoicePayment se nezapočítává do paid_total."
+      properties:
+        id: { type: integer, format: int64 }
+        statement_id: { type: integer, format: int64 }
+        statement_source: { type: string, enum: [gpc, pdf, email_notice, idoklad] }
+        posted_at: { type: string, format: date }
+        amount: { type: number, format: float }
+        currency: { type: string, nullable: true }
+        variable_symbol: { type: string, nullable: true }
+        constant_symbol: { type: string, nullable: true }
+        specific_symbol: { type: string, nullable: true }
+        counterparty_account: { type: string, nullable: true }
+        counterparty_bank: { type: string, nullable: true }
+        counterparty_name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        bank_ref: { type: string, nullable: true }
+        match_status: { type: string, enum: [unmatched, auto_exact, auto_partial, manual, ignored] }
 
     InvoiceItem:
       type: object

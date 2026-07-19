@@ -1419,7 +1419,17 @@
       "recorded_paid": "Payment recorded — the document is fully paid.",
       "deleted": "Payment deleted.",
       "delete_confirm": "Delete payment {amount} from {date}?",
-      "locked_bank": "Payment from bank matching — remove it via “Unmatch” in the statement detail."
+      "locked_bank": "Payment from bank matching — remove it via “Unmatch” in the statement detail.",
+      "bank_transactions_title": "Related bank transactions",
+      "bank_transactions_hint": "The transaction is directly matched to the invoice but is not counted separately in the payment ledger. The displayed details come from the original bank record.",
+      "counterparty": "Counterparty",
+      "bank_sources": {
+        "gpc": "GPC",
+        "pdf": "PDF statement",
+        "email_notice": "Email notice",
+        "idoklad": "iDoklad"
+      },
+      "imported_without_details": "The document is recorded as paid on {date}, but payment details are unavailable."
     },
     "cancel_or_credit": "Cancel / credit note",
     "cancel_credit_note": "Cancel credit note",

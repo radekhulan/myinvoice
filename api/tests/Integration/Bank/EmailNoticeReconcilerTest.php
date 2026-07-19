@@ -277,6 +277,40 @@ final class EmailNoticeReconcilerTest extends TestCase
         self::assertNull($secondary['matched_invoice_id']);
     }
 
+    public function testRelatedBankTransactionFollowsAuthoritativeTwinWithoutPaymentRow(): void
+    {
+        $invoiceId = $this->insertInvoice(self::VS_A, 1000.00);
+        $this->db->pdo()->prepare(
+            "UPDATE invoices SET status = 'paid', paid_at = '2099-06-15' WHERE id = ?"
+        )->execute([$invoiceId]);
+
+        [, $idokladTx] = $this->insertStatementWithTx('idoklad', 1000.00, self::VS_A, 'idoklad-trace');
+        $this->markTxMatched($idokladTx, $invoiceId, 'auto_exact');
+
+        $before = $this->payments->listRelatedBankTransactions($invoiceId);
+        self::assertCount(1, $before);
+        self::assertSame('idoklad', $before[0]['statement_source']);
+        self::assertSame($idokladTx, $before[0]['id']);
+        self::assertSame(0, $this->paymentCountForTx($idokladTx));
+
+        [, $gpcTx] = $this->insertStatementWithTx('gpc', 1000.00, self::VS_A, 'gpc-trace');
+        self::assertNotNull($this->reconciler->takeOverFromEmailNotice($gpcTx));
+
+        $after = $this->payments->listRelatedBankTransactions($invoiceId);
+        self::assertCount(1, $after);
+        self::assertSame('gpc', $after[0]['statement_source']);
+        self::assertSame($gpcTx, $after[0]['id']);
+        self::assertSame(self::VS_A, $after[0]['variable_symbol']);
+        self::assertSame(1000.0, $after[0]['amount']);
+        self::assertSame(0, $this->paymentCountForTx($gpcTx));
+
+        $secondary = $this->db->pdo()->query(
+            "SELECT match_status, matched_invoice_id FROM bank_transactions WHERE id = $idokladTx"
+        )->fetch(PDO::FETCH_ASSOC);
+        self::assertSame('ignored', $secondary['match_status']);
+        self::assertNull($secondary['matched_invoice_id']);
+    }
+
     public function testIdokladIsIgnoredWhenGpcAlreadyExists(): void
     {
         [, $gpcTx] = $this->insertStatementWithTx('gpc', 1000.00, self::VS_A, 'gpc-first');

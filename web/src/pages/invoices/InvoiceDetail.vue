@@ -3,7 +3,7 @@ import LinkedDocumentsPanel from '@/components/documents/LinkedDocumentsPanel.vu
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { invoicesApi, type Invoice, type WorkReport, type ApprovalStatus, type InvoiceAttachment, type AdvanceCandidate, type InvoicePayment } from '@/api/invoices'
+import { invoicesApi, type Invoice, type WorkReport, type ApprovalStatus, type InvoiceAttachment, type AdvanceCandidate, type InvoicePayment, type RelatedBankTransaction } from '@/api/invoices'
 import {
   settingsApi,
   type PdfSignatureDocumentEntityType,
@@ -180,6 +180,7 @@ async function load() {
 
 // ───── Evidence plateb / částečné úhrady (#89) ─────────────────────────
 const payments = ref<InvoicePayment[]>([])
+const bankTransactions = ref<RelatedBankTransaction[]>([])
 
 function paymentsRelevant(): boolean {
   const inv = invoice.value
@@ -189,11 +190,19 @@ function paymentsRelevant(): boolean {
 }
 
 function loadPayments() {
-  if (!invoice.value || !paymentsRelevant()) { payments.value = []; return }
+  if (!invoice.value || !paymentsRelevant()) { payments.value = []; bankTransactions.value = []; return }
   invoicesApi.listPayments(invoice.value.id)
-    .then(r => { payments.value = r.payments })
-    .catch(() => { payments.value = [] })
+    .then(r => {
+      payments.value = r.payments
+      bankTransactions.value = r.bank_transactions ?? []
+    })
+    .catch(() => { payments.value = []; bankTransactions.value = [] })
 }
+
+const unrecordedBankTransactions = computed(() => {
+  const recorded = new Set(payments.value.map(p => p.bank_transaction_id).filter((id): id is number => id !== null))
+  return bankTransactions.value.filter(tx => !recorded.has(tx.id))
+})
 
 const remainingToPay = computed(() => {
   if (!invoice.value) return 0
@@ -1923,6 +1932,94 @@ const invoiceActions = computed<ActionItem[]>(() => {
           </tfoot>
         </table>
       </div>
+    </div>
+
+    <!-- Přímé bankovní vazby bez invoice_payments — typicky historický import iDoklad. -->
+    <div v-if="paymentsRelevant() && unrecordedBankTransactions.length > 0"
+      class="bg-surface border border-neutral-200 rounded-lg shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-neutral-200">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-500">{{ t('invoice.payments.bank_transactions_title') }}</h3>
+        <p class="text-xs text-neutral-500 mt-1">{{ t('invoice.payments.bank_transactions_hint') }}</p>
+      </div>
+      <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-neutral-50 text-xs text-neutral-500 uppercase tracking-wide">
+            <tr>
+              <th class="px-4 py-2 text-left font-medium">{{ t('invoice.payments.paid_on') }}</th>
+              <th class="px-4 py-2 text-right font-medium">{{ t('invoice.payments.amount') }}</th>
+              <th class="px-4 py-2 text-left font-medium">{{ t('invoice.payments.source') }}</th>
+              <th class="px-4 py-2 text-left font-medium">{{ t('invoice.payments.counterparty') }}</th>
+              <th class="px-4 py-2 text-left font-medium">{{ t('invoice.payments.reference') }}</th>
+              <th class="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100">
+            <tr v-for="tx in unrecordedBankTransactions" :key="tx.id">
+              <td class="px-4 py-2.5">{{ formatDate(tx.posted_at) }}</td>
+              <td class="px-4 py-2.5 text-right font-mono font-medium">{{ formatMoney(tx.amount, tx.currency ?? invoice.currency) }}</td>
+              <td class="px-4 py-2.5">
+                <span class="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">
+                  {{ t('invoice.payments.bank_sources.' + tx.statement_source) }}
+                </span>
+              </td>
+              <td class="px-4 py-2.5 text-xs">
+                <div v-if="tx.counterparty_account" class="font-mono text-neutral-700">
+                  {{ tx.counterparty_account }}<span v-if="tx.counterparty_bank">/{{ tx.counterparty_bank }}</span>
+                </div>
+                <div v-if="tx.counterparty_name" class="text-neutral-500">{{ tx.counterparty_name }}</div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-neutral-500">
+                <div>
+                  <span v-if="tx.variable_symbol" class="font-mono">VS {{ tx.variable_symbol }}</span>
+                  <span v-if="tx.constant_symbol" class="font-mono ml-1">/ KS {{ tx.constant_symbol }}</span>
+                  <span v-if="tx.specific_symbol" class="font-mono ml-1">/ SS {{ tx.specific_symbol }}</span>
+                </div>
+                <div v-if="tx.description">{{ tx.description }}</div>
+                <div v-if="tx.bank_ref" class="text-neutral-400">{{ tx.bank_ref }}</div>
+              </td>
+              <td class="px-4 py-2.5 text-right">
+                <RouterLink :to="`/bank/${tx.statement_id}`" class="text-xs text-primary-700 hover:underline">
+                  {{ t('invoice.payments.statement_link') }}
+                </RouterLink>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="md:hidden divide-y divide-neutral-100">
+        <div v-for="tx in unrecordedBankTransactions" :key="`bank-${tx.id}`" class="p-4 space-y-2 text-sm">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-neutral-500">{{ formatDate(tx.posted_at) }}</span>
+            <span class="font-mono font-medium">{{ formatMoney(tx.amount, tx.currency ?? invoice.currency) }}</span>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">
+              {{ t('invoice.payments.bank_sources.' + tx.statement_source) }}
+            </span>
+            <RouterLink :to="`/bank/${tx.statement_id}`" class="text-xs text-primary-700 hover:underline">
+              {{ t('invoice.payments.statement_link') }}
+            </RouterLink>
+          </div>
+          <div class="text-xs">
+            <div v-if="tx.counterparty_account" class="font-mono text-neutral-700">
+              {{ tx.counterparty_account }}<span v-if="tx.counterparty_bank">/{{ tx.counterparty_bank }}</span>
+            </div>
+            <div v-if="tx.counterparty_name" class="text-neutral-500">{{ tx.counterparty_name }}</div>
+          </div>
+          <div class="text-xs text-neutral-500">
+            <span v-if="tx.variable_symbol" class="font-mono">VS {{ tx.variable_symbol }}</span>
+            <span v-if="tx.constant_symbol" class="font-mono ml-1">/ KS {{ tx.constant_symbol }}</span>
+            <span v-if="tx.specific_symbol" class="font-mono ml-1">/ SS {{ tx.specific_symbol }}</span>
+            <div v-if="tx.description">{{ tx.description }}</div>
+            <div v-if="tx.bank_ref" class="text-neutral-400">{{ tx.bank_ref }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="paymentsRelevant() && invoice.status === 'paid' && payments.length === 0"
+      class="bg-neutral-50 border border-neutral-200 rounded-lg px-5 py-4 text-sm text-neutral-600">
+      {{ t('invoice.payments.imported_without_details', { date: invoice.paid_at ? formatDate(invoice.paid_at) : '—' }) }}
     </div>
 
     <!-- CZK přepočet pro faktury v cizí měně -->

@@ -12,8 +12,8 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 /**
- * GET /api/invoices/{id}/payments — evidované platby faktury + souhrn
- * (paid_total, zbývá k úhradě, odvozený payment_status).
+ * GET /api/invoices/{id}/payments — evidované platby faktury, přímo spárované
+ * bankovní operace a souhrn (paid_total, zbývá k úhradě, payment_status).
  */
 final class ListPaymentsAction
 {
@@ -31,10 +31,11 @@ final class ListPaymentsAction
         }
 
         return Json::ok($response, [
-            'payments'       => $this->payments->listFor($id),
-            'paid_total'     => (float) ($invoice['paid_total'] ?? 0),
-            'amount_to_pay'  => (float) ($invoice['amount_to_pay'] ?? 0),
-            'remaining'      => round((float) ($invoice['amount_to_pay'] ?? 0) - (float) ($invoice['paid_total'] ?? 0), 2),
+            'payments'          => $this->payments->listFor($id),
+            'bank_transactions' => $this->payments->listRelatedBankTransactions($id),
+            'paid_total'        => (float) ($invoice['paid_total'] ?? 0),
+            'amount_to_pay'     => (float) ($invoice['amount_to_pay'] ?? 0),
+            'remaining'         => round((float) ($invoice['amount_to_pay'] ?? 0) - (float) ($invoice['paid_total'] ?? 0), 2),
             'payment_status' => InvoicePaymentService::paymentStatus($invoice),
         ]);
     }

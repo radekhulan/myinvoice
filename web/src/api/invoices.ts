@@ -28,10 +28,30 @@ export interface InvoicePayment {
 
 export interface InvoicePaymentsResponse {
   payments: InvoicePayment[]
+  bank_transactions: RelatedBankTransaction[]
   paid_total: number
   amount_to_pay: number
   remaining: number
   payment_status: PaymentStatus | null
+}
+
+/** Bankovní operace přímo spárovaná s fakturou, i když nevytvořila účetní platbu. */
+export interface RelatedBankTransaction {
+  id: number
+  statement_id: number
+  statement_source: 'gpc' | 'pdf' | 'email_notice' | 'idoklad'
+  posted_at: string
+  amount: number
+  currency: string | null
+  variable_symbol: string | null
+  constant_symbol: string | null
+  specific_symbol: string | null
+  counterparty_account: string | null
+  counterparty_bank: string | null
+  counterparty_name: string | null
+  description: string | null
+  bank_ref: string | null
+  match_status: 'unmatched' | 'auto_exact' | 'auto_partial' | 'manual' | 'ignored'
 }
 
 /** Nespárovaná zálohová faktura (proforma) nabídnutá k propojení s daňovým dokladem. */

@@ -1419,7 +1419,17 @@
       "recorded_paid": "Platba zaevidována — doklad je plně uhrazen.",
       "deleted": "Platba smazána.",
       "delete_confirm": "Smazat platbu {amount} ze dne {date}?",
-      "locked_bank": "Platba z bankovního párování — ruší se přes „Zrušit spárování“ v detailu výpisu."
+      "locked_bank": "Platba z bankovního párování — ruší se přes „Zrušit spárování“ v detailu výpisu.",
+      "bank_transactions_title": "Související bankovní operace",
+      "bank_transactions_hint": "Operace je přímo spárovaná s fakturou, ale není samostatně započtená v evidenci plateb. Zobrazené údaje odpovídají původnímu bankovnímu záznamu.",
+      "counterparty": "Protistrana",
+      "bank_sources": {
+        "gpc": "GPC",
+        "pdf": "PDF výpis",
+        "email_notice": "E-mailové avízo",
+        "idoklad": "iDoklad"
+      },
+      "imported_without_details": "Doklad je evidován jako uhrazený dne {date}, ale podrobnosti platby nejsou k dispozici."
     },
     "cancel_or_credit": "Storno / dobropis",
     "cancel_credit_note": "Storno dobropisu",

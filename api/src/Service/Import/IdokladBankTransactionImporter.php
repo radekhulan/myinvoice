@@ -83,6 +83,12 @@ final class IdokladBankTransactionImporter
                 ]);
                 $txId = (int) $pdo->lastInsertId();
 
+                if ($this->hasPairedIssuedInvoice(
+                    $pdo, $supplierId, $movement, $amount, (string) $account['currency']
+                )) {
+                    $result['document_links']++;
+                }
+
                 $authoritativeTwinId = $this->reconciler->ignoreSecondaryWhenAuthoritativeTwinExists($txId);
                 if ($authoritativeTwinId !== null) {
                     if ($this->reconcileAuthoritativeInvoice(

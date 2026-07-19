@@ -83,6 +83,36 @@ final class InvoicePaymentService
         return array_map([self::class, 'castPayment'], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
     }
 
+    /**
+     * Bankovní operace přímo spárované s fakturou, nezávisle na účetní evidenci
+     * invoice_payments. Typicky jde o historické faktury importované jako uhrazené
+     * z iDokladu: bankovní matcher zná přesnou vazbu, ale zpětně nevytváří platbu.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function listRelatedBankTransactions(int $invoiceId): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT bt.id, bt.statement_id, bs.source AS statement_source,
+                    bt.posted_at, bt.amount, bt.currency,
+                    bt.variable_symbol, bt.constant_symbol, bt.specific_symbol,
+                    bt.counterparty_account, bt.counterparty_bank, bt.counterparty_name,
+                    bt.description, bt.bank_ref, bt.match_status
+               FROM bank_transactions bt
+               JOIN bank_statements bs ON bs.id = bt.statement_id
+              WHERE bt.matched_invoice_id = ?
+              ORDER BY bt.posted_at, bt.id'
+        );
+        $stmt->execute([$invoiceId]);
+
+        return array_map(static function (array $row): array {
+            $row['id'] = (int) $row['id'];
+            $row['statement_id'] = (int) $row['statement_id'];
+            $row['amount'] = (float) $row['amount'];
+            return $row;
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
     /** @return array<string,mixed>|null */
     public function findPayment(int $paymentId): ?array
     {
