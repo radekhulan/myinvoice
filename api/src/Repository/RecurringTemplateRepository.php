@@ -390,18 +390,19 @@ final class RecurringTemplateRepository
         $pdo = $this->db->pdo();
 
         $sql = 'INSERT INTO recurring_invoice_templates
-            (supplier_id, client_id, project_id, name,
+            (supplier_id, branding_profile_id, client_id, project_id, name,
              frequency, day_of_month, end_of_month, anchor_date, end_date, next_run_date,
              invoice_type, currency_id, language, payment_method, reverse_charge, prices_include_vat, discount_percent,
              revenue_category_id,
              payment_due_days, tax_date_mode, draft_open_mode, reminder_days_before,
              note_above_items, note_below_items,
              increment_month_in_descriptions, auto_issue, auto_send_email, status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             (int) $data['supplier_id'],
+            $this->resolveBrandingProfileId($data['branding_profile_id'] ?? null, (int) $data['supplier_id']),
             (int) $data['client_id'],
             !empty($data['project_id']) ? (int) $data['project_id'] : null,
             (string) $data['name'],
@@ -478,7 +479,7 @@ final class RecurringTemplateRepository
         }
 
         $sql = 'UPDATE recurring_invoice_templates SET
-                client_id = ?, project_id = ?, name = ?,
+                client_id = ?, project_id = ?, branding_profile_id = ?, name = ?,
                 frequency = ?, day_of_month = ?, end_of_month = ?,
                 anchor_date = ?, end_date = ?,
                 next_run_date = ?,
@@ -492,6 +493,7 @@ final class RecurringTemplateRepository
         $this->db->pdo()->prepare($sql)->execute([
             (int) $data['client_id'],
             !empty($data['project_id']) ? (int) $data['project_id'] : null,
+            $this->resolveBrandingProfileId($data['branding_profile_id'] ?? null, (int) $data['supplier_id']),
             (string) $data['name'],
             (string) $data['frequency'],
             $dayOfMonth,
@@ -650,6 +652,9 @@ final class RecurringTemplateRepository
         $row['supplier_id']    = (int) $row['supplier_id'];
         $row['client_id']      = (int) $row['client_id'];
         $row['project_id']     = $row['project_id'] !== null ? (int) $row['project_id'] : null;
+        if (array_key_exists('branding_profile_id', $row)) {
+            $row['branding_profile_id'] = $row['branding_profile_id'] !== null ? (int) $row['branding_profile_id'] : null;
+        }
         $row['currency_id']    = (int) $row['currency_id'];
         if (array_key_exists('revenue_category_id', $row)) {
             $row['revenue_category_id'] = $row['revenue_category_id'] !== null ? (int) $row['revenue_category_id'] : null;
@@ -676,6 +681,20 @@ final class RecurringTemplateRepository
             $row['discount_percent'] = (float) $row['discount_percent'];
         }
         return $row;
+    }
+
+    private function resolveBrandingProfileId(mixed $value, int $supplierId): ?int
+    {
+        if ($value === null || $value === '') return null;
+        $id = (int) $value;
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT id FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+        );
+        $stmt->execute([$id, $supplierId]);
+        if ($stmt->fetchColumn() === false) {
+            throw new \InvalidArgumentException("Brandingový profil #$id nenalezen.");
+        }
+        return $id;
     }
 
     private function castItem(array $row): array

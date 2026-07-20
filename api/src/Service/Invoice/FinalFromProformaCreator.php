@@ -128,17 +128,18 @@ final class FinalFromProformaCreator
         try {
             $stmt = $pdo->prepare(
                 'INSERT INTO invoices
-                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id,
+                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
                     note_above_items, note_below_items, advance_paid_amount, discount_percent, payment_method,
                     revenue_category_id, status, created_by)
-                 VALUES ("invoice", ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
+                 VALUES ("invoice", ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
             );
             $stmt->execute([
                 $proformaId,
                 $proforma['client_id'],
                 $proforma['project_id'],
                 (int) $proforma['supplier_id'],
+                $proforma['branding_profile_id'] ?? null,
                 $taxDate,
                 $dueDate,
                 (int) $proforma['currency_id'],

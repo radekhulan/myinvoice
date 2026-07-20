@@ -44,8 +44,8 @@ final class SafeLogoPath
 
         // Musí začínat očekávaným prefixem (relativně k rootDir, bez leading /)
         $rel = ltrim($logoPath, '/');
-        $expectedPrefix = self::SAFE_DIR . '/sup-' . $supplierId;
-        if (!str_starts_with($rel, $expectedPrefix . '.')) return null;
+        $expectedPrefix = self::SAFE_DIR . '/';
+        if (!str_starts_with($rel, $expectedPrefix)) return null;
 
         // Extension allowlist
         $ext = strtolower((string) pathinfo($rel, PATHINFO_EXTENSION));
@@ -53,7 +53,10 @@ final class SafeLogoPath
 
         // Basename validace — žádné víc-úrovňové cesty
         $basename = basename($rel);
-        if ($basename !== 'sup-' . $supplierId . '.' . $ext) return null;
+        $quotedExt = preg_quote($ext, '/');
+        if (!preg_match('/^sup-' . $supplierId . '(?:-brand-[1-9][0-9]*-[a-f0-9]{12})?\.' . $quotedExt . '$/', $basename)) {
+            return null;
+        }
 
         $rootDir = \MyInvoice\Infrastructure\Config\RuntimePaths::base();
         $abs = $rootDir . '/' . $rel;

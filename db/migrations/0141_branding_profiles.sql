@@ -28,3 +28,27 @@ CREATE TABLE IF NOT EXISTS branding_profiles (
   CONSTRAINT fk_branding_profiles_supplier
     FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS default_branding_profile_id INT UNSIGNED NULL
+    AFTER invoice_number_period;
+
+ALTER TABLE recurring_invoice_templates
+  ADD COLUMN IF NOT EXISTS branding_profile_id INT UNSIGNED NULL
+    AFTER supplier_id;
+
+ALTER TABLE invoices
+  ADD COLUMN IF NOT EXISTS branding_profile_id INT UNSIGNED NULL
+    AFTER supplier_id;
+
+ALTER TABLE clients
+  ADD CONSTRAINT fk_clients_default_branding_profile
+    FOREIGN KEY IF NOT EXISTS (default_branding_profile_id) REFERENCES branding_profiles(id) ON DELETE SET NULL;
+
+ALTER TABLE recurring_invoice_templates
+  ADD CONSTRAINT fk_recurring_branding_profile
+    FOREIGN KEY IF NOT EXISTS (branding_profile_id) REFERENCES branding_profiles(id) ON DELETE SET NULL;
+
+ALTER TABLE invoices
+  ADD CONSTRAINT fk_invoices_branding_profile
+    FOREIGN KEY IF NOT EXISTS (branding_profile_id) REFERENCES branding_profiles(id) ON DELETE SET NULL;

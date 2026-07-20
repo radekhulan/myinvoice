@@ -378,17 +378,18 @@ final class RecurringInvoiceGenerator
                 );
             $stmt = $pdo->prepare(
                 'INSERT INTO invoices
-                   (invoice_type, client_id, project_id, supplier_id,
+                   (invoice_type, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
                     note_above_items, note_below_items, payment_method, discount_percent,
                     recurring_template_id, revenue_category_id, status, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
             );
             $stmt->execute([
                 $type,
                 (int) $template['client_id'],
                 $projectId,
                 (int) $template['supplier_id'],
+                isset($template['branding_profile_id']) ? (int) $template['branding_profile_id'] : null,
                 $issueDate,
                 $taxDate,
                 $dueDate,
@@ -504,6 +505,7 @@ final class RecurringInvoiceGenerator
             (int) $invoice['client_id'],
             (int) $invoice['currency_id'],
             $supplierId,
+            isset($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null,
         );
 
         $this->db->pdo()->prepare(

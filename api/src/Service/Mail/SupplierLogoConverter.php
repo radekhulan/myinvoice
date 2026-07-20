@@ -46,7 +46,7 @@ final class SupplierLogoConverter
      * @return array{logo_path: string, abs_path: string, width: int, height: int}
      * @throws \RuntimeException Pro user-facing chyby (přepošleme jako HTTP 4xx)
      */
-    public function process(string $sourcePath, int $supplierId): array
+    public function process(string $sourcePath, int $supplierId, ?int $brandingProfileId = null): array
     {
         if (!is_file($sourcePath)) {
             throw new \RuntimeException('Source soubor nenalezen.');
@@ -62,7 +62,13 @@ final class SupplierLogoConverter
         $mime = $this->detectMime($sourcePath);
 
         $targetDir  = \MyInvoice\Infrastructure\Config\RuntimePaths::storage('supplier-logos');
-        $targetPath = $targetDir . '/sup-' . $supplierId . '.png';
+        $baseName = 'sup-' . $supplierId;
+        if ($brandingProfileId !== null) {
+            if ($brandingProfileId <= 0) throw new \RuntimeException('Neplatný brandingový profil.');
+            $hash = substr(hash_file('sha256', $sourcePath), 0, 12);
+            $baseName .= '-brand-' . $brandingProfileId . '-' . $hash;
+        }
+        $targetPath = $targetDir . '/' . $baseName . '.png';
         if (!is_dir($targetDir)) {
             @mkdir($targetDir, 0755, true);
         }
@@ -73,7 +79,7 @@ final class SupplierLogoConverter
         // SVG: ulož originál vedle PNG (PDF přes mPDF preferuje vektor pro
         // crisp render při libovolné velikosti / zvětšení). Email naopak vždy
         // používá PNG, protože Outlook/Gmail SVG nepodporují.
-        $svgSidecar = $targetDir . '/sup-' . $supplierId . '.svg';
+        $svgSidecar = $targetDir . '/' . $baseName . '.svg';
         @unlink($svgSidecar); // čistka po předchozím uploadu
         // Cache bíle-podloženého PDF loga (issue #152) — zneplatni po re-uploadu.
         \MyInvoice\Service\Pdf\PdfLogoFlattener::cleanup($targetPath);
@@ -99,7 +105,7 @@ final class SupplierLogoConverter
         }
 
         return [
-            'logo_path' => 'storage/supplier-logos/sup-' . $supplierId . '.png',
+            'logo_path' => 'storage/supplier-logos/' . $baseName . '.png',
             'abs_path'  => $targetPath,
             'width'     => (int) $info[0],
             'height'    => (int) $info[1],

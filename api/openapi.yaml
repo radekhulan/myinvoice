@@ -5585,6 +5585,7 @@ components:
         proforma_number_format: { type: [string, "null"] }
         credit_note_number_format: { type: [string, "null"] }
         invoice_number_period: { type: [string, "null"], enum: [year, month, none, null] }
+        default_branding_profile_id: { type: [integer, "null"], description: "Výchozí brandingový profil pro nové vydané faktury klienta." }
         archived_at: { type: [string, "null"], format: date-time, description: "NULL = aktivní; vyplněno = archivováno" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -5698,6 +5699,7 @@ components:
         proforma_number_format: { type: [string, "null"] }
         credit_note_number_format: { type: [string, "null"] }
         invoice_number_period: { type: [string, "null"], enum: [year, month, none, null] }
+        default_branding_profile_id: { type: [integer, "null"], description: "Volitelný výchozí brandingový profil; musí patřit aktuálnímu supplier-ovi." }
         email_contacts:
           type: array
           description: "E-mailové kontakty dle účelu (#86) — replace-all: pošli kompletní pole; klíč vynech, pokud kontakty neměníš. Max 10 kontaktů."
@@ -5708,6 +5710,7 @@ components:
       properties:
         id: { type: integer }
         supplier_id: { type: integer }
+        branding_profile_id: { type: integer, nullable: true, description: "Vizuální identita dokladu; při vystavení se uloží do supplier_snapshot." }
         client_id: { type: integer }
         client_company_name: { type: string, description: "Denormalizováno z klienta pro pohodlí výpisů" }
         client_main_email: { type: [string, "null"], format: email }
@@ -5832,6 +5835,7 @@ components:
       properties:
         client_id: { type: integer, description: "Musí patřit aktuálnímu supplier-ovi" }
         project_id: { type: [integer, "null"], description: "Pokud uvedeno, musí patřit `client_id`" }
+        branding_profile_id: { type: [integer, "null"], description: "Volitelný brandingový profil stejného supplier-a; bez pole se použije výchozí profil klienta." }
         parent_invoice_id: { type: [integer, "null"], description: "Jen při create (credit_note / final-z-proformy). Na UPDATE se ignoruje." }
         invoice_type:
           type: string

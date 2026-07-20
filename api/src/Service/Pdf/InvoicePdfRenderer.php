@@ -659,6 +659,7 @@ final class InvoicePdfRenderer
                 (int) $invoice['client_id'],
                 (int) $invoice['currency_id'],
                 (int) ($invoice['supplier_id'] ?? 0),
+                isset($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null,
             );
         } catch (\Throwable) {
             // Pokud klient/dodavatel neexistuje (smazaný), zachovej původní snapshot.

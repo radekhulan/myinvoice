@@ -239,6 +239,12 @@ final class Mailer
                 $replyEmail = (string) $emailProfile['reply_to_email'];
                 $replyName = (string) ($emailProfile['reply_to_name'] ?? '');
             }
+        } elseif ($supplier !== null
+            && !empty($supplier['reply_to'])
+            && filter_var($supplier['reply_to'], FILTER_VALIDATE_EMAIL)
+        ) {
+            $replyEmail = (string) $supplier['reply_to'];
+            $replyName = (string) ($supplier['display_name'] ?? $supplier['company_name'] ?? '');
         } elseif ($supplier !== null && !empty($supplier['email']) && filter_var($supplier['email'], FILTER_VALIDATE_EMAIL)) {
             $replyEmail = (string) $supplier['email'];
             $replyName  = (string) ($supplier['display_name'] ?? $supplier['company_name'] ?? '');

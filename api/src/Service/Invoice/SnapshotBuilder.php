@@ -21,11 +21,11 @@ final class SnapshotBuilder
     /**
      * @return array{client: array, supplier: array, bank: ?array}
      */
-    public function build(int $clientId, int $currencyId, int $supplierId): array
+    public function build(int $clientId, int $currencyId, int $supplierId, ?int $brandingProfileId = null): array
     {
         return [
             'client'   => $this->clientSnapshot($clientId),
-            'supplier' => $this->supplierSnapshot($supplierId),
+            'supplier' => $this->supplierSnapshot($supplierId, $brandingProfileId),
             'bank'     => $this->bankSnapshot($currencyId),
         ];
     }
@@ -64,7 +64,7 @@ final class SnapshotBuilder
         ];
     }
 
-    private function supplierSnapshot(int $supplierId): array
+    private function supplierSnapshot(int $supplierId, ?int $brandingProfileId): array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT s.*, co.iso2 AS country_iso2, co.name_cs AS country_name_cs, co.name_en AS country_name_en
@@ -77,7 +77,8 @@ final class SnapshotBuilder
         if (!$row) {
             throw new \RuntimeException("Supplier #$supplierId nenalezen.");
         }
-        return [
+        $snapshot = [
+            'id'           => (int) $row['id'],
             'company_name' => $row['company_name'],
             'display_name' => $row['display_name'],
             'street'       => $row['street'],
@@ -96,8 +97,40 @@ final class SnapshotBuilder
             'phone'        => $row['phone'],
             'web'          => $row['web'],
             'tagline'      => $row['tagline'] ?? null,
+            'email_footer' => $row['email_footer'] ?? null,
+            'logo_path'    => $row['logo_path'] ?? null,
+            'email_branding_enabled' => (bool) ($row['email_branding_enabled'] ?? false),
+            'email_accent_color' => $row['email_accent_color'] ?? null,
+            'pdf_logo_show_name' => (bool) ($row['pdf_logo_show_name'] ?? true),
             'commercial_register' => $row['commercial_register'] ?? null,
         ];
+
+        if ($brandingProfileId === null) {
+            return $snapshot;
+        }
+
+        $profileStmt = $this->db->pdo()->prepare(
+            'SELECT * FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+        );
+        $profileStmt->execute([$brandingProfileId, $supplierId]);
+        $profile = $profileStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$profile) {
+            throw new \InvalidArgumentException("Brandingový profil #$brandingProfileId nenalezen.");
+        }
+
+        foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
+            if ($profile[$field] !== null && $profile[$field] !== '') {
+                $snapshot[$field] = $profile[$field];
+            }
+        }
+        $snapshot['reply_to'] = $profile['reply_to'] ?: null;
+        $snapshot['email_branding_enabled'] = true;
+        $snapshot['email_accent_color'] = $profile['accent_color'];
+        $snapshot['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
+        $snapshot['branding_profile_id'] = (int) $profile['id'];
+        $snapshot['branding_profile_name'] = $profile['name'];
+
+        return $snapshot;
     }
 
     private function bankSnapshot(int $currencyId): ?array

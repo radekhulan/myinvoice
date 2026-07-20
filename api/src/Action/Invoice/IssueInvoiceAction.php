@@ -133,7 +133,12 @@ final class IssueInvoiceAction
         }
 
         try {
-            $snapshots = $this->snapshots->build((int) $invoice['client_id'], (int) $invoice['currency_id'], $supplierId);
+            $snapshots = $this->snapshots->build(
+                (int) $invoice['client_id'],
+                (int) $invoice['currency_id'],
+                $supplierId,
+                isset($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null,
+            );
         } catch (\RuntimeException $e) {
             return Json::error($response, 'snapshot_failed', $e->getMessage(), 500);
         }

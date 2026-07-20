@@ -83,16 +83,17 @@ final class CancelInvoiceAction
             // 1. Vytvoř cancellation záznam (interní, bez varsymbolu)
             $stmt = $pdo->prepare(
                 'INSERT INTO invoices
-                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id,
+                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, language,
                     note_above_items, revenue_category_id, status, created_by)
-                 VALUES ("cancellation", ?, ?, ?, ?, CURDATE(), NULL, CURDATE(), ?, ?, ?, ?, "issued", ?)'
+                 VALUES ("cancellation", ?, ?, ?, ?, ?, CURDATE(), NULL, CURDATE(), ?, ?, ?, ?, "issued", ?)'
             );
             $stmt->execute([
                 $invoice['id'],
                 $invoice['client_id'],
                 $invoice['project_id'],
                 (int) $invoice['supplier_id'],
+                $invoice['branding_profile_id'] ?? null,
                 (int) $invoice['currency_id'],
                 $invoice['language'],
                 $reason !== '' ? "Storno faktury {$invoice['varsymbol']}: $reason" : null,
@@ -144,16 +145,17 @@ final class CancelInvoiceAction
         try {
             $stmt = $pdo->prepare(
                 'INSERT INTO invoices
-                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id,
+                   (invoice_type, parent_invoice_id, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
                     note_above_items, revenue_category_id, status, created_by)
-                 VALUES ("credit_note", ?, ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, ?, ?, ?, ?, ?, "draft", ?)'
+                 VALUES ("credit_note", ?, ?, ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, ?, ?, ?, ?, ?, "draft", ?)'
             );
             $stmt->execute([
                 $invoice['id'],
                 $invoice['client_id'],
                 $invoice['project_id'],
                 (int) $invoice['supplier_id'],
+                $invoice['branding_profile_id'] ?? null,
                 (int) $invoice['currency_id'],
                 $invoice['reverse_charge'] ? 1 : 0,
                 // Dobropis musí dědit režim „ceny s DPH" — jinak by se zkopírované brutto

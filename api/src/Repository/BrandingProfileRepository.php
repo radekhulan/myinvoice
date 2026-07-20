@@ -79,6 +79,15 @@ final class BrandingProfileRepository
         return $stmt->rowCount() > 0;
     }
 
+    public function setLogoPath(int $id, int $supplierId, ?string $logoPath): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE branding_profiles SET logo_path = ? WHERE id = ? AND supplier_id = ?'
+        );
+        $stmt->execute([$logoPath, $id, $supplierId]);
+        return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
+    }
+
     /** @return array<string,mixed> */
     private function normalize(array $data): array
     {

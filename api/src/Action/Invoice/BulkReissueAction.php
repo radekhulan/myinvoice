@@ -157,13 +157,13 @@ final class BulkReissueAction
         try {
             $stmt = $pdo->prepare(
                 'INSERT INTO invoices
-                   (invoice_type, client_id, project_id, supplier_id,
+                   (invoice_type, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
                     note_above_items, note_below_items, discount_percent, payment_method,
                     revenue_category_id,'
                 . ($hasReminders ? ' auto_send_reminders,' : '')
                 . ' status, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
                 . ($hasReminders ? ' ?,' : '')
                 . ' "draft", ?)'
             );
@@ -172,6 +172,7 @@ final class BulkReissueAction
                 $source['client_id'],
                 $source['project_id'],
                 (int) $source['supplier_id'],
+                $source['branding_profile_id'] ?? null,
                 $issueDate,
                 $taxDate,
                 $dueDate,

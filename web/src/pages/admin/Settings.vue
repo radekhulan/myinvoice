@@ -7,6 +7,7 @@ import { clientsApi } from '@/api/clients'
 import { useSupplierStore } from '@/stores/supplier'
 import { useToast } from '@/composables/useToast'
 import { renderVarsymbolTemplate, hasCounterPlaceholder } from '@/utils/varsymbol'
+import BrandingProfilesSettings from '@/components/settings/BrandingProfilesSettings.vue'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -602,6 +603,8 @@ async function removeLogo() {
         </div>
 
       </section>
+
+      <BrandingProfilesSettings />
 
       <!-- Číslování faktur — samostatný box -->
       <section class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">

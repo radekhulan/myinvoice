@@ -8,6 +8,7 @@ import { expenseCategoriesApi, type ExpenseCategory } from '@/api/expenseCategor
 import { revenueCategoriesApi, type RevenueCategory } from '@/api/revenueCategories'
 import { useToast } from '@/composables/useToast'
 import { useSupplierStore } from '@/stores/supplier'
+import { settingsApi, type BrandingProfile } from '@/api/settings'
 
 /**
  * V `embedded` módu komponenta nečte route, neredirektuje a vrací výsledek
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const toast = useToast()
 const supplierStore = useSupplierStore()
+const brandingProfiles = ref<BrandingProfile[]>([])
 
 const route = useRoute()
 const router = useRouter()
@@ -114,6 +116,7 @@ const form = ref<ClientPayload>({
   proforma_number_format: null,
   credit_note_number_format: null,
   invoice_number_period: null,
+  default_branding_profile_id: null,
 })
 
 // Pro lock UI — counts of issued/received invoices se hodí znát, aby user věděl
@@ -214,16 +217,18 @@ async function loadVatPayerDetails() {
 }
 
 onMounted(async () => {
-  const [c, cur, ec, rc] = await Promise.all([
+  const [c, cur, ec, rc, bp] = await Promise.all([
     codebooksApi.countries(),
     codebooksApi.currencies(),
     expenseCategoriesApi.list(false).catch(() => [] as ExpenseCategory[]),  // jen aktivní
     revenueCategoriesApi.list(false).catch(() => [] as RevenueCategory[]),  // jen aktivní
+    settingsApi.listBrandingProfiles().catch(() => [] as BrandingProfile[]),
   ])
   countries.value = c
   currencies.value = cur
   expenseCategories.value = ec
   revenueCategories.value = rc
+  brandingProfiles.value = bp.filter(p => p.is_active)
   if (form.value.currency_default_id === 0) {
     const def = cur.find(x => x.is_default && x.code === 'CZK') || cur[0]
     if (def) form.value.currency_default_id = def.id
@@ -284,6 +289,7 @@ function sanitize(c: Client): Partial<ClientPayload> {
     proforma_number_format: c.proforma_number_format ?? null,
     credit_note_number_format: c.credit_note_number_format ?? null,
     invoice_number_period: c.invoice_number_period ?? null,
+    default_branding_profile_id: c.default_branding_profile_id ?? null,
   }
 }
 
@@ -786,6 +792,15 @@ async function submit() {
           <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('client.note') }}</label>
           <textarea autocomplete="off" v-model="form.note" rows="2"
             class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"></textarea>
+        </div>
+
+        <div v-if="form.is_customer && brandingProfiles.length" class="pt-3 border-t border-neutral-100">
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('client.branding_profile') }}</label>
+          <select v-model="form.default_branding_profile_id" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface">
+            <option :value="null">{{ t('client.branding_profile_default') }}</option>
+            <option v-for="profile in brandingProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+          </select>
+          <p class="text-xs text-neutral-500 mt-1">{{ t('client.branding_profile_hint') }}</p>
         </div>
 
         <!-- Per-client číselná řada (volitelná) -->

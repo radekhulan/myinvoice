@@ -105,6 +105,23 @@ export interface Supplier {
   }
 }
 
+export interface BrandingProfile {
+  id: number
+  supplier_id: number
+  name: string
+  display_name: string | null
+  tagline: string | null
+  email: string | null
+  reply_to: string | null
+  phone: string | null
+  web: string | null
+  email_footer: string | null
+  logo_path: string | null
+  accent_color: string
+  pdf_logo_show_name: boolean
+  is_active: boolean
+}
+
 export interface CurrencyAccount {
   id: number
   code: string
@@ -669,6 +686,24 @@ export const settingsApi = {
     ).then(r => r.data)
   },
   deleteEmailLogo: () => api.delete('/settings/email-branding/logo').then(r => r.data),
+
+  listBrandingProfiles: () =>
+    api.get<BrandingProfile[]>('/settings/branding-profiles').then(r => r.data),
+  createBrandingProfile: (payload: Partial<BrandingProfile>) =>
+    api.post<BrandingProfile>('/settings/branding-profiles', payload).then(r => r.data),
+  updateBrandingProfile: (id: number, payload: Partial<BrandingProfile>) =>
+    api.put<BrandingProfile>(`/settings/branding-profiles/${id}`, payload).then(r => r.data),
+  deleteBrandingProfile: (id: number) =>
+    api.delete<{ deleted: boolean }>(`/settings/branding-profiles/${id}`).then(r => r.data),
+  uploadBrandingProfileLogo: (id: number, file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post<BrandingProfile>(`/settings/branding-profiles/${id}/logo`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
+  deleteBrandingProfileLogo: (id: number) =>
+    api.delete<BrandingProfile>(`/settings/branding-profiles/${id}/logo`).then(r => r.data),
 
   getPdfSigningDiagnostics: () =>
     api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),

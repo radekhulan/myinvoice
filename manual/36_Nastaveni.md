@@ -13,6 +13,17 @@ aplikace:
 Správa opakovaně používaných fakturačních položek je kvůli návaznosti na
 vystavování dokladů v menu **Prodej → Ceník**.
 
+## Brandingové profily
+
+V nastavení dodavatele lze vytvořit více brandingových profilů pro různé
+obchodní značky. Profil může změnit logo, zobrazovaný název, slogan, barvu,
+kontaktní údaje a patičku e-mailu. Právní údaje dodavatele (firma, adresa, IČ a
+DIČ) zůstávají společné a profilem se nemění.
+
+Výchozí profil lze přiřadit zákazníkovi. Nový koncept faktury jej převezme a
+při vystavení se použitá identita uloží do snapshotu dokladu. Pozdější změna
+profilu nebo nahrání nového loga proto nezmění již vystavené faktury.
+
 ## 36.1 Číselníky
 
 **Systém → Číselníky**.

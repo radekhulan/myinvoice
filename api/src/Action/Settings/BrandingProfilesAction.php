@@ -9,12 +9,19 @@ use MyInvoice\Middleware\AuthMiddleware;
 use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Repository\BrandingProfileRepository;
 use MyInvoice\Service\Branding\BrandingProfileValidation;
+use MyInvoice\Service\Mail\SupplierLogoConverter;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Message\UploadedFileInterface;
 
 final class BrandingProfilesAction
 {
-    public function __construct(private readonly BrandingProfileRepository $profiles) {}
+    private const MAX_FILE_SIZE = 1_048_576;
+
+    public function __construct(
+        private readonly BrandingProfileRepository $profiles,
+        private readonly SupplierLogoConverter $logoConverter,
+    ) {}
 
     public function list(Request $request, Response $response): Response
     {
@@ -70,6 +77,50 @@ final class BrandingProfilesAction
         $deleted = $this->profiles->delete((int) ($args['id'] ?? 0), $this->supplierId($request));
         if (!$deleted) return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
         return Json::ok($response, ['deleted' => true]);
+    }
+
+    public function uploadLogo(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $supplierId = $this->supplierId($request);
+        $id = (int) ($args['id'] ?? 0);
+        if ($this->profiles->findForSupplier($id, $supplierId) === null) {
+            return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        $file = $request->getUploadedFiles()['file'] ?? null;
+        if (!$file instanceof UploadedFileInterface) {
+            return Json::error($response, 'no_file', 'Žádný soubor nebyl odeslán (pole `file`).', 400);
+        }
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            return Json::error($response, 'upload_failed', 'Nahrání souboru selhalo.', 400);
+        }
+        $size = (int) ($file->getSize() ?? 0);
+        if ($size <= 0 || $size > self::MAX_FILE_SIZE) {
+            return Json::error($response, 'invalid_file_size', 'Logo musí mít 1 B až 1 MiB.', 413);
+        }
+        $tmpPath = sys_get_temp_dir() . '/.branding-upload-' . bin2hex(random_bytes(8));
+        try {
+            $file->moveTo($tmpPath);
+            $result = $this->logoConverter->process($tmpPath, $supplierId, $id);
+            $this->profiles->setLogoPath($id, $supplierId, $result['logo_path']);
+        } catch (\RuntimeException $e) {
+            return Json::error($response, 'conversion_failed', $e->getMessage(), 400);
+        } finally {
+            @unlink($tmpPath);
+        }
+        return Json::ok($response, $this->profiles->findForSupplier($id, $supplierId));
+    }
+
+    public function deleteLogo(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $supplierId = $this->supplierId($request);
+        $id = (int) ($args['id'] ?? 0);
+        if (!$this->profiles->setLogoPath($id, $supplierId, null)) {
+            return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        // Soubor záměrně nemažeme: vystavené faktury jej mohou mít ve snapshotu.
+        return Json::ok($response, $this->profiles->findForSupplier($id, $supplierId));
     }
 
     private function supplierId(Request $request): int
