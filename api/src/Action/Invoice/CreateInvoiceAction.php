@@ -61,6 +61,8 @@ final class CreateInvoiceAction
 
         try {
             $id = $this->repo->createDraft($body, $userId);
+        } catch (\InvalidArgumentException $e) {
+            return Json::error($response, 'integrity_violation', $e->getMessage(), 400);
         } catch (\PDOException $e) {
             if ($dupMsg = self::varsymbolDuplicateMessage($e, $body['varsymbol'] ?? null)) {
                 return Json::error($response, 'varsymbol_duplicate', $dupMsg, 409);

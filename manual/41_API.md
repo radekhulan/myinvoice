@@ -180,8 +180,47 @@ curl -X POST https://mojefirma.example/api/v1/settings/supplier/logo \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@logo.png"
 # → { "logo_path": "storage/supplier-logos/sup-1.png", "width": 480, "height": 160 }
+```
 
-## 41.9 Export faktur přes API
+## 41.9 Brandingový profil faktury
+
+Aktivní profily aktuálního dodavatele vrací read-only endpoint:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://mojefirma.example/api/v1/branding-profiles
+```
+
+Hodnotu `id` lze poslat při vytvoření konceptu faktury:
+
+```bash
+curl -X POST https://mojefirma.example/api/v1/invoices \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": 123,
+    "branding_profile_id": 5,
+    "issue_date": "2026-07-20",
+    "due_date": "2026-08-03",
+    "items": [{
+      "description": "Konzultační služby",
+      "quantity": 1,
+      "unit": "h",
+      "unit_price_without_vat": 2500,
+      "vat_rate_id": 1
+    }]
+  }'
+```
+
+Profil musí být aktivní a patřit stejnému dodavateli jako klient. Jinak API
+vrátí HTTP 400 s kódem `integrity_violation`. Když `branding_profile_id` v těle
+chybí, nový koncept převezme výchozí profil klienta. Explicitní `null` znamená
+použít základní identitu dodavatele bez dalšího profilu.
+
+Při vystavení se výsledná identita včetně cesty k verzi loga uloží do snapshotu
+faktury. Pozdější úprava profilu tedy již vystavený doklad nezmění.
+
+## 41.10 Export faktur přes API
 
 - **`GET /api/v1/invoices/export?format=pdf-zip|isdoc|pohoda|stereo&month=YYYY-MM`**
   — hromadný export vystavených dokladů za měsíc (nebo
@@ -201,7 +240,7 @@ curl -H "Authorization: Bearer $TOKEN" -OJ \
   "https://mojefirma.example/api/v1/invoices/export?format=isdoc&month=2026-06"
 ```
 
-## 41.10 Bezpečnost tokenů — best practices
+## 41.11 Bezpečnost tokenů — best practices
 
 - **Ukládej token jako secret** (password manager, Make encrypted variable, GitHub Secrets…).
   Nepushuj do gitu.
@@ -212,7 +251,7 @@ curl -H "Authorization: Bearer $TOKEN" -OJ \
 - **Sleduj `last_used_at`** v UI — token, který se 3 měsíce nepoužil, asi nepotřebuješ.
 - **Při ztrátě/podezření** — okamžitě **Zrušit** v UI. Revokace je instantní (žádný cache).
 
-## 41.11 Co API nepokrývá
+## 41.12 Co API nepokrývá
 
 - **Admin a settings endpointy** (`/api/admin/*` a `/api/settings/*` mimo
   veřejný subset — supplier, číselníky) nejsou v `openapi.yaml` - jsou určené

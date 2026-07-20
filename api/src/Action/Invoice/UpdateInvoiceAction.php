@@ -155,6 +155,8 @@ final class UpdateInvoiceAction
 
         try {
             $this->repo->updateDraft($id, $body);
+        } catch (\InvalidArgumentException $e) {
+            return Json::error($response, 'integrity_violation', $e->getMessage(), 400);
         } catch (\PDOException $e) {
             if ($dupMsg = self::varsymbolDuplicateMessage($e, $body['varsymbol'] ?? null)) {
                 return Json::error($response, 'varsymbol_duplicate', $dupMsg, 409);
@@ -241,7 +243,7 @@ final class UpdateInvoiceAction
         // název (client_id → client); ostatní pole se mapují sama na sebe. Drž v sync
         // s editovatelnými sloupci v InvoiceRepository::updateDraft().
         $columns = [
-            'client_id', 'currency_id', 'project_id', 'revenue_category_id',
+            'client_id', 'currency_id', 'project_id', 'revenue_category_id', 'branding_profile_id',
             'issue_date', 'tax_date', 'due_date', 'varsymbol',
             'invoice_type', 'payment_method', 'note_above_items', 'note_below_items',
             'discount_percent', 'advance_paid_amount', 'reverse_charge',
