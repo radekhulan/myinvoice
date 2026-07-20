@@ -5566,7 +5566,7 @@ components:
         zip: { type: string }
         country_id: { type: integer }
         country_iso2: { type: string, description: "Denormalizovaný ISO2 kód země (alias z countries)" }
-        main_email: { type: string, format: email, description: "Hlavní email klienta — povinný. Bez e-mailových kontaktů (email_contacts) na něj chodí všechny zprávy; s kontakty slouží jako fallback a pro běžnou komunikaci." }
+        main_email: { type: string, format: email, nullable: true, description: "Volitelný hlavní email klienta. Bez e-mailových kontaktů (email_contacts) na něj chodí všechny zprávy; s kontakty slouží jako fallback a pro běžnou komunikaci." }
         phone: { type: string, nullable: true }
         language: { type: string, enum: [cs, en], description: "Jazyk faktur a emailů. Default cs." }
         currency_default_id: { type: integer, nullable: true, description: "Výchozí měna pro faktury klienta. Default = supplier.default_currency_id." }
@@ -5668,7 +5668,7 @@ components:
 
     ClientInput:
       type: object
-      required: [company_name, street, city, zip, main_email]
+      required: [company_name, street, city, zip]
       properties:
         company_name: { type: string }
         first_name: { type: string, nullable: true }
@@ -5680,7 +5680,7 @@ components:
         city: { type: string }
         zip: { type: string }
         country_iso2: { type: string, default: CZ, description: "ISO2 kód země (resolvuje se na country_id). POZOR: vstup je `country_iso2`, ne `country_id`." }
-        main_email: { type: string, format: email, description: "Hlavní email — povinný (POZOR: backend pole se jmenuje `main_email`, ne `email`)" }
+        main_email: { type: string, format: email, nullable: true, description: "Volitelný hlavní email (POZOR: backend pole se jmenuje `main_email`, ne `email`)" }
         phone: { type: string, nullable: true, maxLength: 40 }
         language: { type: string, enum: [cs, en], default: cs }
         currency_default_id: { type: integer, nullable: true, description: "Výchozí měna klienta. Pokud chybí, použije se výchozí měna supplier-a." }

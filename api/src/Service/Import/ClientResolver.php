@@ -16,7 +16,7 @@ use MyInvoice\Service\Ares\AresClient;
  *   4. Vytvoří nový clients row, vrátí id.
  *
  * Vstup: array z parseru (`company_name, ic, dic, street, city, zip, country_iso2, email, phone`).
- * Email se použije jako `main_email` (povinné pole).
+ * Pokud je email dostupný, použije se jako volitelný `main_email`.
  */
 final class ClientResolver
 {

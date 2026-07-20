@@ -153,7 +153,7 @@ POST /api/bank-transactions/{id}/ignore
     "code": "validation_failed",
     "message": "Validace selhala",
     "fields": {
-      "main_email": ["Email je povinný"],
+      "main_email": ["Hlavní email musí být platný"],
       "ic": ["IČO musí mít 8 číslic"]
     }
   }

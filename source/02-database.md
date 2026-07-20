@@ -216,7 +216,7 @@ CREATE TABLE clients (
 
 ## 8. `project_billing_emails`
 
-Fakturační emaily jsou na úrovni **zakázky**, ne klienta — každá zakázka může mít vlastní účetní/PM/asistentku. Klient má jen `main_email` (povinný hlavní kontakt).
+Fakturační emaily jsou na úrovni **zakázky**, ne klienta — každá zakázka může mít vlastní účetní/PM/asistentku. Klient má volitelný `main_email` jako hlavní kontakt.
 
 Při odeslání faktury: `client.main_email + project_billing_emails[]`. Pokud faktura nemá `project_id`, jdou maily jen na `client.main_email`.
 
