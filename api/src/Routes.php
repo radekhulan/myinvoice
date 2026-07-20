@@ -224,6 +224,7 @@ final class Routes
 
         // Globální vyhledávač pro sidebar (klienti/dodavatelé + vydané/přijaté faktury)
         $app->get('/api/search', \MyInvoice\Action\Search\GlobalSearchAction::class);
+        $app->get('/api/branding-profiles', [BrandingProfilesAction::class, 'publicList']);
 
         // Codebooks
         $app->get('/api/codebooks/countries',  [CodebookAction::class, 'countries']);

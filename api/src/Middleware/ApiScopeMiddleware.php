@@ -69,6 +69,7 @@ final class ApiScopeMiddleware implements MiddlewareInterface
         '#^/api/reports(/|$)#',
         '#^/api/tax(/|$)#',
         '#^/api/search$#',
+        '#^/api/branding-profiles$#',
         // Číselníky
         '#^/api/codebooks(/|$)#',
         '#^/api/expense-categories(/|$)#',

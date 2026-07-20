@@ -105,6 +105,22 @@ tags:
     description: Kniha jízd — vozidla, jízdy, tankování a daňové souhrny
 
 paths:
+  /api/v1/branding-profiles:
+    parameters:
+      - $ref: '#/components/parameters/SupplierIdHeader'
+    get:
+      tags: [Settings]
+      summary: Aktivní brandingové profily aktuálního dodavatele
+      description: "Vrací ID a vizuální údaje použitelné jako `branding_profile_id` při vytvoření faktury. Endpoint je pouze pro čtení."
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BrandingProfile' }
+
   /api/v1/health:
     get:
       tags: [System]
@@ -5543,6 +5559,23 @@ components:
       properties:
         amount: { type: number, format: float, example: 12500.50 }
         currency: { type: string, example: CZK }
+
+    BrandingProfile:
+      type: object
+      description: "Aktivní vizuální identita aktuálního dodavatele. Prázdná pole se při vystavení dědí z dodavatele."
+      properties:
+        id: { type: integer }
+        name: { type: string, description: "Interní název profilu" }
+        display_name: { type: string, nullable: true }
+        tagline: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        reply_to: { type: string, format: email, nullable: true }
+        phone: { type: string, nullable: true }
+        web: { type: string, nullable: true }
+        email_footer: { type: string, nullable: true }
+        logo_path: { type: string, nullable: true, readOnly: true }
+        accent_color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        pdf_logo_show_name: { type: boolean }
 
     Client:
       type: object

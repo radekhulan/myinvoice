@@ -30,6 +30,13 @@ final class BrandingProfilesAction
         return Json::ok($response, $this->profiles->listForSupplier($supplierId));
     }
 
+    public function publicList(Request $request, Response $response): Response
+    {
+        $supplierId = $this->supplierId($request);
+        if ($supplierId <= 0) return Json::error($response, 'no_supplier', 'Žádný supplier scope.', 400);
+        return Json::ok($response, $this->profiles->listForSupplier($supplierId, true));
+    }
+
     public function create(Request $request, Response $response): Response
     {
         if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
