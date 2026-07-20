@@ -129,6 +129,11 @@ final class SnapshotBuilder
         $snapshot['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
         $snapshot['branding_profile_id'] = (int) $profile['id'];
         $snapshot['branding_profile_name'] = $profile['name'];
+        $snapshot['email_profile_id'] = $profile['email_profile_id'] !== null ? (int) $profile['email_profile_id'] : null;
+        if (!empty($profile['invoice_template_html'])) {
+            $snapshot['invoice_template_html'] = $profile['invoice_template_html'];
+            $snapshot['invoice_template_css'] = (string) ($profile['invoice_template_css'] ?? '');
+        }
 
         return $snapshot;
     }

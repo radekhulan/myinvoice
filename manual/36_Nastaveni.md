@@ -20,6 +20,16 @@ obchodní značky. Profil může změnit logo, zobrazovaný název, slogan, barv
 kontaktní údaje a patičku e-mailu. Právní údaje dodavatele (firma, adresa, IČ a
 DIČ) zůstávají společné a profilem se nemění.
 
+Každému profilu lze přiřadit také e-mailový profil odesílatele. Ten určuje
+SMTP účet, adresu odesílatele, Reply-To a případné podepisování zpráv. Není-li
+vybrán, použije se výchozí e-mailový profil dodavatele.
+
+Tlačítko **Šablona PDF** otevře editor Twig HTML a CSS vzhledu faktury. Nový
+profil nejprve používá vestavěnou šablonu; uložením vznikne vlastní varianta a
+tlačítkem **Obnovit výchozí** se lze k vestavěné šabloně vrátit. Editor z
+bezpečnostních důvodů nepovoluje načítání externích ani lokálních souborů.
+Logo se do šablony vkládá prostřednictvím proměnné `logo_path`.
+
 Výchozí profil lze přiřadit zákazníkovi. Nový koncept faktury jej převezme a
 při vystavení se použitá identita uloží do snapshotu dokladu. Pozdější změna
 profilu nebo nahrání nového loga proto nezmění již vystavené faktury.
@@ -28,6 +38,11 @@ V části **Branding e-mailů** lze nad náhledem přepnout ze základní identi
 dodavatele na kterýkoli aktivní brandingový profil. Náhled použije jeho logo,
 barvu, zobrazovaný název, kontakty i vlastní patičku; přepínač CS/EN funguje pro
 obě varianty stejně.
+
+Na stránce **E-mail šablony** lze vybrat brandingový profil a upravit předmět,
+HTML i textovou variantu zprávy pouze pro něj. Pokud profil vlastní e-mailovou
+šablonu nemá, použije se společná šablona dodavatele a následně vestavěná
+výchozí šablona.
 
 ## 36.1 Číselníky
 

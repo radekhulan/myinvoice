@@ -18,6 +18,8 @@ use MyInvoice\Service\Qr\QrPaymentGenerator;
 use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
+use Twig\Extension\SandboxExtension;
+use Twig\Sandbox\SecurityPolicy;
 
 /**
  * Renderuje fakturu jako PDF.
@@ -231,8 +233,9 @@ final class InvoicePdfRenderer
         bool $includeWorkReport = true,
     ): array
     {
+        $custom = $this->resolveInvoiceTemplate($invoice);
         $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
-        $css = is_file($cssPath) ? (string) file_get_contents($cssPath) : '';
+        $css = $custom !== null ? $custom['css'] : (is_file($cssPath) ? (string) file_get_contents($cssPath) : '');
         // Per-supplier branding barva — přebarví fialové akcenty na zvolený odstín.
         $css .= $this->brandAccentCss($this->resolveSupplier($invoice));
         // Renderuj template BEZ inline <style> bloku — CSS pošleme do mPDF zvlášť
@@ -284,13 +287,16 @@ final class InvoicePdfRenderer
         }
 
         $locale = $invoice['language'] ?? 'cs';
+        $custom = $this->resolveInvoiceTemplate($invoice);
         $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
-        $css = $includeCss && is_file($cssPath) ? (string) file_get_contents($cssPath) : '';
+        $css = $includeCss
+            ? ($custom !== null ? $custom['css'] : (is_file($cssPath) ? (string) file_get_contents($cssPath) : ''))
+            : '';
         if ($includeCss && $css !== '') {
             $css .= $this->brandAccentCss($supplierData);
         }
 
-        $twig = $this->twig();
+        $twig = $custom !== null ? $this->sandboxedTwig() : $this->twig();
 
         // Translation helper
         $twig->addFunction(new \Twig\TwigFunction('t', static function (string $cs, string $en) use ($locale) {
@@ -299,7 +305,7 @@ final class InvoicePdfRenderer
 
         $logoPath = $this->resolveLogoPath($supplierData, (int) ($invoice['supplier_id'] ?? 0));
 
-        return $twig->render('invoice.twig', [
+        $vars = [
             'invoice'           => $invoice,
             'supplier'          => $supplierData,
             'client'            => $clientData,
@@ -330,7 +336,10 @@ final class InvoicePdfRenderer
             // reálně je — bez loga se název ukazuje vždy (textový brand-name fallback).
             'logo_show_name'    => $logoPath !== null && !empty($supplierData['pdf_logo_show_name']),
             'isdoc_attachment'  => $hasIsdocAttachment, // bool — badge gate
-        ]);
+        ];
+        return $custom !== null
+            ? $twig->createTemplate($custom['html'], 'branding-invoice.twig')->render($vars)
+            : $twig->render('invoice.twig', $vars);
     }
 
     private function newMpdf(string $tmpDir): Mpdf
@@ -403,6 +412,37 @@ final class InvoicePdfRenderer
             'cache' => false,
             'strict_variables' => false,
         ]);
+    }
+
+    private function sandboxedTwig(): Environment
+    {
+        $twig = new Environment(new \Twig\Loader\ArrayLoader(), [
+            'autoescape' => 'html', 'cache' => false, 'strict_variables' => false,
+        ]);
+        $twig->addExtension(new SandboxExtension(new SecurityPolicy(
+            ['if', 'for', 'set'],
+            ['date', 'default', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
+            [], [], ['t'],
+        ), true));
+        return $twig;
+    }
+
+    /** @return array{html:string,css:string}|null */
+    private function resolveInvoiceTemplate(array $invoice): ?array
+    {
+        $snapshot = $invoice['supplier_snapshot'] ?? null;
+        if (is_string($snapshot)) $snapshot = json_decode($snapshot, true);
+        if (is_array($snapshot) && !empty($snapshot['invoice_template_html'])) {
+            return ['html' => (string) $snapshot['invoice_template_html'], 'css' => (string) ($snapshot['invoice_template_css'] ?? '')];
+        }
+        if (($invoice['status'] ?? 'draft') !== 'draft' || empty($invoice['branding_profile_id'])) return null;
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT invoice_template_html, invoice_template_css FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+        );
+        $stmt->execute([(int) $invoice['branding_profile_id'], (int) $invoice['supplier_id']]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$row || empty($row['invoice_template_html'])) return null;
+        return ['html' => (string) $row['invoice_template_html'], 'css' => (string) ($row['invoice_template_css'] ?? '')];
     }
 
     /**

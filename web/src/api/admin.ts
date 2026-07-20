@@ -161,14 +161,14 @@ export const adminApi = {
     api.get<ApprovalListResponse>('/admin/approvals', { params }).then(r => r.data),
 
   // Email templates
-  listEmailTemplates: () =>
-    api.get<{ data: EmailTemplateListItem[] }>('/admin/email-templates').then(r => r.data.data),
-  getEmailTemplate: (code: string, locale: string) =>
-    api.get<EmailTemplate>(`/admin/email-templates/${code}/${locale}`).then(r => r.data),
-  saveEmailTemplate: (code: string, locale: string, payload: { subject: string; body_html: string; body_text: string }) =>
-    api.put(`/admin/email-templates/${code}/${locale}`, payload),
-  resetEmailTemplate: (code: string, locale: string) =>
-    api.delete(`/admin/email-templates/${code}/${locale}`),
+  listEmailTemplates: (brandingProfileId: number | null = null) =>
+    api.get<{ data: EmailTemplateListItem[] }>('/admin/email-templates', { params: brandingProfileId ? { branding_profile_id: brandingProfileId } : {} }).then(r => r.data.data),
+  getEmailTemplate: (code: string, locale: string, brandingProfileId: number | null = null) =>
+    api.get<EmailTemplate>(`/admin/email-templates/${code}/${locale}`, { params: brandingProfileId ? { branding_profile_id: brandingProfileId } : {} }).then(r => r.data),
+  saveEmailTemplate: (code: string, locale: string, payload: { subject: string; body_html: string; body_text: string }, brandingProfileId: number | null = null) =>
+    api.put(`/admin/email-templates/${code}/${locale}`, payload, { params: brandingProfileId ? { branding_profile_id: brandingProfileId } : {} }),
+  resetEmailTemplate: (code: string, locale: string, brandingProfileId: number | null = null) =>
+    api.delete(`/admin/email-templates/${code}/${locale}`, { params: brandingProfileId ? { branding_profile_id: brandingProfileId } : {} }),
 
   // Cron jobs (Systém → Plánované úlohy)
   cronJobs: () => api.get<CronJobsResponse>('/admin/cron-jobs').then(r => r.data),

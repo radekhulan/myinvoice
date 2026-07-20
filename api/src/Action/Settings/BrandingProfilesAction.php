@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace MyInvoice\Action\Settings;
 
+use MyInvoice\Bootstrap;
 use MyInvoice\Http\Json;
 use MyInvoice\Middleware\AuthMiddleware;
 use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Repository\BrandingProfileRepository;
 use MyInvoice\Service\Branding\BrandingProfileValidation;
 use MyInvoice\Service\Mail\SupplierLogoConverter;
+use MyInvoice\Service\Pdf\InvoicePdfRenderer;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\UploadedFileInterface;
+use Twig\Environment;
+use Twig\Loader\ArrayLoader;
+use Twig\Extension\SandboxExtension;
+use Twig\Sandbox\SecurityPolicy;
 
 final class BrandingProfilesAction
 {
@@ -21,6 +27,7 @@ final class BrandingProfilesAction
     public function __construct(
         private readonly BrandingProfileRepository $profiles,
         private readonly SupplierLogoConverter $logoConverter,
+        private readonly InvoicePdfRenderer $invoicePdf,
     ) {}
 
     public function list(Request $request, Response $response): Response
@@ -34,7 +41,11 @@ final class BrandingProfilesAction
     {
         $supplierId = $this->supplierId($request);
         if ($supplierId <= 0) return Json::error($response, 'no_supplier', 'Žádný supplier scope.', 400);
-        return Json::ok($response, $this->profiles->listForSupplier($supplierId, true));
+        $profiles = array_map(static function (array $profile): array {
+            unset($profile['email_profile_id'], $profile['has_invoice_template']);
+            return $profile;
+        }, $this->profiles->listForSupplier($supplierId, true));
+        return Json::ok($response, $profiles);
     }
 
     public function create(Request $request, Response $response): Response
@@ -128,6 +139,69 @@ final class BrandingProfilesAction
         }
         // Soubor záměrně nemažeme: vystavené faktury jej mohou mít ve snapshotu.
         return Json::ok($response, $this->profiles->findForSupplier($id, $supplierId));
+    }
+
+    public function getInvoiceTemplate(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $template = $this->profiles->invoiceTemplate((int) ($args['id'] ?? 0), $this->supplierId($request));
+        if ($template === null) return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        $html = $template['html'];
+        $css = $template['css'];
+        return Json::ok($response, [
+            'html' => $html ?: (string) file_get_contents(Bootstrap::rootDir() . '/api/templates/invoice/invoice.twig'),
+            'css' => $css ?: (string) file_get_contents(Bootstrap::rootDir() . '/styles/invoice.css'),
+            'has_override' => $html !== null,
+        ]);
+    }
+
+    public function saveInvoiceTemplate(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $supplierId = $this->supplierId($request);
+        $id = (int) ($args['id'] ?? 0);
+        if ($this->profiles->findForSupplier($id, $supplierId) === null) {
+            return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        $body = (array) ($request->getParsedBody() ?? []);
+        $html = (string) ($body['html'] ?? '');
+        $css = (string) ($body['css'] ?? '');
+        if ($html === '' || strlen($html) > 250_000 || strlen($css) > 100_000) {
+            return Json::error($response, 'validation_failed', 'HTML je povinné; limit je 250 kB pro HTML a 100 kB pro CSS.', 400);
+        }
+        if (preg_match('~(?:src|href|file)\s*=\s*["\']?\s*(?:https?:|ftp:|file:|/|\\\\)~i', $html)
+            || preg_match('~(?:url\s*\(|@import|file:)~i', $css)) {
+            return Json::error(
+                $response,
+                'validation_failed',
+                'Šablona nesmí načítat externí ani lokální soubory. Pro logo použij proměnnou logo_path.',
+                400,
+            );
+        }
+        try {
+            $twig = new Environment(new ArrayLoader(), ['cache' => false]);
+            $twig->addExtension(new SandboxExtension(new SecurityPolicy(
+                ['if', 'for', 'set'],
+                ['date', 'default', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
+                [], [], ['t'],
+            ), true));
+            $twig->createTemplate($html, 'branding-invoice.twig');
+        } catch (\Throwable $e) {
+            return Json::error($response, 'validation_failed', 'Twig šablona není platná: ' . $e->getMessage(), 400);
+        }
+        $this->profiles->saveInvoiceTemplate($id, $supplierId, $html, $css);
+        $this->invoicePdf->invalidateDraftsBySupplier($supplierId);
+        return Json::ok($response, ['saved' => true]);
+    }
+
+    public function resetInvoiceTemplate(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        if (!$this->profiles->resetInvoiceTemplate((int) ($args['id'] ?? 0), $this->supplierId($request))) {
+            return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        $this->invoicePdf->invalidateDraftsBySupplier($this->supplierId($request));
+        return Json::ok($response, ['deleted' => true]);
     }
 
     private function supplierId(Request $request): int

@@ -29,6 +29,37 @@ final class EmailTemplateRepository
         return $row;
     }
 
+    public function findForBranding(int $brandingProfileId, string $code, string $locale): ?array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT id, code, locale, subject, body_html, body_text, updated_at, updated_by
+               FROM branding_email_templates WHERE branding_profile_id = ? AND code = ? AND locale = ?'
+        );
+        $stmt->execute([$brandingProfileId, $code, $locale]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) return null;
+        $row['id'] = (int) $row['id'];
+        return $row;
+    }
+
+    public function saveForBranding(int $brandingProfileId, string $code, string $locale, string $subject, string $html, string $text, ?int $userId): void
+    {
+        $this->db->pdo()->prepare(
+            'INSERT INTO branding_email_templates (branding_profile_id, code, locale, subject, body_html, body_text, updated_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE subject = VALUES(subject), body_html = VALUES(body_html), body_text = VALUES(body_text), updated_by = VALUES(updated_by)'
+        )->execute([$brandingProfileId, $code, $locale, $subject, $html, $text, $userId]);
+    }
+
+    public function deleteForBranding(int $brandingProfileId, string $code, string $locale): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'DELETE FROM branding_email_templates WHERE branding_profile_id = ? AND code = ? AND locale = ?'
+        );
+        $stmt->execute([$brandingProfileId, $code, $locale]);
+        return $stmt->rowCount() > 0;
+    }
+
     /** @return list<array<string,mixed>> */
     public function listAll(): array
     {

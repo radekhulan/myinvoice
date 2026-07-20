@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi, type EmailTemplateListItem, type EmailTemplate } from '@/api/admin'
 import { useToast } from '@/composables/useToast'
 import { useHotkey } from '@/composables/useHotkey'
+import { settingsApi, type BrandingProfile } from '@/api/settings'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -12,18 +13,24 @@ const list = ref<EmailTemplateListItem[]>([])
 const loading = ref(false)
 const editing = ref<EmailTemplate | null>(null)
 const saving = ref(false)
+const brandingProfiles = ref<BrandingProfile[]>([])
+const brandingProfileId = ref<number | null>(null)
 
 useHotkey('escape', () => { if (editing.value) editing.value = null })
 
 async function load() {
   loading.value = true
-  try { list.value = await adminApi.listEmailTemplates() }
+  try { list.value = await adminApi.listEmailTemplates(brandingProfileId.value) }
   finally { loading.value = false }
 }
-onMounted(load)
+onMounted(async () => {
+  brandingProfiles.value = (await settingsApi.listBrandingProfiles().catch(() => [] as BrandingProfile[])).filter(p => p.is_active)
+  await load()
+})
+watch(brandingProfileId, load)
 
 async function open(item: EmailTemplateListItem) {
-  editing.value = await adminApi.getEmailTemplate(item.code, item.locale)
+  editing.value = await adminApi.getEmailTemplate(item.code, item.locale, brandingProfileId.value)
 }
 
 async function save() {
@@ -34,7 +41,7 @@ async function save() {
       subject:   editing.value.subject,
       body_html: editing.value.body_html,
       body_text: editing.value.body_text,
-    })
+    }, brandingProfileId.value)
     toast.success(t('users.et_saved'))
     editing.value = null
     await load()
@@ -49,7 +56,7 @@ async function resetDefault() {
   if (!editing.value) return
   if (!confirm(t('users.et_reset_confirm'))) return
   try {
-    await adminApi.resetEmailTemplate(editing.value.code, editing.value.locale)
+    await adminApi.resetEmailTemplate(editing.value.code, editing.value.locale, brandingProfileId.value)
     toast.success(t('users.et_reset_done'))
     editing.value = null
     await load()
@@ -66,6 +73,14 @@ function codeLabel(code: string): string {
 <template>
   <div>
     <h1 class="text-2xl font-semibold mb-4">{{ t('users.email_templates_title') }}</h1>
+    <div v-if="brandingProfiles.length" class="mb-4 max-w-md">
+      <label class="block text-sm font-medium text-neutral-700 mb-1">{{ t('users.et_branding_profile') }}</label>
+      <select v-model="brandingProfileId" class="w-full h-10 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+        <option :value="null">{{ t('users.et_branding_default') }}</option>
+        <option v-for="profile in brandingProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+      </select>
+      <p class="text-xs text-neutral-500 mt-1">{{ t('users.et_branding_hint') }}</p>
+    </div>
 
     <div v-if="loading" class="text-center text-neutral-500 py-12 text-sm">{{ t('common.loading') }}</div>
 

@@ -153,7 +153,10 @@ final class Mailer
         }
 
         // Pokud je v DB override, vyrenderuj přímo ze stringu (vyšší priorita než file).
-        $dbTpl = $this->templates->find($code, $locale)
+        $brandingProfileId = (int) ($vars['supplier']['branding_profile_id'] ?? 0);
+        $dbTpl = ($brandingProfileId > 0 ? $this->templates->findForBranding($brandingProfileId, $code, $locale) : null)
+              ?? ($brandingProfileId > 0 ? $this->templates->findForBranding($brandingProfileId, $code, 'cs') : null)
+              ?? $this->templates->find($code, $locale)
               ?? $this->templates->find($code, 'cs');
 
         if ($dbTpl !== null) {
@@ -407,6 +410,15 @@ final class Mailer
         }
 
         try {
+            if (!empty($supplier['email_profile_id'])) {
+                $selected = $this->emailProfiles->findProfile(
+                    (int) $supplier['id'],
+                    (int) $supplier['email_profile_id'],
+                    false,
+                    true,
+                );
+                if ($selected !== null && !empty($selected['is_active'])) return $selected;
+            }
             return $this->emailProfiles->defaultProfile((int) $supplier['id'], true);
         } catch (\Throwable $e) {
             $this->logger->warning('mail.email_profile_lookup_failed', [

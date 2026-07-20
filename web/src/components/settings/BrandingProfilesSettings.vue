@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { settingsApi, type BrandingProfile } from '@/api/settings'
+import { settingsApi, type BrandingProfile, type EmailProfile } from '@/api/settings'
 import { useToast } from '@/composables/useToast'
 
 const { t } = useI18n()
@@ -10,15 +10,45 @@ const emit = defineEmits<{ (event: 'changed'): void }>()
 const profiles = ref<BrandingProfile[]>([])
 const editing = ref<Partial<BrandingProfile> | null>(null)
 const saving = ref(false)
+const emailProfiles = ref<EmailProfile[]>([])
+const templateEditing = ref<{ profile: BrandingProfile; html: string; css: string; hasOverride: boolean } | null>(null)
+const templateSaving = ref(false)
 
 const emptyProfile = (): Partial<BrandingProfile> => ({
   name: '', display_name: null, tagline: null, email: null, reply_to: null,
-  phone: null, web: null, email_footer: null, accent_color: '#3B2D83',
+  phone: null, web: null, email_footer: null, email_profile_id: null, accent_color: '#3B2D83',
   pdf_logo_show_name: true, is_active: true,
 })
 
 async function load() {
-  profiles.value = await settingsApi.listBrandingProfiles()
+  const [loadedProfiles, loadedEmailProfiles] = await Promise.all([
+    settingsApi.listBrandingProfiles(), settingsApi.listEmailProfiles().catch(() => [] as EmailProfile[]),
+  ])
+  profiles.value = loadedProfiles
+  emailProfiles.value = loadedEmailProfiles.filter(profile => profile.is_active)
+}
+
+async function editInvoiceTemplate(profile: BrandingProfile) {
+  const data = await settingsApi.getBrandingInvoiceTemplate(profile.id)
+  templateEditing.value = { profile, html: data.html, css: data.css, hasOverride: data.has_override }
+}
+
+async function saveInvoiceTemplate() {
+  if (!templateEditing.value) return
+  templateSaving.value = true
+  try {
+    await settingsApi.saveBrandingInvoiceTemplate(templateEditing.value.profile.id, templateEditing.value)
+    templateEditing.value = null
+    await load(); emit('changed'); toast.success(t('common.saved'))
+  } catch (e: any) { toast.error(e?.response?.data?.error?.message || t('common.error')) }
+  finally { templateSaving.value = false }
+}
+
+async function resetInvoiceTemplate() {
+  if (!templateEditing.value || !confirm(t('settings.branding_profiles.template_reset_confirm'))) return
+  await settingsApi.resetBrandingInvoiceTemplate(templateEditing.value.profile.id)
+  templateEditing.value = null
+  await load(); emit('changed')
 }
 
 function edit(profile?: BrandingProfile) {
@@ -99,6 +129,7 @@ onMounted(load)
             </label>
             <button v-if="profile.logo_path" class="text-xs text-neutral-500" @click="deleteLogo(profile)">{{ t('settings.branding_profiles.remove_logo') }}</button>
             <button class="text-xs text-primary-700" @click="edit(profile)">{{ t('common.edit') }}</button>
+            <button class="text-xs text-primary-700" @click="editInvoiceTemplate(profile)">{{ t('settings.branding_profiles.invoice_template') }}</button>
             <button class="text-xs text-danger-600" @click="remove(profile)">{{ t('common.delete') }}</button>
           </div>
         </div>
@@ -119,6 +150,12 @@ onMounted(load)
         </label>
         <label class="text-xs font-medium text-neutral-700">{{ t('settings.branding_profiles.reply_to') }}
           <input v-model="editing.reply_to" type="email" maxlength="190" class="mt-1 w-full h-9 px-3 border border-neutral-300 rounded-md text-sm" />
+        </label>
+        <label class="text-xs font-medium text-neutral-700">{{ t('settings.branding_profiles.sending_profile') }}
+          <select v-model="editing.email_profile_id" class="mt-1 w-full h-9 px-3 border border-neutral-300 rounded-md bg-surface text-sm">
+            <option :value="null">{{ t('settings.branding_profiles.sending_profile_default') }}</option>
+            <option v-for="profile in emailProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+          </select>
         </label>
         <label class="text-xs font-medium text-neutral-700">{{ t('settings.branding_profiles.phone') }}
           <input v-model="editing.phone" maxlength="40" class="mt-1 w-full h-9 px-3 border border-neutral-300 rounded-md text-sm" />
@@ -143,6 +180,24 @@ onMounted(load)
       <div class="flex justify-end gap-2 mt-4">
         <button class="h-9 px-3 border border-neutral-300 rounded-md text-sm" @click="editing = null">{{ t('common.cancel') }}</button>
         <button :disabled="saving || !editing.name?.trim()" class="h-9 px-3 bg-primary-600 text-white rounded-md text-sm disabled:opacity-50" @click="save">{{ t('common.save') }}</button>
+      </div>
+    </div>
+
+    <div v-if="templateEditing" class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
+      <div class="bg-surface rounded-xl shadow-xl w-full max-w-6xl max-h-[94vh] overflow-y-auto p-5">
+        <h3 class="text-lg font-semibold">{{ t('settings.branding_profiles.template_title', { name: templateEditing.profile.name }) }}</h3>
+        <p class="text-xs text-neutral-500 mt-1 mb-3">{{ t('settings.branding_profiles.template_hint') }}</p>
+        <label class="block text-sm font-medium mb-1">Twig / HTML</label>
+        <textarea v-model="templateEditing.html" rows="22" class="w-full px-3 py-2 border border-neutral-300 rounded-md font-mono text-xs leading-relaxed" />
+        <label class="block text-sm font-medium mt-3 mb-1">CSS</label>
+        <textarea v-model="templateEditing.css" rows="12" class="w-full px-3 py-2 border border-neutral-300 rounded-md font-mono text-xs leading-relaxed" />
+        <div class="flex justify-between gap-2 mt-4">
+          <button :disabled="!templateEditing.hasOverride" class="h-9 px-3 text-danger-600 disabled:opacity-40" @click="resetInvoiceTemplate">{{ t('settings.branding_profiles.template_reset') }}</button>
+          <div class="flex gap-2">
+            <button class="h-9 px-3 border border-neutral-300 rounded-md" @click="templateEditing = null">{{ t('common.cancel') }}</button>
+            <button :disabled="templateSaving" class="h-9 px-3 bg-primary-600 text-white rounded-md" @click="saveInvoiceTemplate">{{ t('common.save') }}</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>

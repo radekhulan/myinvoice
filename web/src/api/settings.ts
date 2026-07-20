@@ -113,6 +113,7 @@ export interface BrandingProfile {
   tagline: string | null
   email: string | null
   reply_to: string | null
+  email_profile_id: number | null
   phone: string | null
   web: string | null
   email_footer: string | null
@@ -120,6 +121,7 @@ export interface BrandingProfile {
   accent_color: string
   pdf_logo_show_name: boolean
   is_active: boolean
+  has_invoice_template: boolean
 }
 
 export interface CurrencyAccount {
@@ -704,6 +706,12 @@ export const settingsApi = {
   },
   deleteBrandingProfileLogo: (id: number) =>
     api.delete<BrandingProfile>(`/settings/branding-profiles/${id}/logo`).then(r => r.data),
+  getBrandingInvoiceTemplate: (id: number) =>
+    api.get<{ html: string; css: string; has_override: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
+  saveBrandingInvoiceTemplate: (id: number, payload: { html: string; css: string }) =>
+    api.put<{ saved: boolean }>(`/settings/branding-profiles/${id}/invoice-template`, payload).then(r => r.data),
+  resetBrandingInvoiceTemplate: (id: number) =>
+    api.delete<{ deleted: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
 
   getPdfSigningDiagnostics: () =>
     api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),

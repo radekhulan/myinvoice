@@ -12,6 +12,7 @@ final class BrandingProfileRepository
     private const FIELDS = [
         'name', 'display_name', 'tagline', 'email', 'reply_to', 'phone', 'web',
         'email_footer', 'accent_color', 'pdf_logo_show_name', 'is_active',
+        'email_profile_id',
     ];
 
     public function __construct(private readonly Connection $db) {}
@@ -88,6 +89,35 @@ final class BrandingProfileRepository
         return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
     }
 
+    public function saveInvoiceTemplate(int $id, int $supplierId, string $html, string $css): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE branding_profiles SET invoice_template_html = ?, invoice_template_css = ? WHERE id = ? AND supplier_id = ?'
+        );
+        $stmt->execute([$html, $css, $id, $supplierId]);
+        return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
+    }
+
+    /** @return array{html:?string,css:?string}|null */
+    public function invoiceTemplate(int $id, int $supplierId): ?array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT invoice_template_html, invoice_template_css FROM branding_profiles WHERE id = ? AND supplier_id = ?'
+        );
+        $stmt->execute([$id, $supplierId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : ['html' => $row['invoice_template_html'], 'css' => $row['invoice_template_css']];
+    }
+
+    public function resetInvoiceTemplate(int $id, int $supplierId): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE branding_profiles SET invoice_template_html = NULL, invoice_template_css = NULL WHERE id = ? AND supplier_id = ?'
+        );
+        $stmt->execute([$id, $supplierId]);
+        return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
+    }
+
     /** @return array<string,mixed> */
     private function normalize(array $data): array
     {
@@ -106,6 +136,7 @@ final class BrandingProfileRepository
     private function normalizeValue(string $field, mixed $value): mixed
     {
         if (in_array($field, ['pdf_logo_show_name', 'is_active'], true)) return !empty($value) ? 1 : 0;
+        if ($field === 'email_profile_id') return $value === null || $value === '' ? null : (int) $value;
         $value = trim((string) ($value ?? ''));
         if ($field === 'accent_color') return strtoupper($value ?: '#3B2D83');
         return $value === '' && $field !== 'name' ? null : $value;
@@ -118,6 +149,9 @@ final class BrandingProfileRepository
         $row['supplier_id'] = (int) $row['supplier_id'];
         $row['pdf_logo_show_name'] = (bool) $row['pdf_logo_show_name'];
         $row['is_active'] = (bool) $row['is_active'];
+        $row['email_profile_id'] = $row['email_profile_id'] !== null ? (int) $row['email_profile_id'] : null;
+        $row['has_invoice_template'] = !empty($row['invoice_template_html']);
+        unset($row['invoice_template_html'], $row['invoice_template_css']);
         return $row;
     }
 }
