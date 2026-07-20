@@ -2955,6 +2955,7 @@
     "branding_accent_reset": "↺ default",
     "branding_save_hint": "Toggle and color save automatically (color picker with 0.5 s debounce) — the preview on the right refreshes after each change. Logo uploads automatically. When branding is enabled, the same logo is used on invoice PDFs — when disabled, PDFs show the company name as text.",
     "branding_preview": "Email preview",
+    "branding_preview_default": "Supplier default identity",
     "currency": "Currency",
     "account_cz": "Account (CZ)",
     "iban": "IBAN",

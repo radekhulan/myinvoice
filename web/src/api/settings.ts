@@ -772,6 +772,10 @@ export const settingsApi = {
   deletePdfSignatureDocumentSelection: (entityType: PdfSignatureDocumentEntityType, id: number) =>
     api.delete<PdfSignatureDocumentSelection>(`/documents/${entityType}/${id}/signature-selection`).then(r => r.data),
   // Vrací HTML string — frontend ho pak nacpe do iframe.srcdoc (obejde X-Frame-Options DENY).
-  emailPreviewHtml: (locale: 'cs' | 'en' = 'cs') =>
-    api.get<string>(`/settings/email-branding/preview?locale=${locale}`, { responseType: 'text', transformResponse: [(d) => d] }).then(r => r.data),
+  emailPreviewHtml: (locale: 'cs' | 'en' = 'cs', brandingProfileId: number | null = null) =>
+    api.get<string>('/settings/email-branding/preview', {
+      params: { locale, ...(brandingProfileId !== null ? { branding_profile_id: brandingProfileId } : {}) },
+      responseType: 'text',
+      transformResponse: [(d) => d],
+    }).then(r => r.data),
 }

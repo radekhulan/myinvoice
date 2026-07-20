@@ -155,7 +155,11 @@ final class EmailBrandingAction
         if ($sid <= 0) {
             return Json::error($response, 'no_supplier', 'Žádný supplier scope.', 400);
         }
-        $locale = ((string) ($request->getQueryParams()['locale'] ?? 'cs')) === 'en' ? 'en' : 'cs';
+        $query = $request->getQueryParams();
+        $locale = ((string) ($query['locale'] ?? 'cs')) === 'en' ? 'en' : 'cs';
+        $brandingProfileId = isset($query['branding_profile_id']) && $query['branding_profile_id'] !== ''
+            ? (int) $query['branding_profile_id']
+            : null;
 
         // Načti supplier kontext
         $stmt = $this->db->pdo()->prepare(
@@ -185,7 +189,30 @@ final class EmailBrandingAction
             'email_branding_enabled' => (bool) $row['email_branding_enabled'],
             'email_accent_color'     => (string) ($row['email_accent_color'] ?: '#3B2D83'),
             'logo_path'              => $row['logo_path'] ?: null,
+            'email_footer'           => null,
         ];
+
+        if ($brandingProfileId !== null) {
+            $profileStmt = $this->db->pdo()->prepare(
+                'SELECT display_name, tagline, email, phone, web, email_footer, logo_path,
+                        accent_color, pdf_logo_show_name
+                   FROM branding_profiles
+                  WHERE id = ? AND supplier_id = ? AND is_active = 1'
+            );
+            $profileStmt->execute([$brandingProfileId, $sid]);
+            $profile = $profileStmt->fetch(\PDO::FETCH_ASSOC);
+            if (!$profile) {
+                return Json::error($response, 'branding_profile_not_found', 'Brandingový profil nenalezen.', 404);
+            }
+            foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
+                if ($profile[$field] !== null && $profile[$field] !== '') {
+                    $supplier[$field] = $profile[$field];
+                }
+            }
+            $supplier['email_branding_enabled'] = true;
+            $supplier['email_accent_color'] = (string) $profile['accent_color'];
+            $supplier['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
+        }
         $supplier['accent_soft'] = \MyInvoice\Service\Branding\AccentColor::emailBackground(
             $supplier['email_branding_enabled'],
             $supplier['email_accent_color'],

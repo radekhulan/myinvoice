@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { settingsApi, type Supplier, type SelfCopyType, type SelfCopyMode } from '@/api/settings'
+import { settingsApi, type Supplier, type SelfCopyType, type SelfCopyMode, type BrandingProfile } from '@/api/settings'
 import { adminApi, type SampleDataStatus } from '@/api/admin'
 import { clientsApi } from '@/api/clients'
 import { useSupplierStore } from '@/stores/supplier'
@@ -33,6 +33,7 @@ function syncSupplierStore(s: Supplier) {
 }
 
 const supplier = ref<Supplier | null>(null)
+const brandingProfiles = ref<BrandingProfile[]>([])
 const loading = ref(true)
 
 // Práh dní pro první upomínku — preset (3 / týden / měsíc) + „vlastní". Stejný „sticky custom"
@@ -165,11 +166,26 @@ function selfCopyFallbackLabel(ct: SelfCopyType): string {
 async function load() {
   loading.value = true
   try {
-    supplier.value = await settingsApi.getSupplier()
+    const [loadedSupplier, loadedProfiles] = await Promise.all([
+      settingsApi.getSupplier(),
+      settingsApi.listBrandingProfiles().catch(() => [] as BrandingProfile[]),
+    ])
+    supplier.value = loadedSupplier
+    brandingProfiles.value = loadedProfiles.filter(profile => profile.is_active)
     // První render preview hned po loadu supplier
     bumpPreview()
   } finally { loading.value = false }
   loadSampleStatus()
+}
+
+async function refreshBrandingProfiles() {
+  const loadedProfiles = await settingsApi.listBrandingProfiles().catch(() => [] as BrandingProfile[])
+  brandingProfiles.value = loadedProfiles.filter(profile => profile.is_active)
+  if (previewBrandingProfileId.value !== null
+    && !brandingProfiles.value.some(profile => profile.id === previewBrandingProfileId.value)
+  ) {
+    previewBrandingProfileId.value = null
+  }
 }
 
 onMounted(load)
@@ -296,11 +312,12 @@ async function saveSupplier() {
 
 // === Email branding ===========================================================
 const previewLocale = ref<'cs' | 'en'>('cs')
+const previewBrandingProfileId = ref<number | null>(null)
 const previewHtml = ref<string>('')
 async function bumpPreview() {
   if (!supplier.value) return
   try {
-    previewHtml.value = await settingsApi.emailPreviewHtml(previewLocale.value)
+    previewHtml.value = await settingsApi.emailPreviewHtml(previewLocale.value, previewBrandingProfileId.value)
   } catch (e: any) {
     previewHtml.value = `<pre style="color:red">${e?.message || 'Preview failed'}</pre>`
   }
@@ -332,6 +349,7 @@ async function saveBranding(silent = false) {
 }
 // Auto-load při změně locale; první load triggernout po načtení supplier (v load()).
 watch(previewLocale, () => { if (supplier.value) bumpPreview() })
+watch(previewBrandingProfileId, () => { if (supplier.value) bumpPreview() })
 
 // Auto-save toggle (okamžitě) a accent color (debounce 500 ms — color picker fires
 // kontinuálně při tažení). Po každém uloženém průchodu se obnoví preview iframe.
@@ -604,7 +622,7 @@ async function removeLogo() {
 
       </section>
 
-      <BrandingProfilesSettings />
+      <BrandingProfilesSettings @changed="refreshBrandingProfiles" />
 
       <!-- Číslování faktur — samostatný box -->
       <section class="bg-surface border border-neutral-200 rounded-lg p-5 shadow-sm">
@@ -958,6 +976,13 @@ async function removeLogo() {
                   class="cursor-pointer ml-2 px-2 text-neutral-500 hover:text-neutral-700" :title="t('common.refresh')">↻</button>
               </div>
             </div>
+            <select v-if="brandingProfiles.length" v-model="previewBrandingProfileId"
+              class="w-full h-9 px-3 mb-2 border border-neutral-300 rounded-md bg-surface text-sm">
+              <option :value="null">{{ t('settings.branding_preview_default') }}</option>
+              <option v-for="profile in brandingProfiles" :key="profile.id" :value="profile.id">
+                {{ profile.name }}
+              </option>
+            </select>
             <iframe :srcdoc="previewHtml" sandbox="allow-same-origin" class="w-full h-[420px] border border-neutral-200 rounded-md bg-neutral-50" />
           </div>
         </div>

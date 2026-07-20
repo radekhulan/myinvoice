@@ -2955,6 +2955,7 @@
     "branding_accent_reset": "↺ default",
     "branding_save_hint": "Toggle a barva se ukládají automaticky (color picker s 0,5 s debouncem) — náhled vpravo se po každé změně obnoví. Logo se ukládá při uploadu. Branding (když je zapnutý) se použije i jako logo na PDF faktur — pokud je vypnutý, PDF zobrazí jméno firmy textem.",
     "branding_preview": "Náhled e-mailu",
+    "branding_preview_default": "Základní identita dodavatele",
     "currency": "Měna",
     "account_cz": "Účet (CZ)",
     "iban": "IBAN",

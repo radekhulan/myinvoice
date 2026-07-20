@@ -6,6 +6,7 @@ import { useToast } from '@/composables/useToast'
 
 const { t } = useI18n()
 const toast = useToast()
+const emit = defineEmits<{ (event: 'changed'): void }>()
 const profiles = ref<BrandingProfile[]>([])
 const editing = ref<Partial<BrandingProfile> | null>(null)
 const saving = ref(false)
@@ -32,6 +33,7 @@ async function save() {
     else await settingsApi.createBrandingProfile(editing.value)
     editing.value = null
     await load()
+    emit('changed')
     toast.success(t('common.saved'))
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
@@ -42,6 +44,7 @@ async function remove(profile: BrandingProfile) {
   if (!confirm(t('settings.branding_profiles.delete_confirm', { name: profile.name }))) return
   await settingsApi.deleteBrandingProfile(profile.id)
   await load()
+  emit('changed')
 }
 
 async function uploadLogo(profile: BrandingProfile, event: Event) {
@@ -51,6 +54,7 @@ async function uploadLogo(profile: BrandingProfile, event: Event) {
   try {
     await settingsApi.uploadBrandingProfileLogo(profile.id, file)
     await load()
+    emit('changed')
   } catch (e: any) {
     toast.error(e?.response?.data?.error?.message || t('common.error'))
   } finally { input.value = '' }
@@ -59,6 +63,7 @@ async function uploadLogo(profile: BrandingProfile, event: Event) {
 async function deleteLogo(profile: BrandingProfile) {
   await settingsApi.deleteBrandingProfileLogo(profile.id)
   await load()
+  emit('changed')
 }
 
 onMounted(load)

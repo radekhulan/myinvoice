@@ -24,6 +24,11 @@ Výchozí profil lze přiřadit zákazníkovi. Nový koncept faktury jej převez
 při vystavení se použitá identita uloží do snapshotu dokladu. Pozdější změna
 profilu nebo nahrání nového loga proto nezmění již vystavené faktury.
 
+V části **Branding e-mailů** lze nad náhledem přepnout ze základní identity
+dodavatele na kterýkoli aktivní brandingový profil. Náhled použije jeho logo,
+barvu, zobrazovaný název, kontakty i vlastní patičku; přepínač CS/EN funguje pro
+obě varianty stejně.
+
 ## 36.1 Číselníky
 
 **Systém → Číselníky**.
