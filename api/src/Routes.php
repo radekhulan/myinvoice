@@ -577,6 +577,7 @@ final class Routes
         $app->delete ('/api/settings/branding-profiles/{id:[0-9]+}/logo', [BrandingProfilesAction::class, 'deleteLogo']);
         $app->get    ('/api/settings/branding-profiles/{id:[0-9]+}/invoice-template', [BrandingProfilesAction::class, 'getInvoiceTemplate']);
         $app->put    ('/api/settings/branding-profiles/{id:[0-9]+}/invoice-template', [BrandingProfilesAction::class, 'saveInvoiceTemplate']);
+        $app->post   ('/api/settings/branding-profiles/{id:[0-9]+}/invoice-template/preview', [BrandingProfilesAction::class, 'previewInvoiceTemplate']);
         $app->delete ('/api/settings/branding-profiles/{id:[0-9]+}/invoice-template', [BrandingProfilesAction::class, 'resetInvoiceTemplate']);
         $app->get    ('/api/settings/pdf-signing/diagnostics', PdfSigningDiagnosticsAction::class);
         $app->get    ('/api/settings/pdf-signing',          [SigningProfilesAction::class, 'pdfSettings']);

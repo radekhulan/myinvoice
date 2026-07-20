@@ -2607,6 +2607,11 @@
       "template_hint": "Upravuje vzhled faktury v HTML/Twig a CSS. Prázdný override používá vestavěnou výchozí šablonu. Dostupné proměnné odpovídají současné šabloně faktury.",
       "template_reset": "Vrátit výchozí šablonu",
       "template_reset_confirm": "Opravdu zahodit vlastní PDF šablonu a vrátit vestavěnou?",
+      "template_preview": "Náhled PDF",
+      "template_preview_failed": "Náhled PDF se nepodařilo vytvořit.",
+      "template_variables": "Dostupné Twig proměnné a filtry",
+      "template_variables_hint": "Objekty invoice, supplier, client a bank obsahují pole viditelná ve výchozí šabloně. Náhled používá pouze syntetická data.",
+      "template_filters": "Povolené filtry",
       "delete_confirm": "Opravdu smazat profil „{name}“?"
     },
     "title": "Nastavení",

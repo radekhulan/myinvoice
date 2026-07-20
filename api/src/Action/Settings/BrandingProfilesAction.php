@@ -169,7 +169,7 @@ final class BrandingProfilesAction
         if ($html === '' || strlen($html) > 250_000 || strlen($css) > 100_000) {
             return Json::error($response, 'validation_failed', 'HTML je povinné; limit je 250 kB pro HTML a 100 kB pro CSS.', 400);
         }
-        if (preg_match('~(?:src|href|file)\s*=\s*["\']?\s*(?:https?:|ftp:|file:|/|\\\\)~i', $html)
+        if (preg_match('~(?:src|file)\s*=\s*["\']?\s*(?:https?:|ftp:|file:|/|\\\\)~i', $html)
             || preg_match('~(?:url\s*\(|@import|file:)~i', $css)) {
             return Json::error(
                 $response,
@@ -182,16 +182,43 @@ final class BrandingProfilesAction
             $twig = new Environment(new ArrayLoader(), ['cache' => false]);
             $twig->addExtension(new SandboxExtension(new SecurityPolicy(
                 ['if', 'for', 'set'],
-                ['date', 'default', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
+                ['date', 'default', 'escape', 'e', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
                 [], [], ['t'],
             ), true));
             $twig->createTemplate($html, 'branding-invoice.twig');
+            $this->invoicePdf->previewTemplate($html, $css, $supplierId);
         } catch (\Throwable $e) {
-            return Json::error($response, 'validation_failed', 'Twig šablona není platná: ' . $e->getMessage(), 400);
+            return Json::error($response, 'validation_failed', 'Šablonu nelze vyrenderovat: ' . $e->getMessage(), 400);
         }
         $this->profiles->saveInvoiceTemplate($id, $supplierId, $html, $css);
         $this->invoicePdf->invalidateDraftsBySupplier($supplierId);
         return Json::ok($response, ['saved' => true]);
+    }
+
+    public function previewInvoiceTemplate(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $supplierId = $this->supplierId($request);
+        if ($this->profiles->findForSupplier((int) ($args['id'] ?? 0), $supplierId) === null) {
+            return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        $body = (array) ($request->getParsedBody() ?? []);
+        $html = (string) ($body['html'] ?? '');
+        $css = (string) ($body['css'] ?? '');
+        if ($html === '' || strlen($html) > 250_000 || strlen($css) > 100_000) {
+            return Json::error($response, 'validation_failed', 'HTML je povinné; limit je 250 kB pro HTML a 100 kB pro CSS.', 400);
+        }
+        if (preg_match('~(?:src|file)\s*=\s*["\']?\s*(?:https?:|ftp:|file:|/|\\\\)~i', $html)
+            || preg_match('~(?:url\s*\(|@import|file:)~i', $css)) {
+            return Json::error($response, 'validation_failed', 'Šablona nesmí načítat externí ani lokální soubory.', 400);
+        }
+        try {
+            $pdf = $this->invoicePdf->previewTemplate($html, $css, $supplierId);
+        } catch (\Throwable $e) {
+            return Json::error($response, 'validation_failed', 'Náhled nelze vyrenderovat: ' . $e->getMessage(), 400);
+        }
+        $response->getBody()->write($pdf);
+        return $response->withHeader('Content-Type', 'application/pdf')->withHeader('Content-Disposition', 'inline; filename="branding-preview.pdf"');
     }
 
     public function resetInvoiceTemplate(Request $request, Response $response, array $args): Response

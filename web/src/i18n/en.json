@@ -2607,6 +2607,11 @@
       "template_hint": "Customizes the invoice appearance using HTML/Twig and CSS. Without an override, the built-in template is used. Available variables match the current invoice template.",
       "template_reset": "Restore default template",
       "template_reset_confirm": "Discard the custom PDF template and restore the built-in template?",
+      "template_preview": "PDF preview",
+      "template_preview_failed": "The PDF preview could not be generated.",
+      "template_variables": "Available Twig variables and filters",
+      "template_variables_hint": "The invoice, supplier, client and bank objects contain fields visible in the default template. The preview uses synthetic data only.",
+      "template_filters": "Allowed filters",
       "delete_confirm": "Delete profile “{name}”?"
     },
     "title": "Settings",

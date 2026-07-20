@@ -28,7 +28,15 @@ Tlačítko **Šablona PDF** otevře editor Twig HTML a CSS vzhledu faktury. Nov�
 profil nejprve používá vestavěnou šablonu; uložením vznikne vlastní varianta a
 tlačítkem **Obnovit výchozí** se lze k vestavěné šabloně vrátit. Editor z
 bezpečnostních důvodů nepovoluje načítání externích ani lokálních souborů.
-Logo se do šablony vkládá prostřednictvím proměnné `logo_path`.
+Logo se do šablony vkládá prostřednictvím proměnné `logo_path`. Rozbalovací
+přehled v editoru uvádí dostupné Twig proměnné a filtry. Tlačítko **Náhled
+PDF** šablonu zkontroluje stejným rendererem jako skutečnou fakturu a otevře
+výsledek se syntetickými údaji; žádná provozní data se do náhledu nevkládají.
+Stejná kontrola proběhne také při uložení.
+
+E-mailový profil, který používá některý brandingový profil, nelze smazat.
+Chybová zpráva vypíše dotčené profily; nejprve jim nastav jiného odesílatele
+nebo výchozí profil dodavatele.
 
 Výchozí profil lze přiřadit zákazníkovi. Nový koncept faktury jej převezme a
 při vystavení se použitá identita uloží do snapshotu dokladu. Pozdější změna

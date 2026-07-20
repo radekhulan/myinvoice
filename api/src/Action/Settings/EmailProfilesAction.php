@@ -336,6 +336,11 @@ final class EmailProfilesAction
             return Json::error($response, 'not_found', 'E-mailový profil nenalezen.', 404);
         }
 
+        $brandingNames = $this->profiles->brandingProfileUsages($supplierId, $profileId);
+        if ($brandingNames !== []) {
+            return Json::error($response, 'profile_in_use', 'E-mailový profil používají brandingové profily: ' . implode(', ', $brandingNames) . '. Nejprve jim nastav jiného odesílatele.', 409);
+        }
+
         $this->profiles->softDeleteProfile($supplierId, $profileId);
         $this->log($request, 'email_profile.deleted', $profileId, [
             'code' => $profile['code'] ?? null,

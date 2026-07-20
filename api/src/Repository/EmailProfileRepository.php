@@ -27,6 +27,16 @@ final class EmailProfileRepository
         private readonly SecretEncryption $secrets,
     ) {}
 
+    /** @return list<string> */
+    public function brandingProfileUsages(int $supplierId, int $profileId): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT name FROM branding_profiles WHERE supplier_id = ? AND email_profile_id = ? ORDER BY name'
+        );
+        $stmt->execute([$supplierId, $profileId]);
+        return array_values(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
+    }
+
     /**
      * @return list<array<string,mixed>>
      */

@@ -710,6 +710,8 @@ export const settingsApi = {
     api.get<{ html: string; css: string; has_override: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
   saveBrandingInvoiceTemplate: (id: number, payload: { html: string; css: string }) =>
     api.put<{ saved: boolean }>(`/settings/branding-profiles/${id}/invoice-template`, payload).then(r => r.data),
+  previewBrandingInvoiceTemplate: (id: number, payload: { html: string; css: string }) =>
+    api.post(`/settings/branding-profiles/${id}/invoice-template/preview`, payload, { responseType: 'blob' }).then(r => r.data as Blob),
   resetBrandingInvoiceTemplate: (id: number) =>
     api.delete<{ deleted: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
 

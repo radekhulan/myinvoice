@@ -13,6 +13,14 @@ const saving = ref(false)
 const emailProfiles = ref<EmailProfile[]>([])
 const templateEditing = ref<{ profile: BrandingProfile; html: string; css: string; hasOverride: boolean } | null>(null)
 const templateSaving = ref(false)
+const templatePreviewing = ref(false)
+const twigVariables = [
+  'invoice', 'invoice.items', 'supplier', 'client', 'bank', 'logo_path', 'logo_show_name',
+  'qr_data_uri', 'payment_varsymbol', 'payment_method', 'is_paid', 'locale', 'doc_type_label',
+  'doc_title', 'parent_varsymbol', 'date_format', 'decimal_sep', 'thousand_sep', 'isdoc_attachment',
+]
+const twigFilters = ['date', 'default', 'escape / e', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper']
+const translationExample = "{{ t('Česky', 'English') }}"
 
 const emptyProfile = (): Partial<BrandingProfile> => ({
   name: '', display_name: null, tagline: null, email: null, reply_to: null,
@@ -49,6 +57,24 @@ async function resetInvoiceTemplate() {
   await settingsApi.resetBrandingInvoiceTemplate(templateEditing.value.profile.id)
   templateEditing.value = null
   await load(); emit('changed')
+}
+
+async function previewInvoiceTemplate() {
+  if (!templateEditing.value) return
+  templatePreviewing.value = true
+  const previewWindow = window.open('', '_blank')
+  if (previewWindow) previewWindow.opener = null
+  try {
+    const blob = await settingsApi.previewBrandingInvoiceTemplate(templateEditing.value.profile.id, templateEditing.value)
+    const url = URL.createObjectURL(blob)
+    if (previewWindow) previewWindow.location.href = url
+    else window.open(url, '_blank', 'noopener,noreferrer')
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (e: any) {
+    previewWindow?.close()
+    toast.error(e?.response?.data?.error?.message || t('settings.branding_profiles.template_preview_failed'))
+  }
+  finally { templatePreviewing.value = false }
 }
 
 function edit(profile?: BrandingProfile) {
@@ -187,6 +213,13 @@ onMounted(load)
       <div class="bg-surface rounded-xl shadow-xl w-full max-w-6xl max-h-[94vh] overflow-y-auto p-5">
         <h3 class="text-lg font-semibold">{{ t('settings.branding_profiles.template_title', { name: templateEditing.profile.name }) }}</h3>
         <p class="text-xs text-neutral-500 mt-1 mb-3">{{ t('settings.branding_profiles.template_hint') }}</p>
+        <details class="mb-3 rounded-md border border-neutral-200 px-3 py-2 text-xs">
+          <summary class="cursor-pointer font-medium">{{ t('settings.branding_profiles.template_variables') }}</summary>
+          <p class="mt-2 text-neutral-500">{{ t('settings.branding_profiles.template_variables_hint') }}</p>
+          <p class="mt-2 font-mono break-words">{{ twigVariables.join(' · ') }}</p>
+          <p class="mt-2"><strong>{{ t('settings.branding_profiles.template_filters') }}:</strong> <span class="font-mono">{{ twigFilters.join(', ') }}</span></p>
+          <p class="mt-2 font-mono" v-text="translationExample" />
+        </details>
         <label class="block text-sm font-medium mb-1">Twig / HTML</label>
         <textarea v-model="templateEditing.html" rows="22" class="w-full px-3 py-2 border border-neutral-300 rounded-md font-mono text-xs leading-relaxed" />
         <label class="block text-sm font-medium mt-3 mb-1">CSS</label>
@@ -194,6 +227,7 @@ onMounted(load)
         <div class="flex justify-between gap-2 mt-4">
           <button :disabled="!templateEditing.hasOverride" class="h-9 px-3 text-danger-600 disabled:opacity-40" @click="resetInvoiceTemplate">{{ t('settings.branding_profiles.template_reset') }}</button>
           <div class="flex gap-2">
+            <button :disabled="templatePreviewing" class="h-9 px-3 border border-primary-300 text-primary-700 rounded-md disabled:opacity-40" @click="previewInvoiceTemplate">{{ t('settings.branding_profiles.template_preview') }}</button>
             <button class="h-9 px-3 border border-neutral-300 rounded-md" @click="templateEditing = null">{{ t('common.cancel') }}</button>
             <button :disabled="templateSaving" class="h-9 px-3 bg-primary-600 text-white rounded-md" @click="saveInvoiceTemplate">{{ t('common.save') }}</button>
           </div>

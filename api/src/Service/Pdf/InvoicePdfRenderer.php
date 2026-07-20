@@ -342,6 +342,49 @@ final class InvoicePdfRenderer
             : $twig->render('invoice.twig', $vars);
     }
 
+    /**
+     * Vyrenderuje neuloženou brandingovou šablonu nad syntetickým dokladem.
+     * Používá stejný Twig sandbox a mPDF konfiguraci jako skutečná faktura.
+     */
+    public function previewTemplate(string $html, string $css, int $supplierId): string
+    {
+        $today = date('Y-m-d');
+        $supplier = $this->getSupplierData($supplierId);
+        $supplier['invoice_template_html'] = $html;
+        $supplier['invoice_template_css'] = $css;
+        $invoice = [
+            'id' => 0, 'supplier_id' => $supplierId, 'client_id' => null,
+            'status' => 'issued', 'invoice_type' => 'invoice', 'language' => 'cs',
+            'varsymbol' => '202600001', 'currency' => 'CZK', 'payment_method' => 'bank_transfer',
+            'issue_date' => $today, 'tax_date' => $today, 'due_date' => date('Y-m-d', strtotime('+14 days')),
+            'amount_to_pay' => 1210.0, 'paid_total' => 0.0, 'total_without_vat' => 1000.0,
+            'total_vat' => 210.0, 'total_with_vat' => 1210.0, 'reverse_charge' => false,
+            'prices_include_vat' => false, 'project_name' => 'Ukázková zakázka',
+            'note' => 'Toto je bezpečný náhled se syntetickými daty.',
+            'parent_invoice_id' => null, 'supplier_snapshot' => $supplier,
+            'client_snapshot' => [
+                'company_name' => 'Ukázkový zákazník s.r.o.', 'first_name' => 'Jan', 'last_name' => 'Novák',
+                'street' => 'Testovací 123', 'zip' => '110 00', 'city' => 'Praha',
+                'country_iso2' => 'CZ', 'country_name_cs' => 'Česká republika', 'country_name_en' => 'Czechia',
+                'ic' => '12345678', 'dic' => 'CZ12345678', 'tax_number' => null,
+            ],
+            'bank_snapshot' => null,
+            'items' => [[
+                'description' => 'Ukázková služba', 'quantity' => 2.0, 'unit' => 'hod',
+                'unit_price' => 500.0, 'vat_rate' => 21.0, 'total_without_vat' => 1000.0,
+                'vat_amount' => 210.0, 'total_with_vat' => 1210.0,
+            ]],
+        ];
+
+        $rendered = $this->renderHtmlAndCss($invoice, false, false);
+        $tmpDir = \MyInvoice\Infrastructure\Config\RuntimePaths::storage('cache/mpdf');
+        if (!is_dir($tmpDir)) @mkdir($tmpDir, 0755, true);
+        $mpdf = $this->newMpdf($tmpDir);
+        if ($rendered['css'] !== '') $mpdf->WriteHTML($rendered['css'], \Mpdf\HTMLParserMode::HEADER_CSS);
+        $mpdf->WriteHTML($rendered['body'], \Mpdf\HTMLParserMode::HTML_BODY);
+        return $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+    }
+
     private function newMpdf(string $tmpDir): Mpdf
     {
         return new Mpdf([
@@ -421,7 +464,7 @@ final class InvoicePdfRenderer
         ]);
         $twig->addExtension(new SandboxExtension(new SecurityPolicy(
             ['if', 'for', 'set'],
-            ['date', 'default', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
+            ['date', 'default', 'escape', 'e', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
             [], [], ['t'],
         ), true));
         return $twig;
