@@ -685,7 +685,12 @@ final class RecurringTemplateRepository
 
     private function resolveBrandingProfileId(mixed $value, int $supplierId): ?int
     {
-        if ($value === null || $value === '') return null;
+        if ($value === null || $value === '') {
+            $stmt = $this->db->pdo()->prepare('SELECT default_branding_profile_id FROM supplier WHERE id = ?');
+            $stmt->execute([$supplierId]);
+            $default = $stmt->fetchColumn();
+            return $default !== false && $default !== null ? (int) $default : null;
+        }
         $id = (int) $value;
         $stmt = $this->db->pdo()->prepare(
             'SELECT id FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'

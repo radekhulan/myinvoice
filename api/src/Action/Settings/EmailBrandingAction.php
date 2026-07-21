@@ -84,7 +84,8 @@ final class EmailBrandingAction
         }
 
         try {
-            $result = $this->converter->process($tmpPath, $sid);
+            $profileId = $this->defaultProfileId($sid);
+            $result = $this->converter->process($tmpPath, $sid, $profileId);
         } catch (\RuntimeException $e) {
             @unlink($tmpPath);
             return Json::error($response, 'conversion_failed', $e->getMessage(), 400);
@@ -95,6 +96,8 @@ final class EmailBrandingAction
         // Update DB — `logo_path` (relativní k rootDir)
         $this->db->pdo()->prepare('UPDATE supplier SET logo_path = ? WHERE id = ?')
             ->execute([$result['logo_path'], $sid]);
+        $this->db->pdo()->prepare('UPDATE branding_profiles SET logo_path = ? WHERE id = ? AND supplier_id = ?')
+            ->execute([$result['logo_path'], $profileId, $sid]);
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $userId = isset($user['id']) ? (int) $user['id'] : null;
@@ -124,6 +127,9 @@ final class EmailBrandingAction
 
         $this->converter->delete($sid);
         $this->db->pdo()->prepare('UPDATE supplier SET logo_path = NULL WHERE id = ?')->execute([$sid]);
+        $profileId = $this->defaultProfileId($sid);
+        $this->db->pdo()->prepare('UPDATE branding_profiles SET logo_path = NULL WHERE id = ? AND supplier_id = ?')
+            ->execute([$profileId, $sid]);
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $userId = isset($user['id']) ? (int) $user['id'] : null;
@@ -159,7 +165,7 @@ final class EmailBrandingAction
         $locale = ((string) ($query['locale'] ?? 'cs')) === 'en' ? 'en' : 'cs';
         $brandingProfileId = isset($query['branding_profile_id']) && $query['branding_profile_id'] !== ''
             ? (int) $query['branding_profile_id']
-            : null;
+            : $this->defaultProfileId($sid);
 
         // Načti supplier kontext
         $stmt = $this->db->pdo()->prepare(
@@ -195,7 +201,7 @@ final class EmailBrandingAction
         if ($brandingProfileId !== null) {
             $profileStmt = $this->db->pdo()->prepare(
                 'SELECT display_name, tagline, email, phone, web, email_footer, logo_path,
-                        accent_color, pdf_logo_show_name
+                        accent_color, branding_enabled, pdf_logo_show_name
                    FROM branding_profiles
                   WHERE id = ? AND supplier_id = ? AND is_active = 1'
             );
@@ -209,7 +215,7 @@ final class EmailBrandingAction
                     $supplier[$field] = $profile[$field];
                 }
             }
-            $supplier['email_branding_enabled'] = true;
+            $supplier['email_branding_enabled'] = (bool) $profile['branding_enabled'];
             $supplier['email_accent_color'] = (string) $profile['accent_color'];
             $supplier['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
         }
@@ -310,5 +316,14 @@ TWIG;
     {
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         return isset($user['role']) && $user['role'] === 'admin';
+    }
+
+    private function defaultProfileId(int $supplierId): int
+    {
+        $stmt = $this->db->pdo()->prepare('SELECT default_branding_profile_id FROM supplier WHERE id = ?');
+        $stmt->execute([$supplierId]);
+        $id = (int) ($stmt->fetchColumn() ?: 0);
+        if ($id <= 0) throw new \RuntimeException('Výchozí brandingový profil dodavatele není nastaven.');
+        return $id;
     }
 }

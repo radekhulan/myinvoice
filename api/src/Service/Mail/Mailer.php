@@ -838,14 +838,31 @@ final class Mailer
                 'SELECT s.id, s.company_name, s.display_name, s.tagline, s.street, s.city, s.zip,
                         s.email, s.phone, s.web,
                         s.email_branding_enabled, s.email_accent_color, s.logo_path,
+                        bp.id AS branding_profile_id, bp.display_name AS bp_display_name,
+                        bp.tagline AS bp_tagline, bp.email AS bp_email, bp.phone AS bp_phone,
+                        bp.web AS bp_web, bp.email_footer AS bp_email_footer, bp.logo_path AS bp_logo_path,
+                        bp.accent_color AS bp_accent_color, bp.branding_enabled AS bp_branding_enabled,
+                        bp.email_profile_id AS bp_email_profile_id,
                         co.name_cs AS country
                    FROM supplier s
+              LEFT JOIN branding_profiles bp ON bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
               LEFT JOIN countries co ON co.id = s.country_id
                   WHERE s.id = (SELECT MIN(id) FROM supplier)'
             );
             $stmt->execute();
             $row = $stmt->fetch(\PDO::FETCH_ASSOC);
             if ($row !== false) {
+                foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
+                    $profileKey = 'bp_' . $field;
+                    if (array_key_exists($profileKey, $row) && $row[$profileKey] !== null && $row[$profileKey] !== '') {
+                        $row[$field] = $row[$profileKey];
+                    }
+                }
+                if (!empty($row['branding_profile_id'])) {
+                    $row['email_branding_enabled'] = (bool) $row['bp_branding_enabled'];
+                    $row['email_accent_color'] = (string) ($row['bp_accent_color'] ?: '#3B2D83');
+                    $row['email_profile_id'] = $row['bp_email_profile_id'] !== null ? (int) $row['bp_email_profile_id'] : null;
+                }
                 $row['email_branding_enabled'] = (bool) ($row['email_branding_enabled'] ?? false);
                 $row['email_accent_color']     = (string) ($row['email_accent_color'] ?: '#3B2D83');
                 $row['accent_soft']            = AccentColor::emailBackground(

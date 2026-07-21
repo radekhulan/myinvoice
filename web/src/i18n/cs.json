@@ -1865,6 +1865,12 @@
       "kind_bcc": "Skrytá kopie (bcc)",
       "active": "Aktivní",
       "inactive": "neaktivní",
+      "default_badge": "Výchozí",
+      "make_default": "Nastavit jako výchozí",
+      "default_changed": "Výchozí brandingový profil byl změněn.",
+      "branding_enabled": "Používat vlastní branding v e-mailech a PDF",
+      "email_preview": "Náhled e-mailu",
+      "email_preview_title": "Náhled e-mailu — {name}",
       "no_usage": "bez účelu",
       "limit_reached": "Maximum {max} kontaktů",
       "usage": {

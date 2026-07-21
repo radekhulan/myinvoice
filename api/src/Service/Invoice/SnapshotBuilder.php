@@ -124,7 +124,7 @@ final class SnapshotBuilder
             }
         }
         $snapshot['reply_to'] = $profile['reply_to'] ?: null;
-        $snapshot['email_branding_enabled'] = true;
+        $snapshot['email_branding_enabled'] = (bool) ($profile['branding_enabled'] ?? true);
         $snapshot['email_accent_color'] = $profile['accent_color'];
         $snapshot['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
         $snapshot['branding_profile_id'] = (int) $profile['id'];

@@ -1865,6 +1865,12 @@
       "kind_bcc": "Blind copy (bcc)",
       "active": "Active",
       "inactive": "inactive",
+      "default_badge": "Default",
+      "make_default": "Set as default",
+      "default_changed": "The default branding profile has been changed.",
+      "branding_enabled": "Use custom branding in emails and PDFs",
+      "email_preview": "Email preview",
+      "email_preview_title": "Email preview — {name}",
       "no_usage": "no purpose",
       "limit_reached": "Maximum of {max} contacts",
       "usage": {

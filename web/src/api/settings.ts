@@ -119,8 +119,10 @@ export interface BrandingProfile {
   email_footer: string | null
   logo_path: string | null
   accent_color: string
+  branding_enabled: boolean
   pdf_logo_show_name: boolean
   is_active: boolean
+  is_default: boolean
   has_invoice_template: boolean
 }
 
@@ -697,6 +699,8 @@ export const settingsApi = {
     api.put<BrandingProfile>(`/settings/branding-profiles/${id}`, payload).then(r => r.data),
   deleteBrandingProfile: (id: number) =>
     api.delete<{ deleted: boolean }>(`/settings/branding-profiles/${id}`).then(r => r.data),
+  setDefaultBrandingProfile: (id: number) =>
+    api.post<BrandingProfile>(`/settings/branding-profiles/${id}/default`, {}).then(r => r.data),
   uploadBrandingProfileLogo: (id: number, file: File) => {
     const fd = new FormData()
     fd.append('file', file)

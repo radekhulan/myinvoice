@@ -2172,7 +2172,8 @@ paths:
         `proforma_number_format`, `credit_note_number_format`,
         `purchase_invoice_number_format`, `invoice_number_period`) a **branding
         PDF/e-mailů** (`email_branding_enabled`, `email_accent_color`,
-        `pdf_logo_show_name`, `display_name`, `tagline`). Logo se nahrává zvlášť
+        `pdf_logo_show_name`, `display_name`, `tagline`). Brandingová pole jsou
+        kompatibilní aliasy výchozího brandingového profilu. Logo se nahrává zvlášť
         (není součástí tohoto endpointu).
       requestBody:
         required: true
@@ -5575,7 +5576,9 @@ components:
         email_footer: { type: string, nullable: true }
         logo_path: { type: string, nullable: true, readOnly: true }
         accent_color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        branding_enabled: { type: boolean, description: "Zapíná vlastní logo a barevný branding v e-mailech a PDF." }
         pdf_logo_show_name: { type: boolean }
+        is_default: { type: boolean, readOnly: true, description: "Výchozí profil dodavatele použitý bez explicitní volby." }
 
     Client:
       type: object
@@ -6697,9 +6700,10 @@ components:
           type: string
           enum: [year, month, none]
           description: "Reset counteru: ročně / měsíčně / nikdy (jedna průběžná řada). Společné pro všechny typy dokladů."
-        email_branding_enabled: { type: boolean, description: "Zapne logo + akcentní barvu v e-mailech a PDF" }
+        email_branding_enabled: { type: boolean, description: "Kompatibilní alias přepínače výchozího brandingového profilu" }
         email_accent_color: { type: string, example: "#3B2D83", description: "Hex #RRGGBB; akcentní barva e-mailů a PDF faktur" }
         pdf_logo_show_name: { type: boolean, description: "Zobrazit vedle loga v PDF i název dodavatele" }
+        default_branding_profile_id: { type: integer, nullable: true, readOnly: true }
         auto_send_reminders: { type: boolean }
         reminder_days_after_due: { type: integer, minimum: 1, maximum: 365 }
 

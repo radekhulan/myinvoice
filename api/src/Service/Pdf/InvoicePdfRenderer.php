@@ -257,6 +257,9 @@ final class InvoicePdfRenderer
     {
         // Použij snapshots pokud jsou (issued+), jinak živá data
         $supplierData = $this->resolveSupplier($invoice);
+        if (($invoice['status'] ?? 'draft') === 'draft' || empty($invoice['supplier_snapshot'])) {
+            $supplierData = $this->applyLiveBrandingProfile($supplierData, $invoice);
+        }
         $clientData   = $this->resolveClient($invoice);
         $bankData     = $this->resolveBank($invoice);
 
@@ -478,14 +481,43 @@ final class InvoicePdfRenderer
         if (is_array($snapshot) && !empty($snapshot['invoice_template_html'])) {
             return ['html' => (string) $snapshot['invoice_template_html'], 'css' => (string) ($snapshot['invoice_template_css'] ?? '')];
         }
-        if (($invoice['status'] ?? 'draft') !== 'draft' || empty($invoice['branding_profile_id'])) return null;
+        if (($invoice['status'] ?? 'draft') !== 'draft') return null;
         $stmt = $this->db->pdo()->prepare(
-            'SELECT invoice_template_html, invoice_template_css FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+            'SELECT bp.invoice_template_html, bp.invoice_template_css
+               FROM supplier s JOIN branding_profiles bp ON bp.id = COALESCE(?, s.default_branding_profile_id)
+                                                    AND bp.supplier_id = s.id AND bp.is_active = 1
+              WHERE s.id = ?'
         );
-        $stmt->execute([(int) $invoice['branding_profile_id'], (int) $invoice['supplier_id']]);
+        $stmt->execute([!empty($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null, (int) $invoice['supplier_id']]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
         if (!$row || empty($row['invoice_template_html'])) return null;
         return ['html' => (string) $row['invoice_template_html'], 'css' => (string) ($row['invoice_template_css'] ?? '')];
+    }
+
+    /** @param array<string,mixed> $supplier @param array<string,mixed> $invoice */
+    private function applyLiveBrandingProfile(array $supplier, array $invoice): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT bp.* FROM supplier s
+               JOIN branding_profiles bp ON bp.id = COALESCE(?, s.default_branding_profile_id)
+                                        AND bp.supplier_id = s.id AND bp.is_active = 1
+              WHERE s.id = ?'
+        );
+        $stmt->execute([
+            !empty($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null,
+            (int) ($invoice['supplier_id'] ?? 0),
+        ]);
+        $profile = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($profile === false) return $supplier;
+        foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
+            if ($profile[$field] !== null && $profile[$field] !== '') $supplier[$field] = $profile[$field];
+        }
+        $supplier['branding_profile_id'] = (int) $profile['id'];
+        $supplier['email_profile_id'] = $profile['email_profile_id'] !== null ? (int) $profile['email_profile_id'] : null;
+        $supplier['email_branding_enabled'] = (bool) $profile['branding_enabled'];
+        $supplier['email_accent_color'] = (string) $profile['accent_color'];
+        $supplier['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
+        return $supplier;
     }
 
     /**

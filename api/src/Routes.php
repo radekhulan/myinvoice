@@ -573,6 +573,7 @@ final class Routes
         $app->post   ('/api/settings/branding-profiles',                 [BrandingProfilesAction::class, 'create']);
         $app->put    ('/api/settings/branding-profiles/{id:[0-9]+}',     [BrandingProfilesAction::class, 'update']);
         $app->delete ('/api/settings/branding-profiles/{id:[0-9]+}',     [BrandingProfilesAction::class, 'delete']);
+        $app->post   ('/api/settings/branding-profiles/{id:[0-9]+}/default', [BrandingProfilesAction::class, 'setDefault']);
         $app->post   ('/api/settings/branding-profiles/{id:[0-9]+}/logo', [BrandingProfilesAction::class, 'uploadLogo']);
         $app->delete ('/api/settings/branding-profiles/{id:[0-9]+}/logo', [BrandingProfilesAction::class, 'deleteLogo']);
         $app->get    ('/api/settings/branding-profiles/{id:[0-9]+}/invoice-template', [BrandingProfilesAction::class, 'getInvoiceTemplate']);

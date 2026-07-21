@@ -151,7 +151,8 @@ Veřejný subset nastavení dodavatele jde měnit tokenem se scope `read_write`
   `proforma_number_format`, `credit_note_number_format`,
   `purchase_invoice_number_format`, `invoice_number_period`) a **branding**
   (`email_branding_enabled`, `email_accent_color`, `pdf_logo_show_name`,
-  `display_name`, `tagline`). Logo se přes tento endpoint nastavit nedá.
+  `display_name`, `tagline`). První tři pole jsou kompatibilní aliasy nastavení
+  výchozího brandingového profilu. Logo se přes tento endpoint nastavit nedá.
 
 - **`PUT /api/v1/settings/supplier/invoice-counter`** — nastaví counter číselné
   řady tak, aby příští vystavený doklad dostal zadané číslo. Hodí se při
@@ -172,7 +173,8 @@ dokladem, vystavení se samoopravně posune na první volné číslo — duplici
 
 - **`POST /api/v1/settings/supplier/logo`** — multipart upload loga (pole
   `file`; PNG / JPG / SVG / WebP, max 1 MiB). Logo se v e-mailech a PDF
-  zobrazuje při `email_branding_enabled = true`. `DELETE` na stejné cestě
+  ukládá do výchozího brandingového profilu a zobrazuje při zapnutém brandingu.
+  `DELETE` na stejné cestě
   logo odebere:
 
 ```bash

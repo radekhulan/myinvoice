@@ -14,6 +14,7 @@ const emailProfiles = ref<EmailProfile[]>([])
 const templateEditing = ref<{ profile: BrandingProfile; html: string; css: string; hasOverride: boolean } | null>(null)
 const templateSaving = ref(false)
 const templatePreviewing = ref(false)
+const emailPreview = ref<{ profile: BrandingProfile; locale: 'cs' | 'en'; html: string } | null>(null)
 const twigVariables = [
   'invoice', 'invoice.items', 'supplier', 'client', 'bank', 'logo_path', 'logo_show_name',
   'qr_data_uri', 'payment_varsymbol', 'payment_method', 'is_paid', 'locale', 'doc_type_label',
@@ -25,7 +26,7 @@ const translationExample = "{{ t('Česky', 'English') }}"
 const emptyProfile = (): Partial<BrandingProfile> => ({
   name: '', display_name: null, tagline: null, email: null, reply_to: null,
   phone: null, web: null, email_footer: null, email_profile_id: null, accent_color: '#3B2D83',
-  pdf_logo_show_name: true, is_active: true,
+  branding_enabled: true, pdf_logo_show_name: true, is_active: true,
 })
 
 async function load() {
@@ -57,6 +58,21 @@ async function resetInvoiceTemplate() {
   await settingsApi.resetBrandingInvoiceTemplate(templateEditing.value.profile.id)
   templateEditing.value = null
   await load(); emit('changed')
+}
+
+async function openEmailPreview(profile: BrandingProfile, locale: 'cs' | 'en' = 'cs') {
+  const html = await settingsApi.emailPreviewHtml(locale, profile.id)
+  emailPreview.value = { profile, locale, html }
+}
+
+async function changeEmailPreviewLocale(locale: 'cs' | 'en') {
+  if (!emailPreview.value) return
+  await openEmailPreview(emailPreview.value.profile, locale)
+}
+
+async function setDefault(profile: BrandingProfile) {
+  await settingsApi.setDefaultBrandingProfile(profile.id)
+  await load(); emit('changed'); toast.success(t('settings.branding_profiles.default_changed'))
 }
 
 async function previewInvoiceTemplate() {
@@ -144,6 +160,7 @@ onMounted(load)
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full border border-neutral-300" :style="{ backgroundColor: profile.accent_color }" />
               <strong class="text-sm truncate">{{ profile.name }}</strong>
+              <span v-if="profile.is_default" class="text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-700">{{ t('settings.branding_profiles.default_badge') }}</span>
               <span v-if="!profile.is_active" class="text-xs text-neutral-400">{{ t('settings.branding_profiles.inactive') }}</span>
             </div>
             <p class="text-xs text-neutral-500 mt-1">{{ profile.display_name || profile.email || t('settings.branding_profiles.inherits') }}</p>
@@ -155,8 +172,10 @@ onMounted(load)
             </label>
             <button v-if="profile.logo_path" class="text-xs text-neutral-500" @click="deleteLogo(profile)">{{ t('settings.branding_profiles.remove_logo') }}</button>
             <button class="text-xs text-primary-700" @click="edit(profile)">{{ t('common.edit') }}</button>
+            <button class="text-xs text-primary-700" @click="openEmailPreview(profile)">{{ t('settings.branding_profiles.email_preview') }}</button>
             <button class="text-xs text-primary-700" @click="editInvoiceTemplate(profile)">{{ t('settings.branding_profiles.invoice_template') }}</button>
-            <button class="text-xs text-danger-600" @click="remove(profile)">{{ t('common.delete') }}</button>
+            <button v-if="!profile.is_default" class="text-xs text-primary-700" @click="setDefault(profile)">{{ t('settings.branding_profiles.make_default') }}</button>
+            <button v-if="!profile.is_default" class="text-xs text-danger-600" @click="remove(profile)">{{ t('common.delete') }}</button>
           </div>
         </div>
       </article>
@@ -200,8 +219,9 @@ onMounted(load)
         </label>
       </div>
       <div class="mt-3 flex flex-wrap gap-4 text-sm">
+        <label class="flex items-center gap-2"><input v-model="editing.branding_enabled" type="checkbox" />{{ t('settings.branding_profiles.branding_enabled') }}</label>
         <label class="flex items-center gap-2"><input v-model="editing.pdf_logo_show_name" type="checkbox" />{{ t('settings.branding_profiles.show_name') }}</label>
-        <label class="flex items-center gap-2"><input v-model="editing.is_active" type="checkbox" />{{ t('settings.branding_profiles.active') }}</label>
+        <label class="flex items-center gap-2"><input v-model="editing.is_active" type="checkbox" :disabled="editing.is_default" />{{ t('settings.branding_profiles.active') }}</label>
       </div>
       <div class="flex justify-end gap-2 mt-4">
         <button class="h-9 px-3 border border-neutral-300 rounded-md text-sm" @click="editing = null">{{ t('common.cancel') }}</button>
@@ -232,6 +252,20 @@ onMounted(load)
             <button :disabled="templateSaving" class="h-9 px-3 bg-primary-600 text-white rounded-md" @click="saveInvoiceTemplate">{{ t('common.save') }}</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div v-if="emailPreview" class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
+      <div class="bg-surface rounded-xl shadow-xl w-full max-w-4xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">{{ t('settings.branding_profiles.email_preview_title', { name: emailPreview.profile.name }) }}</h3>
+          <div class="flex items-center gap-2 text-sm">
+            <button :class="emailPreview.locale === 'cs' ? 'font-semibold text-primary-700' : 'text-neutral-500'" @click="changeEmailPreviewLocale('cs')">CS</button>
+            <button :class="emailPreview.locale === 'en' ? 'font-semibold text-primary-700' : 'text-neutral-500'" @click="changeEmailPreviewLocale('en')">EN</button>
+            <button class="ml-3 text-neutral-500" @click="emailPreview = null">{{ t('common.close') }}</button>
+          </div>
+        </div>
+        <iframe :srcdoc="emailPreview.html" sandbox="allow-same-origin" class="w-full h-[560px] border border-neutral-200 rounded-md bg-neutral-50" />
       </div>
     </div>
   </section>

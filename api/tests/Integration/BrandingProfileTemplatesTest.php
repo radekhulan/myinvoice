@@ -27,6 +27,7 @@ final class BrandingProfileTemplatesTest extends TestCase
     private int $supplierId;
     private ?int $brandingId = null;
     private ?int $emailProfileId = null;
+    private ?int $originalDefaultBrandingId = null;
 
     protected function setUp(): void
     {
@@ -44,11 +45,15 @@ final class BrandingProfileTemplatesTest extends TestCase
         }
         $this->supplierId = (int) $this->pdo->query('SELECT MIN(id) FROM supplier')->fetchColumn();
         if ($this->supplierId <= 0) $this->markTestSkipped('No supplier');
+        $this->originalDefaultBrandingId = $this->branding->defaultForSupplier($this->supplierId)['id'] ?? null;
     }
 
     protected function tearDown(): void
     {
         if (!isset($this->pdo)) return;
+        if ($this->originalDefaultBrandingId !== null) {
+            $this->branding->setDefault($this->originalDefaultBrandingId, $this->supplierId);
+        }
         if ($this->brandingId !== null) $this->branding->delete($this->brandingId, $this->supplierId);
         if ($this->emailProfileId !== null) $this->pdo->prepare('DELETE FROM email_profiles WHERE id = ?')->execute([$this->emailProfileId]);
     }
@@ -61,6 +66,9 @@ final class BrandingProfileTemplatesTest extends TestCase
         ], null);
         $this->brandingId = $this->branding->create($this->supplierId, ['name' => 'Branding template test']);
         $this->branding->update($this->brandingId, $this->supplierId, ['email_profile_id' => $this->emailProfileId]);
+        self::assertNotNull($this->branding->defaultForSupplier($this->supplierId));
+        self::assertTrue($this->branding->setDefault($this->brandingId, $this->supplierId));
+        self::assertTrue($this->branding->findForSupplier($this->brandingId, $this->supplierId)['is_default']);
         self::assertSame(['Branding template test'], $this->emailProfiles->brandingProfileUsages($this->supplierId, $this->emailProfileId));
         $html = '<html><body>{{ supplier.display_name|default(supplier.company_name) }} — {{ invoice.varsymbol }}</body></html>';
         $css = 'body { color: #123456; }';

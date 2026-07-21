@@ -15,10 +15,15 @@ vystavování dokladů v menu **Prodej → Ceník**.
 
 ## Brandingové profily
 
-V nastavení dodavatele lze vytvořit více brandingových profilů pro různé
-obchodní značky. Profil může změnit logo, zobrazovaný název, slogan, barvu,
+Každý dodavatel má výchozí brandingový profil a může vytvořit další profily pro
+různé obchodní značky. Profil může změnit logo, zobrazovaný název, slogan, barvu,
 kontaktní údaje a patičku e-mailu. Právní údaje dodavatele (firma, adresa, IČ a
 DIČ) zůstávají společné a profilem se nemění.
+
+Výchozí profil se použije vždy, když faktura, pravidelná fakturace ani zákazník
+neurčují jiný profil. Výchozí profil nelze smazat ani deaktivovat; nejprve je
+nutné nastavit jako výchozí jiný aktivní profil. Přepínač **Používat vlastní
+branding** řídí zobrazení vlastního loga a barev v e-mailech i PDF.
 
 Každému profilu lze přiřadit také e-mailový profil odesílatele. Ten určuje
 SMTP účet, adresu odesílatele, Reply-To a případné podepisování zpráv. Není-li
@@ -42,10 +47,10 @@ Výchozí profil lze přiřadit zákazníkovi. Nový koncept faktury jej převez
 při vystavení se použitá identita uloží do snapshotu dokladu. Pozdější změna
 profilu nebo nahrání nového loga proto nezmění již vystavené faktury.
 
-V části **Branding e-mailů** lze nad náhledem přepnout ze základní identity
-dodavatele na kterýkoli aktivní brandingový profil. Náhled použije jeho logo,
-barvu, zobrazovaný název, kontakty i vlastní patičku; přepínač CS/EN funguje pro
-obě varianty stejně.
+Akce **Náhled e-mailu** u profilu zobrazí jeho logo, barvu, zobrazovaný název,
+kontakty i vlastní patičku. V náhledu lze přepínat mezi českou a anglickou
+variantou. Samostatná konfigurace brandingu e-mailů není potřeba; všechny
+vizuální údaje se spravují na jednom místě v brandingových profilech.
 
 Na stránce **E-mail šablony** lze vybrat brandingový profil a upravit předmět,
 HTML i textovou variantu zprávy pouze pro něj. Pokud profil vlastní e-mailovou

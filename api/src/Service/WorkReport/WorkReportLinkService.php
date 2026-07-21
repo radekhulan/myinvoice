@@ -434,11 +434,16 @@ final class WorkReportLinkService
             return null;
         }
         $stmt = $this->db->pdo()->prepare(
-            'SELECT s.id, s.company_name, s.display_name, s.tagline, s.street, s.city, s.zip,
-                    s.email, s.phone, s.web, s.ic, s.dic, s.is_vat_payer,
-                    s.email_branding_enabled, s.email_accent_color, s.logo_path,
+            'SELECT s.id, s.company_name, COALESCE(bp.display_name, s.display_name) AS display_name,
+                    COALESCE(bp.tagline, s.tagline) AS tagline, s.street, s.city, s.zip,
+                    COALESCE(bp.email, s.email) AS email, COALESCE(bp.phone, s.phone) AS phone,
+                    COALESCE(bp.web, s.web) AS web, s.ic, s.dic, s.is_vat_payer,
+                    COALESCE(bp.branding_enabled, s.email_branding_enabled) AS email_branding_enabled,
+                    COALESCE(bp.accent_color, s.email_accent_color) AS email_accent_color,
+                    COALESCE(bp.logo_path, s.logo_path) AS logo_path, bp.id AS branding_profile_id,
                     co.name_cs AS country
                FROM supplier s
+          LEFT JOIN branding_profiles bp ON bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
           LEFT JOIN countries co ON co.id = s.country_id
               WHERE s.id = ?'
         );

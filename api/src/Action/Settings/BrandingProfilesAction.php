@@ -76,6 +76,10 @@ final class BrandingProfilesAction
             return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
         }
         $body = (array) ($request->getParsedBody() ?? []);
+        $current = $this->profiles->findForSupplier($id, $supplierId);
+        if (($current['is_default'] ?? false) && array_key_exists('is_active', $body) && empty($body['is_active'])) {
+            return Json::error($response, 'default_profile_required', 'Výchozí brandingový profil nelze deaktivovat. Nejprve nastav jiný jako výchozí.', 409);
+        }
         $errors = BrandingProfileValidation::validate($body, true);
         if ($errors !== []) return Json::error($response, 'validation_failed', 'Validace selhala', 400, ['fields' => $errors]);
         try {
@@ -86,15 +90,41 @@ final class BrandingProfilesAction
             }
             throw $e;
         }
+        if (($current['is_default'] ?? false)) {
+            $this->profiles->mirrorLegacyBranding($supplierId, $body);
+        }
         return Json::ok($response, $this->profiles->findForSupplier($id, $supplierId));
     }
 
     public function delete(Request $request, Response $response, array $args): Response
     {
         if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
-        $deleted = $this->profiles->delete((int) ($args['id'] ?? 0), $this->supplierId($request));
+        $supplierId = $this->supplierId($request);
+        $id = (int) ($args['id'] ?? 0);
+        $profile = $this->profiles->findForSupplier($id, $supplierId);
+        if (($profile['is_default'] ?? false)) {
+            return Json::error($response, 'default_profile_required', 'Výchozí brandingový profil nelze smazat. Nejprve nastav jiný jako výchozí.', 409);
+        }
+        $deleted = $this->profiles->delete($id, $supplierId);
         if (!$deleted) return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
         return Json::ok($response, ['deleted' => true]);
+    }
+
+    public function setDefault(Request $request, Response $response, array $args): Response
+    {
+        if (!$this->isAdmin($request)) return Json::error($response, 'forbidden', 'Pouze admin.', 403);
+        $supplierId = $this->supplierId($request);
+        $id = (int) ($args['id'] ?? 0);
+        if (!$this->profiles->setDefault($id, $supplierId)) {
+            return Json::error($response, 'not_found', 'Aktivní brandingový profil nenalezen.', 404);
+        }
+        $profile = $this->profiles->findForSupplier($id, $supplierId);
+        if ($profile !== null) {
+            $this->profiles->mirrorLegacyBranding($supplierId, $profile);
+            $this->profiles->setSupplierLogoPath($supplierId, $profile['logo_path'] ?? null);
+        }
+        $this->invoicePdf->invalidateDraftsBySupplier($supplierId);
+        return Json::ok($response, $profile);
     }
 
     public function uploadLogo(Request $request, Response $response, array $args): Response
@@ -121,6 +151,9 @@ final class BrandingProfilesAction
             $file->moveTo($tmpPath);
             $result = $this->logoConverter->process($tmpPath, $supplierId, $id);
             $this->profiles->setLogoPath($id, $supplierId, $result['logo_path']);
+            if (($this->profiles->findForSupplier($id, $supplierId)['is_default'] ?? false)) {
+                $this->profiles->setSupplierLogoPath($supplierId, $result['logo_path']);
+            }
         } catch (\RuntimeException $e) {
             return Json::error($response, 'conversion_failed', $e->getMessage(), 400);
         } finally {
@@ -136,6 +169,9 @@ final class BrandingProfilesAction
         $id = (int) ($args['id'] ?? 0);
         if (!$this->profiles->setLogoPath($id, $supplierId, null)) {
             return Json::error($response, 'not_found', 'Brandingový profil nenalezen.', 404);
+        }
+        if (($this->profiles->findForSupplier($id, $supplierId)['is_default'] ?? false)) {
+            $this->profiles->setSupplierLogoPath($supplierId, null);
         }
         // Soubor záměrně nemažeme: vystavené faktury jej mohou mít ve snapshotu.
         return Json::ok($response, $this->profiles->findForSupplier($id, $supplierId));

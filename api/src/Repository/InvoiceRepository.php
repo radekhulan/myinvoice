@@ -720,7 +720,10 @@ final class InvoiceRepository
 
         // Supplier_id se odvodí z client (immutable per client)
         $clientId = (int) $data['client_id'];
-        $stmt = $pdo->prepare('SELECT supplier_id, default_branding_profile_id FROM clients WHERE id = ?');
+        $stmt = $pdo->prepare(
+            'SELECT c.supplier_id, c.default_branding_profile_id, s.default_branding_profile_id AS supplier_branding_profile_id
+               FROM clients c JOIN supplier s ON s.id = c.supplier_id WHERE c.id = ?'
+        );
         $stmt->execute([$clientId]);
         $client = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($client === false) {
@@ -729,7 +732,9 @@ final class InvoiceRepository
         $supplierId = (int) $client['supplier_id'];
         $brandingProfileId = array_key_exists('branding_profile_id', $data)
             ? $this->resolveBrandingProfileId($data['branding_profile_id'], $supplierId)
-            : ($client['default_branding_profile_id'] !== null ? (int) $client['default_branding_profile_id'] : null);
+            : ($client['default_branding_profile_id'] !== null
+                ? (int) $client['default_branding_profile_id']
+                : ($client['supplier_branding_profile_id'] !== null ? (int) $client['supplier_branding_profile_id'] : null));
 
         // Výchozí kategorie tržby — explicitní volba vyhrává, jinak default zakázky >
         // klienta (sdílený helper, viz resolveDefaultRevenueCategoryId). Stejnou logiku
@@ -1314,7 +1319,12 @@ final class InvoiceRepository
 
     private function resolveBrandingProfileId(mixed $value, int $supplierId): ?int
     {
-        if ($value === null || $value === '') return null;
+        if ($value === null || $value === '') {
+            $stmt = $this->db->pdo()->prepare('SELECT default_branding_profile_id FROM supplier WHERE id = ?');
+            $stmt->execute([$supplierId]);
+            $default = $stmt->fetchColumn();
+            return $default !== false && $default !== null ? (int) $default : null;
+        }
         $id = (int) $value;
         $stmt = $this->db->pdo()->prepare(
             'SELECT id FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
