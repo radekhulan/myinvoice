@@ -59,6 +59,7 @@ export interface Supplier {
   email_branding_enabled: boolean
   email_accent_color: string  // #RRGGBB
   pdf_logo_show_name: boolean // vedle loga v PDF zobrazit i název firmy (migrace 0058)
+  branding_profiles_enabled: boolean
   has_email_logo?: boolean    // server flag (existence storage/supplier-logos/sup-{id}.png)
   // Děkovný e-mail za úhradu (issue #57)
   payment_thanks_enabled: boolean
@@ -123,7 +124,6 @@ export interface BrandingProfile {
   pdf_logo_show_name: boolean
   is_active: boolean
   is_default: boolean
-  has_invoice_template: boolean
 }
 
 export interface CurrencyAccount {
@@ -710,14 +710,6 @@ export const settingsApi = {
   },
   deleteBrandingProfileLogo: (id: number) =>
     api.delete<BrandingProfile>(`/settings/branding-profiles/${id}/logo`).then(r => r.data),
-  getBrandingInvoiceTemplate: (id: number) =>
-    api.get<{ html: string; css: string; has_override: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
-  saveBrandingInvoiceTemplate: (id: number, payload: { html: string; css: string }) =>
-    api.put<{ saved: boolean }>(`/settings/branding-profiles/${id}/invoice-template`, payload).then(r => r.data),
-  previewBrandingInvoiceTemplate: (id: number, payload: { html: string; css: string }) =>
-    api.post(`/settings/branding-profiles/${id}/invoice-template/preview`, payload, { responseType: 'blob' }).then(r => r.data as Blob),
-  resetBrandingInvoiceTemplate: (id: number) =>
-    api.delete<{ deleted: boolean }>(`/settings/branding-profiles/${id}/invoice-template`).then(r => r.data),
 
   getPdfSigningDiagnostics: () =>
     api.get<PdfSigningDiagnostics>('/settings/pdf-signing/diagnostics').then(r => r.data),

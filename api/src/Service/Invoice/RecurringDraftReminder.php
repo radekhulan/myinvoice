@@ -123,7 +123,7 @@ final class RecurringDraftReminder
                     COALESCE(bp.logo_path, s.logo_path) AS logo_path, bp.id AS branding_profile_id,
                     co.name_cs AS country
                FROM supplier s
-          LEFT JOIN branding_profiles bp ON bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
+          LEFT JOIN branding_profiles bp ON s.branding_profiles_enabled = 1 AND bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
           LEFT JOIN countries co ON co.id = s.country_id
               WHERE s.id = ?'
         );

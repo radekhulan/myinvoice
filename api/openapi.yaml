@@ -2173,7 +2173,7 @@ paths:
         `purchase_invoice_number_format`, `invoice_number_period`) a **branding
         PDF/e-mailů** (`email_branding_enabled`, `email_accent_color`,
         `pdf_logo_show_name`, `display_name`, `tagline`). Brandingová pole jsou
-        kompatibilní aliasy výchozího brandingového profilu. Logo se nahrává zvlášť
+        původním nastavením dodavatele. Logo se nahrává zvlášť
         (není součástí tohoto endpointu).
       requestBody:
         required: true
@@ -5567,14 +5567,14 @@ components:
       properties:
         id: { type: integer }
         name: { type: string, description: "Interní název profilu" }
-        display_name: { type: string, nullable: true }
-        tagline: { type: string, nullable: true }
-        email: { type: string, format: email, nullable: true }
-        reply_to: { type: string, format: email, nullable: true }
-        phone: { type: string, nullable: true }
-        web: { type: string, nullable: true }
-        email_footer: { type: string, nullable: true }
-        logo_path: { type: string, nullable: true, readOnly: true }
+        display_name: { type: [string, "null"] }
+        tagline: { type: [string, "null"] }
+        email: { type: [string, "null"], format: email }
+        reply_to: { type: [string, "null"], format: email }
+        phone: { type: [string, "null"] }
+        web: { type: [string, "null"] }
+        email_footer: { type: [string, "null"] }
+        logo_path: { type: [string, "null"], readOnly: true }
         accent_color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
         branding_enabled: { type: boolean, description: "Zapíná vlastní logo a barevný branding v e-mailech a PDF." }
         pdf_logo_show_name: { type: boolean }
@@ -5746,7 +5746,7 @@ components:
       properties:
         id: { type: integer }
         supplier_id: { type: integer }
-        branding_profile_id: { type: integer, nullable: true, description: "Vizuální identita dokladu; při vystavení se uloží do supplier_snapshot." }
+        branding_profile_id: { type: [integer, "null"], description: "Vizuální identita dokladu; při vystavení se uloží do supplier_snapshot." }
         client_id: { type: integer }
         client_company_name: { type: string, description: "Denormalizováno z klienta pro pohodlí výpisů" }
         client_main_email: { type: [string, "null"], format: email }
@@ -6700,10 +6700,11 @@ components:
           type: string
           enum: [year, month, none]
           description: "Reset counteru: ročně / měsíčně / nikdy (jedna průběžná řada). Společné pro všechny typy dokladů."
-        email_branding_enabled: { type: boolean, description: "Kompatibilní alias přepínače výchozího brandingového profilu" }
+        email_branding_enabled: { type: boolean, description: "Původní branding dodavatele používaný při vypnutých brandingových profilech" }
         email_accent_color: { type: string, example: "#3B2D83", description: "Hex #RRGGBB; akcentní barva e-mailů a PDF faktur" }
         pdf_logo_show_name: { type: boolean, description: "Zobrazit vedle loga v PDF i název dodavatele" }
-        default_branding_profile_id: { type: integer, nullable: true, readOnly: true }
+        branding_profiles_enabled: { type: boolean, description: "Zapíná volbu brandingových profilů; výchozí hodnota je false." }
+        default_branding_profile_id: { type: [integer, "null"], readOnly: true }
         auto_send_reminders: { type: boolean }
         reminder_days_after_due: { type: integer, minimum: 1, maximum: 365 }
 

@@ -15,29 +15,19 @@ vystavování dokladů v menu **Prodej → Ceník**.
 
 ## Brandingové profily
 
-Každý dodavatel má výchozí brandingový profil a může vytvořit další profily pro
-různé obchodní značky. Profil může změnit logo, zobrazovaný název, slogan, barvu,
-kontaktní údaje a patičku e-mailu. Právní údaje dodavatele (firma, adresa, IČ a
-DIČ) zůstávají společné a profilem se nemění.
+Brandingové profily jsou volitelný modul, který se zapíná v nastavení dodavatele.
+Dokud je vypnutý, faktury a e-maily používají původní údaje a branding dodavatele.
+Po zapnutí lze vytvořit profily pro různé obchodní značky. Profil může změnit
+logo, zobrazovaný název, slogan, barvu, kontaktní údaje a patičku e-mailu. Právní
+údaje dodavatele (firma, adresa, IČ a DIČ) zůstávají společné a profilem se nemění.
 
 Výchozí profil se použije vždy, když faktura, pravidelná fakturace ani zákazník
-neurčují jiný profil. Výchozí profil nelze smazat ani deaktivovat; nejprve je
-nutné nastavit jako výchozí jiný aktivní profil. Přepínač **Používat vlastní
-branding** řídí zobrazení vlastního loga a barev v e-mailech i PDF.
+neurčují jiný profil. Výchozí profil není povinný. Přepínač **Používat vlastní
+branding** v jednotlivém profilu řídí zobrazení jeho loga a barev v e-mailech i PDF.
 
 Každému profilu lze přiřadit také e-mailový profil odesílatele. Ten určuje
 SMTP účet, adresu odesílatele, Reply-To a případné podepisování zpráv. Není-li
 vybrán, použije se výchozí e-mailový profil dodavatele.
-
-Tlačítko **Šablona PDF** otevře editor Twig HTML a CSS vzhledu faktury. Nový
-profil nejprve používá vestavěnou šablonu; uložením vznikne vlastní varianta a
-tlačítkem **Obnovit výchozí** se lze k vestavěné šabloně vrátit. Editor z
-bezpečnostních důvodů nepovoluje načítání externích ani lokálních souborů.
-Logo se do šablony vkládá prostřednictvím proměnné `logo_path`. Rozbalovací
-přehled v editoru uvádí dostupné Twig proměnné a filtry. Tlačítko **Náhled
-PDF** šablonu zkontroluje stejným rendererem jako skutečnou fakturu a otevře
-výsledek se syntetickými údaji; žádná provozní data se do náhledu nevkládají.
-Stejná kontrola proběhne také při uložení.
 
 E-mailový profil, který používá některý brandingový profil, nelze smazat.
 Chybová zpráva vypíše dotčené profily; nejprve jim nastav jiného odesílatele
@@ -49,13 +39,9 @@ profilu nebo nahrání nového loga proto nezmění již vystavené faktury.
 
 Akce **Náhled e-mailu** u profilu zobrazí jeho logo, barvu, zobrazovaný název,
 kontakty i vlastní patičku. V náhledu lze přepínat mezi českou a anglickou
-variantou. Samostatná konfigurace brandingu e-mailů není potřeba; všechny
-vizuální údaje se spravují na jednom místě v brandingových profilech.
-
-Na stránce **E-mail šablony** lze vybrat brandingový profil a upravit předmět,
-HTML i textovou variantu zprávy pouze pro něj. Pokud profil vlastní e-mailovou
-šablonu nemá, použije se společná šablona dodavatele a následně vestavěná
-výchozí šablona.
+variantou. Původní konfigurace brandingu e-mailů se používá při vypnutém modulu.
+Obsahové e-mailové šablony zůstávají společné pro dodavatele a spravují se
+odděleně na stránce **E-mail šablony**.
 
 ## 36.1 Číselníky
 

@@ -17,29 +17,11 @@ final class BrandingProfileRepository
 
     public function __construct(private readonly Connection $db) {}
 
-    public function setSupplierLogoPath(int $supplierId, ?string $logoPath): void
+    public function isEnabled(int $supplierId): bool
     {
-        $this->db->pdo()->prepare('UPDATE supplier SET logo_path = ? WHERE id = ?')->execute([$logoPath, $supplierId]);
-    }
-
-    /** @param array<string,mixed> $values */
-    public function mirrorLegacyBranding(int $supplierId, array $values): void
-    {
-        $map = [
-            'branding_enabled' => 'email_branding_enabled',
-            'accent_color' => 'email_accent_color',
-            'pdf_logo_show_name' => 'pdf_logo_show_name',
-        ];
-        $sets = [];
-        $params = [];
-        foreach ($map as $profileField => $supplierField) {
-            if (!array_key_exists($profileField, $values)) continue;
-            $sets[] = $supplierField . ' = ?';
-            $params[] = $profileField === 'accent_color' ? $values[$profileField] : (int) (bool) $values[$profileField];
-        }
-        if ($sets === []) return;
-        $params[] = $supplierId;
-        $this->db->pdo()->prepare('UPDATE supplier SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
+        $stmt = $this->db->pdo()->prepare('SELECT branding_profiles_enabled FROM supplier WHERE id = ?');
+        $stmt->execute([$supplierId]);
+        return (bool) $stmt->fetchColumn();
     }
 
     /** @return list<array<string,mixed>> */
@@ -107,9 +89,20 @@ final class BrandingProfileRepository
 
     public function delete(int $id, int $supplierId): bool
     {
-        $stmt = $this->db->pdo()->prepare('DELETE FROM branding_profiles WHERE id = ? AND supplier_id = ?');
-        $stmt->execute([$id, $supplierId]);
-        return $stmt->rowCount() > 0;
+        $pdo = $this->db->pdo();
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('UPDATE supplier SET default_branding_profile_id = NULL WHERE id = ? AND default_branding_profile_id = ?')
+                ->execute([$supplierId, $id]);
+            $stmt = $pdo->prepare('DELETE FROM branding_profiles WHERE id = ? AND supplier_id = ?');
+            $stmt->execute([$id, $supplierId]);
+            $deleted = $stmt->rowCount() > 0;
+            $pdo->commit();
+            return $deleted;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 
     public function setDefault(int $id, int $supplierId): bool
@@ -129,7 +122,7 @@ final class BrandingProfileRepository
         $stmt = $this->db->pdo()->prepare(
             'SELECT bp.*, 1 AS is_default
                FROM supplier s JOIN branding_profiles bp ON bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id
-              WHERE s.id = ? AND bp.is_active = 1'
+              WHERE s.id = ? AND s.branding_profiles_enabled = 1 AND bp.is_active = 1'
         );
         $stmt->execute([$supplierId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -142,35 +135,6 @@ final class BrandingProfileRepository
             'UPDATE branding_profiles SET logo_path = ? WHERE id = ? AND supplier_id = ?'
         );
         $stmt->execute([$logoPath, $id, $supplierId]);
-        return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
-    }
-
-    public function saveInvoiceTemplate(int $id, int $supplierId, string $html, string $css): bool
-    {
-        $stmt = $this->db->pdo()->prepare(
-            'UPDATE branding_profiles SET invoice_template_html = ?, invoice_template_css = ? WHERE id = ? AND supplier_id = ?'
-        );
-        $stmt->execute([$html, $css, $id, $supplierId]);
-        return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
-    }
-
-    /** @return array{html:?string,css:?string}|null */
-    public function invoiceTemplate(int $id, int $supplierId): ?array
-    {
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT invoice_template_html, invoice_template_css FROM branding_profiles WHERE id = ? AND supplier_id = ?'
-        );
-        $stmt->execute([$id, $supplierId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row === false ? null : ['html' => $row['invoice_template_html'], 'css' => $row['invoice_template_css']];
-    }
-
-    public function resetInvoiceTemplate(int $id, int $supplierId): bool
-    {
-        $stmt = $this->db->pdo()->prepare(
-            'UPDATE branding_profiles SET invoice_template_html = NULL, invoice_template_css = NULL WHERE id = ? AND supplier_id = ?'
-        );
-        $stmt->execute([$id, $supplierId]);
         return $stmt->rowCount() > 0 || $this->findForSupplier($id, $supplierId) !== null;
     }
 
@@ -208,8 +172,6 @@ final class BrandingProfileRepository
         $row['is_active'] = (bool) $row['is_active'];
         $row['is_default'] = (bool) ($row['is_default'] ?? false);
         $row['email_profile_id'] = $row['email_profile_id'] !== null ? (int) $row['email_profile_id'] : null;
-        $row['has_invoice_template'] = !empty($row['invoice_template_html']);
-        unset($row['invoice_template_html'], $row['invoice_template_css']);
         return $row;
     }
 }

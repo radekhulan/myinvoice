@@ -44,7 +44,6 @@ final class SnapshotBuilder
             throw new \RuntimeException("Client #$clientId nenalezen");
         }
         return [
-            'id'           => (int) $row['id'],
             'company_name' => $row['company_name'],
             'first_name'   => $row['first_name'],
             'last_name'    => $row['last_name'],
@@ -97,11 +96,6 @@ final class SnapshotBuilder
             'phone'        => $row['phone'],
             'web'          => $row['web'],
             'tagline'      => $row['tagline'] ?? null,
-            'email_footer' => $row['email_footer'] ?? null,
-            'logo_path'    => $row['logo_path'] ?? null,
-            'email_branding_enabled' => (bool) ($row['email_branding_enabled'] ?? false),
-            'email_accent_color' => $row['email_accent_color'] ?? null,
-            'pdf_logo_show_name' => (bool) ($row['pdf_logo_show_name'] ?? true),
             'commercial_register' => $row['commercial_register'] ?? null,
         ];
 
@@ -110,7 +104,9 @@ final class SnapshotBuilder
         }
 
         $profileStmt = $this->db->pdo()->prepare(
-            'SELECT * FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+            'SELECT bp.* FROM branding_profiles bp
+               JOIN supplier s ON s.id = bp.supplier_id AND s.branding_profiles_enabled = 1
+              WHERE bp.id = ? AND bp.supplier_id = ? AND bp.is_active = 1'
         );
         $profileStmt->execute([$brandingProfileId, $supplierId]);
         $profile = $profileStmt->fetch(PDO::FETCH_ASSOC);
@@ -118,23 +114,8 @@ final class SnapshotBuilder
             throw new \InvalidArgumentException("Brandingový profil #$brandingProfileId nenalezen.");
         }
 
-        foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
-            if ($profile[$field] !== null && $profile[$field] !== '') {
-                $snapshot[$field] = $profile[$field];
-            }
-        }
-        $snapshot['reply_to'] = $profile['reply_to'] ?: null;
-        $snapshot['email_branding_enabled'] = (bool) ($profile['branding_enabled'] ?? true);
-        $snapshot['email_accent_color'] = $profile['accent_color'];
-        $snapshot['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
-        $snapshot['branding_profile_id'] = (int) $profile['id'];
+        $snapshot = \MyInvoice\Service\Branding\BrandingProfileOverlay::apply($snapshot, $profile);
         $snapshot['branding_profile_name'] = $profile['name'];
-        $snapshot['email_profile_id'] = $profile['email_profile_id'] !== null ? (int) $profile['email_profile_id'] : null;
-        if (!empty($profile['invoice_template_html'])) {
-            $snapshot['invoice_template_html'] = $profile['invoice_template_html'];
-            $snapshot['invoice_template_css'] = (string) ($profile['invoice_template_css'] ?? '');
-        }
-
         return $snapshot;
     }
 

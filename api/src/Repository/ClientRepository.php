@@ -674,7 +674,9 @@ final class ClientRepository
         if ($value === null || $value === '') return null;
         $id = (int) $value;
         $stmt = $this->db->pdo()->prepare(
-            'SELECT id FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+            'SELECT bp.id FROM branding_profiles bp
+               JOIN supplier s ON s.id = bp.supplier_id AND s.branding_profiles_enabled = 1
+              WHERE bp.id = ? AND bp.supplier_id = ? AND bp.is_active = 1'
         );
         $stmt->execute([$id, $supplierId]);
         if ($stmt->fetchColumn() === false) {

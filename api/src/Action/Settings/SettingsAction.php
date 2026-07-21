@@ -155,22 +155,6 @@ final class SettingsAction
             ]);
             $newSupplierId = (int) $pdo->lastInsertId();
 
-            $profileStmt = $pdo->prepare(
-                'INSERT INTO branding_profiles
-                    (supplier_id, name, display_name, tagline, email, phone, web, accent_color,
-                     branding_enabled, pdf_logo_show_name, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1)'
-            );
-            $profileStmt->execute([
-                $newSupplierId, 'Výchozí profil',
-                $this->nullable($b, 'display_name') ?: (string) $b['company_name'],
-                $this->nullable($b, 'tagline'), (string) $b['email'],
-                $this->nullable($b, 'phone'), $this->nullable($b, 'web'), '#3B2D83',
-            ]);
-            $defaultBrandingProfileId = (int) $pdo->lastInsertId();
-            $pdo->prepare('UPDATE supplier SET default_branding_profile_id = ? WHERE id = ?')
-                ->execute([$defaultBrandingProfileId, $newSupplierId]);
-
             // 2. Seed default currencies pro nového supplier (CZK + EUR, bez bank polí)
             $insertCur = $pdo->prepare(
                 'INSERT INTO currencies (supplier_id, code, label, symbol, name_cs, name_en, decimals, is_active, is_default)
@@ -266,7 +250,7 @@ final class SettingsAction
             'purchase_invoice_number_format',
             'invoice_number_period',
             // Per-supplier branding emailů (migrace 0016) + PDF logo+název (migrace 0058)
-            'email_branding_enabled', 'email_accent_color', 'pdf_logo_show_name',
+            'email_branding_enabled', 'email_accent_color', 'pdf_logo_show_name', 'branding_profiles_enabled',
             // Tax settings pro EPO výkazy (migrace 0038, fáze 6)
             'taxpayer_type', 'vat_period', 'financial_office_code', 'workplace_code',
             'cz_nace_code', 'data_box_id', 'flat_tax_band',
@@ -441,7 +425,7 @@ final class SettingsAction
         foreach ($allowed as $f) {
             if (array_key_exists($f, $body)) {
                 $sets[] = "$f = ?";
-                $params[] = in_array($f, ['is_vat_payer', 'is_identified', 'oss_enabled', 'auto_send_reminders', 'auto_generate_recurring', 'embed_isdoc', 'default_prices_include_vat', 'email_branding_enabled', 'pdf_logo_show_name', 'payment_thanks_enabled', 'payment_thanks_auto_send', 'payment_thanks_default_checked', 'payment_thanks_attach_paid_pdf'], true)
+                $params[] = in_array($f, ['is_vat_payer', 'is_identified', 'oss_enabled', 'auto_send_reminders', 'auto_generate_recurring', 'embed_isdoc', 'default_prices_include_vat', 'email_branding_enabled', 'pdf_logo_show_name', 'branding_profiles_enabled', 'payment_thanks_enabled', 'payment_thanks_auto_send', 'payment_thanks_default_checked', 'payment_thanks_attach_paid_pdf'], true)
                     ? ((int) (bool) $body[$f])
                     : $body[$f];
             }
@@ -452,27 +436,6 @@ final class SettingsAction
         $params[] = $id;
         $sql = 'UPDATE supplier SET ' . implode(', ', $sets) . ' WHERE id = ?';
         $this->db->pdo()->prepare($sql)->execute($params);
-        $brandingMap = [
-            'email_branding_enabled' => 'branding_enabled',
-            'email_accent_color' => 'accent_color',
-            'pdf_logo_show_name' => 'pdf_logo_show_name',
-        ];
-        $profileSets = [];
-        $profileParams = [];
-        foreach ($brandingMap as $legacyField => $profileField) {
-            if (!array_key_exists($legacyField, $body)) continue;
-            $profileSets[] = $profileField . ' = ?';
-            $profileParams[] = $legacyField === 'email_accent_color'
-                ? $body[$legacyField]
-                : (int) (bool) $body[$legacyField];
-        }
-        if ($profileSets !== []) {
-            $profileParams[] = $id;
-            $this->db->pdo()->prepare(
-                'UPDATE branding_profiles bp JOIN supplier s ON s.default_branding_profile_id = bp.id AND s.id = bp.supplier_id
-                    SET ' . implode(', ', $profileSets) . ' WHERE s.id = ?'
-            )->execute($profileParams);
-        }
         // Branding (barva/toggle) se v PDF renderuje živě → po změně invaliduj cached
         // draft PDF dodavatele, ať se přegenerují s novou barvou (mtime cache je sama
         // od sebe neobnoví). Vystavené regenerují přes ?regenerate=1.
@@ -582,6 +545,7 @@ final class SettingsAction
         $row['email_branding_enabled']   = (bool) ($row['email_branding_enabled'] ?? false);
         $row['email_accent_color']       = (string) ($row['email_accent_color'] ?? '#3B2D83');
         $row['pdf_logo_show_name']       = (bool) ($row['pdf_logo_show_name'] ?? false);
+        $row['branding_profiles_enabled'] = (bool) ($row['branding_profiles_enabled'] ?? false);
         $row['default_branding_profile_id'] = $row['default_branding_profile_id'] !== null
             ? (int) $row['default_branding_profile_id']
             : null;

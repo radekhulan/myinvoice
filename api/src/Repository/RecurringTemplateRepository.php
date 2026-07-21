@@ -463,7 +463,7 @@ final class RecurringTemplateRepository
         //    bez posunu cyklu. Tím se např. změna „20. v měsíci" → „konec měsíce"
         //    projeví hned na nejbližším vystavení (20.6. → 30.6.), ne až o cyklus dál.
         $cur = $this->db->pdo()->prepare(
-            'SELECT last_run_date, next_run_date FROM recurring_invoice_templates WHERE id = ?'
+            'SELECT last_run_date, next_run_date, supplier_id FROM recurring_invoice_templates WHERE id = ?'
         );
         $cur->execute([$id]);
         $existing = $cur->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -493,7 +493,7 @@ final class RecurringTemplateRepository
         $this->db->pdo()->prepare($sql)->execute([
             (int) $data['client_id'],
             !empty($data['project_id']) ? (int) $data['project_id'] : null,
-            $this->resolveBrandingProfileId($data['branding_profile_id'] ?? null, (int) $data['supplier_id']),
+            $this->resolveBrandingProfileId($data['branding_profile_id'] ?? null, (int) ($data['supplier_id'] ?? $existing['supplier_id'] ?? 0)),
             (string) $data['name'],
             (string) $data['frequency'],
             $dayOfMonth,
@@ -686,14 +686,16 @@ final class RecurringTemplateRepository
     private function resolveBrandingProfileId(mixed $value, int $supplierId): ?int
     {
         if ($value === null || $value === '') {
-            $stmt = $this->db->pdo()->prepare('SELECT default_branding_profile_id FROM supplier WHERE id = ?');
+            $stmt = $this->db->pdo()->prepare('SELECT CASE WHEN branding_profiles_enabled = 1 THEN default_branding_profile_id ELSE NULL END FROM supplier WHERE id = ?');
             $stmt->execute([$supplierId]);
             $default = $stmt->fetchColumn();
             return $default !== false && $default !== null ? (int) $default : null;
         }
         $id = (int) $value;
         $stmt = $this->db->pdo()->prepare(
-            'SELECT id FROM branding_profiles WHERE id = ? AND supplier_id = ? AND is_active = 1'
+            'SELECT bp.id FROM branding_profiles bp
+               JOIN supplier s ON s.id = bp.supplier_id AND s.branding_profiles_enabled = 1
+              WHERE bp.id = ? AND bp.supplier_id = ? AND bp.is_active = 1'
         );
         $stmt->execute([$id, $supplierId]);
         if ($stmt->fetchColumn() === false) {

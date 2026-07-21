@@ -153,10 +153,7 @@ final class Mailer
         }
 
         // Pokud je v DB override, vyrenderuj přímo ze stringu (vyšší priorita než file).
-        $brandingProfileId = (int) ($vars['supplier']['branding_profile_id'] ?? 0);
-        $dbTpl = ($brandingProfileId > 0 ? $this->templates->findForBranding($brandingProfileId, $code, $locale) : null)
-              ?? ($brandingProfileId > 0 ? $this->templates->findForBranding($brandingProfileId, $code, 'cs') : null)
-              ?? $this->templates->find($code, $locale)
+        $dbTpl = $this->templates->find($code, $locale)
               ?? $this->templates->find($code, 'cs');
 
         if ($dbTpl !== null) {
@@ -845,7 +842,7 @@ final class Mailer
                         bp.email_profile_id AS bp_email_profile_id,
                         co.name_cs AS country
                    FROM supplier s
-              LEFT JOIN branding_profiles bp ON bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
+              LEFT JOIN branding_profiles bp ON s.branding_profiles_enabled = 1 AND bp.id = s.default_branding_profile_id AND bp.supplier_id = s.id AND bp.is_active = 1
               LEFT JOIN countries co ON co.id = s.country_id
                   WHERE s.id = (SELECT MIN(id) FROM supplier)'
             );

@@ -7,8 +7,6 @@ namespace MyInvoice\Action\Admin;
 use MyInvoice\Http\Json;
 use MyInvoice\Middleware\AuthMiddleware;
 use MyInvoice\Repository\EmailTemplateRepository;
-use MyInvoice\Repository\BrandingProfileRepository;
-use MyInvoice\Middleware\SupplierScopeMiddleware;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\IpMatcher;
 use MyInvoice\Service\Mail\Mailer;
@@ -37,16 +35,14 @@ final class EmailTemplateAction
         private readonly ActivityLogger $logger,
         private readonly IpMatcher $ipMatcher,
         private readonly Mailer $mailer,
-        private readonly BrandingProfileRepository $brandingProfiles,
     ) {}
 
     public function list(Request $request, Response $response): Response
     {
         if (!$this->guard($request, $response, $err)) return $err;
 
-        $profileId = $this->brandingProfileId($request);
         $byKey = [];
-        foreach ($profileId === null ? $this->repo->listAll() : [] as $row) {
+        foreach ($this->repo->listAll() as $row) {
             $byKey[$row['code'] . '.' . $row['locale']] = [
                 'has_override' => true,
                 'updated_at'   => $row['updated_at'],
@@ -57,12 +53,11 @@ final class EmailTemplateAction
         foreach (self::KNOWN as $code) {
             foreach (self::LOCALES as $locale) {
                 $key = "$code.$locale";
-                $profileTemplate = $profileId !== null ? $this->repo->findForBranding($profileId, $code, $locale) : null;
                 $rows[] = [
                     'code'         => $code,
                     'locale'       => $locale,
-                    'has_override' => $profileTemplate !== null || ($byKey[$key]['has_override'] ?? false),
-                    'updated_at'   => $profileTemplate['updated_at'] ?? ($byKey[$key]['updated_at'] ?? null),
+                    'has_override' => $byKey[$key]['has_override'] ?? false,
+                    'updated_at'   => $byKey[$key]['updated_at'] ?? null,
                 ];
             }
         }
@@ -78,13 +73,8 @@ final class EmailTemplateAction
             return Json::error($response, 'not_found', 'Šablona neexistuje.', 404);
         }
 
-        $profileId = $this->brandingProfileId($request);
-        $tpl = $profileId !== null ? $this->repo->findForBranding($profileId, $code, $locale) : $this->repo->find($code, $locale);
+        $tpl = $this->repo->find($code, $locale);
         $defaults = $this->loadDefaults($code, $locale);
-        if ($profileId !== null) {
-            $global = $this->repo->find($code, $locale) ?? $this->repo->find($code, 'cs');
-            if ($global !== null) $defaults = ['subject' => $global['subject'], 'body_html' => $global['body_html'], 'body_text' => $global['body_text']];
-        }
 
         return Json::ok($response, [
             'code'      => $code,
@@ -126,9 +116,7 @@ final class EmailTemplateAction
         }
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
-        $profileId = $this->brandingProfileId($request);
-        if ($profileId !== null) $this->repo->saveForBranding($profileId, $code, $locale, $subject, $bodyHtml, $bodyText, isset($user['id']) ? (int) $user['id'] : null);
-        else $this->repo->save($code, $locale, $subject, $bodyHtml, $bodyText, isset($user['id']) ? (int) $user['id'] : null);
+        $this->repo->save($code, $locale, $subject, $bodyHtml, $bodyText, isset($user['id']) ? (int) $user['id'] : null);
 
         $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
         $this->logger->log('email_template.saved', $user['id'] ?? null, 'email_template', null, [
@@ -143,9 +131,7 @@ final class EmailTemplateAction
         if (!$this->guard($request, $response, $err)) return $err;
         $code = (string) ($args['code'] ?? '');
         $locale = (string) ($args['locale'] ?? '');
-        $profileId = $this->brandingProfileId($request);
-        if ($profileId !== null) $this->repo->deleteForBranding($profileId, $code, $locale);
-        else $this->repo->delete($code, $locale);
+        $this->repo->delete($code, $locale);
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
@@ -208,17 +194,5 @@ final class EmailTemplateAction
         }
         $err = null;
         return true;
-    }
-
-    private function brandingProfileId(Request $request): ?int
-    {
-        $value = $request->getQueryParams()['branding_profile_id'] ?? null;
-        if ($value === null || $value === '') return null;
-        $id = (int) $value;
-        $supplierId = (int) $request->getAttribute(SupplierScopeMiddleware::ATTR_CURRENT_ID, 0);
-        if ($this->brandingProfiles->findForSupplier($id, $supplierId) === null) {
-            throw new \InvalidArgumentException('Brandingový profil nenalezen.');
-        }
-        return $id;
     }
 }

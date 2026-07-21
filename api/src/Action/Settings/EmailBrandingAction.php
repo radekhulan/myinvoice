@@ -84,8 +84,7 @@ final class EmailBrandingAction
         }
 
         try {
-            $profileId = $this->defaultProfileId($sid);
-            $result = $this->converter->process($tmpPath, $sid, $profileId);
+            $result = $this->converter->process($tmpPath, $sid);
         } catch (\RuntimeException $e) {
             @unlink($tmpPath);
             return Json::error($response, 'conversion_failed', $e->getMessage(), 400);
@@ -96,8 +95,6 @@ final class EmailBrandingAction
         // Update DB — `logo_path` (relativní k rootDir)
         $this->db->pdo()->prepare('UPDATE supplier SET logo_path = ? WHERE id = ?')
             ->execute([$result['logo_path'], $sid]);
-        $this->db->pdo()->prepare('UPDATE branding_profiles SET logo_path = ? WHERE id = ? AND supplier_id = ?')
-            ->execute([$result['logo_path'], $profileId, $sid]);
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $userId = isset($user['id']) ? (int) $user['id'] : null;
@@ -127,9 +124,6 @@ final class EmailBrandingAction
 
         $this->converter->delete($sid);
         $this->db->pdo()->prepare('UPDATE supplier SET logo_path = NULL WHERE id = ?')->execute([$sid]);
-        $profileId = $this->defaultProfileId($sid);
-        $this->db->pdo()->prepare('UPDATE branding_profiles SET logo_path = NULL WHERE id = ? AND supplier_id = ?')
-            ->execute([$profileId, $sid]);
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);
         $userId = isset($user['id']) ? (int) $user['id'] : null;
@@ -200,10 +194,11 @@ final class EmailBrandingAction
 
         if ($brandingProfileId !== null) {
             $profileStmt = $this->db->pdo()->prepare(
-                'SELECT display_name, tagline, email, phone, web, email_footer, logo_path,
-                        accent_color, branding_enabled, pdf_logo_show_name
-                   FROM branding_profiles
-                  WHERE id = ? AND supplier_id = ? AND is_active = 1'
+                'SELECT bp.display_name, bp.tagline, bp.email, bp.phone, bp.web, bp.email_footer, bp.logo_path,
+                        bp.accent_color, bp.branding_enabled, bp.pdf_logo_show_name
+                   FROM branding_profiles bp
+                   JOIN supplier s ON s.id = bp.supplier_id AND s.branding_profiles_enabled = 1
+                  WHERE bp.id = ? AND bp.supplier_id = ? AND bp.is_active = 1'
             );
             $profileStmt->execute([$brandingProfileId, $sid]);
             $profile = $profileStmt->fetch(\PDO::FETCH_ASSOC);
@@ -318,12 +313,14 @@ TWIG;
         return isset($user['role']) && $user['role'] === 'admin';
     }
 
-    private function defaultProfileId(int $supplierId): int
+    private function defaultProfileId(int $supplierId): ?int
     {
-        $stmt = $this->db->pdo()->prepare('SELECT default_branding_profile_id FROM supplier WHERE id = ?');
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT CASE WHEN branding_profiles_enabled = 1 THEN default_branding_profile_id ELSE NULL END
+               FROM supplier WHERE id = ?'
+        );
         $stmt->execute([$supplierId]);
-        $id = (int) ($stmt->fetchColumn() ?: 0);
-        if ($id <= 0) throw new \RuntimeException('Výchozí brandingový profil dodavatele není nastaven.');
-        return $id;
+        $id = $stmt->fetchColumn();
+        return $id !== false && $id !== null ? (int) $id : null;
     }
 }

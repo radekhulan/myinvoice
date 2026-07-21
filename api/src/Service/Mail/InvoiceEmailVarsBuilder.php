@@ -275,24 +275,18 @@ final class InvoiceEmailVarsBuilder
         //    načteme explicitní profil, případně výchozí profil dodavatele.
         if ($row !== null && $sid > 0) {
             $hasSnapshotProfile = !empty($row['branding_profile_id']);
-            if (!$hasSnapshotProfile) {
-                $profileId = !empty($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null;
+            if (!$hasSnapshotProfile && !empty($invoice['branding_profile_id'])) {
+                $profileId = (int) $invoice['branding_profile_id'];
                 $bStmt = $this->db->pdo()->prepare(
                     'SELECT bp.* FROM supplier s
-                       JOIN branding_profiles bp ON bp.id = COALESCE(?, s.default_branding_profile_id)
+                       JOIN branding_profiles bp ON bp.id = ?
                                                 AND bp.supplier_id = s.id AND bp.is_active = 1
-                      WHERE s.id = ?'
+                      WHERE s.id = ? AND s.branding_profiles_enabled = 1'
                 );
                 $bStmt->execute([$profileId, $sid]);
                 $br = $bStmt->fetch(\PDO::FETCH_ASSOC);
                 if ($br !== false) {
-                    foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
-                        if ($br[$field] !== null && $br[$field] !== '') $row[$field] = $br[$field];
-                    }
-                    $row['branding_profile_id'] = (int) $br['id'];
-                    $row['email_profile_id'] = $br['email_profile_id'] !== null ? (int) $br['email_profile_id'] : null;
-                    $row['email_branding_enabled'] = (bool) $br['branding_enabled'];
-                    $row['email_accent_color'] = (string) ($br['accent_color'] ?: '#3B2D83');
+                    $row = \MyInvoice\Service\Branding\BrandingProfileOverlay::apply($row, $br);
                 }
             }
             $row['email_branding_enabled'] = (bool) ($row['email_branding_enabled'] ?? false);

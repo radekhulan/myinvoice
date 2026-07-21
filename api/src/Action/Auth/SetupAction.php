@@ -208,24 +208,6 @@ final class SetupAction
         ]);
         $supplierId = (int) $pdo->lastInsertId();
 
-        $profileStmt = $pdo->prepare(
-            'INSERT INTO branding_profiles
-                (supplier_id, name, display_name, email, phone, web, accent_color,
-                 branding_enabled, pdf_logo_show_name, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 1)'
-        );
-        $profileStmt->execute([
-            $supplierId, 'Výchozí profil',
-            (string) ($supplier['display_name'] ?? '') ?: (string) ($supplier['company_name'] ?? ''),
-            (string) ($supplier['email'] ?? ''),
-            (string) ($supplier['phone'] ?? '') ?: null,
-            (string) ($supplier['web'] ?? '') ?: null,
-            '#3B2D83',
-        ]);
-        $defaultBrandingProfileId = (int) $pdo->lastInsertId();
-        $pdo->prepare('UPDATE supplier SET default_branding_profile_id = ? WHERE id = ?')
-            ->execute([$defaultBrandingProfileId, $supplierId]);
-
         // Seed default currencies (CZK + EUR) pro tohoto supplier
         $bank = isset($supplier['bank_account']) && is_array($supplier['bank_account']) ? $supplier['bank_account'] : null;
         $bankCurrency = $bank !== null ? strtoupper((string) ($bank['currency'] ?? $defaultCurrencyCode)) : null;

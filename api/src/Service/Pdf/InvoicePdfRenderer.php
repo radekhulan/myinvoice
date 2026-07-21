@@ -18,8 +18,6 @@ use MyInvoice\Service\Qr\QrPaymentGenerator;
 use MyInvoice\Service\Signing\Pdf\PdfSigningService;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
-use Twig\Extension\SandboxExtension;
-use Twig\Sandbox\SecurityPolicy;
 
 /**
  * Renderuje fakturu jako PDF.
@@ -233,9 +231,8 @@ final class InvoicePdfRenderer
         bool $includeWorkReport = true,
     ): array
     {
-        $custom = $this->resolveInvoiceTemplate($invoice);
         $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
-        $css = $custom !== null ? $custom['css'] : (is_file($cssPath) ? (string) file_get_contents($cssPath) : '');
+        $css = is_file($cssPath) ? (string) file_get_contents($cssPath) : '';
         // Per-supplier branding barva — přebarví fialové akcenty na zvolený odstín.
         $css .= $this->brandAccentCss($this->resolveSupplier($invoice));
         // Renderuj template BEZ inline <style> bloku — CSS pošleme do mPDF zvlášť
@@ -290,16 +287,15 @@ final class InvoicePdfRenderer
         }
 
         $locale = $invoice['language'] ?? 'cs';
-        $custom = $this->resolveInvoiceTemplate($invoice);
         $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
         $css = $includeCss
-            ? ($custom !== null ? $custom['css'] : (is_file($cssPath) ? (string) file_get_contents($cssPath) : ''))
+            ? (is_file($cssPath) ? (string) file_get_contents($cssPath) : '')
             : '';
         if ($includeCss && $css !== '') {
             $css .= $this->brandAccentCss($supplierData);
         }
 
-        $twig = $custom !== null ? $this->sandboxedTwig() : $this->twig();
+        $twig = $this->twig();
 
         // Translation helper
         $twig->addFunction(new \Twig\TwigFunction('t', static function (string $cs, string $en) use ($locale) {
@@ -340,52 +336,7 @@ final class InvoicePdfRenderer
             'logo_show_name'    => $logoPath !== null && !empty($supplierData['pdf_logo_show_name']),
             'isdoc_attachment'  => $hasIsdocAttachment, // bool — badge gate
         ];
-        return $custom !== null
-            ? $twig->createTemplate($custom['html'], 'branding-invoice.twig')->render($vars)
-            : $twig->render('invoice.twig', $vars);
-    }
-
-    /**
-     * Vyrenderuje neuloženou brandingovou šablonu nad syntetickým dokladem.
-     * Používá stejný Twig sandbox a mPDF konfiguraci jako skutečná faktura.
-     */
-    public function previewTemplate(string $html, string $css, int $supplierId): string
-    {
-        $today = date('Y-m-d');
-        $supplier = $this->getSupplierData($supplierId);
-        $supplier['invoice_template_html'] = $html;
-        $supplier['invoice_template_css'] = $css;
-        $invoice = [
-            'id' => 0, 'supplier_id' => $supplierId, 'client_id' => null,
-            'status' => 'issued', 'invoice_type' => 'invoice', 'language' => 'cs',
-            'varsymbol' => '202600001', 'currency' => 'CZK', 'payment_method' => 'bank_transfer',
-            'issue_date' => $today, 'tax_date' => $today, 'due_date' => date('Y-m-d', strtotime('+14 days')),
-            'amount_to_pay' => 1210.0, 'paid_total' => 0.0, 'total_without_vat' => 1000.0,
-            'total_vat' => 210.0, 'total_with_vat' => 1210.0, 'reverse_charge' => false,
-            'prices_include_vat' => false, 'project_name' => 'Ukázková zakázka',
-            'note' => 'Toto je bezpečný náhled se syntetickými daty.',
-            'parent_invoice_id' => null, 'supplier_snapshot' => $supplier,
-            'client_snapshot' => [
-                'company_name' => 'Ukázkový zákazník s.r.o.', 'first_name' => 'Jan', 'last_name' => 'Novák',
-                'street' => 'Testovací 123', 'zip' => '110 00', 'city' => 'Praha',
-                'country_iso2' => 'CZ', 'country_name_cs' => 'Česká republika', 'country_name_en' => 'Czechia',
-                'ic' => '12345678', 'dic' => 'CZ12345678', 'tax_number' => null,
-            ],
-            'bank_snapshot' => null,
-            'items' => [[
-                'description' => 'Ukázková služba', 'quantity' => 2.0, 'unit' => 'hod',
-                'unit_price' => 500.0, 'vat_rate' => 21.0, 'total_without_vat' => 1000.0,
-                'vat_amount' => 210.0, 'total_with_vat' => 1210.0,
-            ]],
-        ];
-
-        $rendered = $this->renderHtmlAndCss($invoice, false, false);
-        $tmpDir = \MyInvoice\Infrastructure\Config\RuntimePaths::storage('cache/mpdf');
-        if (!is_dir($tmpDir)) @mkdir($tmpDir, 0755, true);
-        $mpdf = $this->newMpdf($tmpDir);
-        if ($rendered['css'] !== '') $mpdf->WriteHTML($rendered['css'], \Mpdf\HTMLParserMode::HEADER_CSS);
-        $mpdf->WriteHTML($rendered['body'], \Mpdf\HTMLParserMode::HTML_BODY);
-        return $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+        return $twig->render('invoice.twig', $vars);
     }
 
     private function newMpdf(string $tmpDir): Mpdf
@@ -460,64 +411,23 @@ final class InvoicePdfRenderer
         ]);
     }
 
-    private function sandboxedTwig(): Environment
-    {
-        $twig = new Environment(new \Twig\Loader\ArrayLoader(), [
-            'autoescape' => 'html', 'cache' => false, 'strict_variables' => false,
-        ]);
-        $twig->addExtension(new SandboxExtension(new SecurityPolicy(
-            ['if', 'for', 'set'],
-            ['date', 'default', 'escape', 'e', 'filter', 'length', 'lower', 'nl2br', 'number_format', 'raw', 'replace', 'round', 'slice', 'trim', 'upper'],
-            [], [], ['t'],
-        ), true));
-        return $twig;
-    }
-
-    /** @return array{html:string,css:string}|null */
-    private function resolveInvoiceTemplate(array $invoice): ?array
-    {
-        $snapshot = $invoice['supplier_snapshot'] ?? null;
-        if (is_string($snapshot)) $snapshot = json_decode($snapshot, true);
-        if (is_array($snapshot) && !empty($snapshot['invoice_template_html'])) {
-            return ['html' => (string) $snapshot['invoice_template_html'], 'css' => (string) ($snapshot['invoice_template_css'] ?? '')];
-        }
-        if (($invoice['status'] ?? 'draft') !== 'draft') return null;
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT bp.invoice_template_html, bp.invoice_template_css
-               FROM supplier s JOIN branding_profiles bp ON bp.id = COALESCE(?, s.default_branding_profile_id)
-                                                    AND bp.supplier_id = s.id AND bp.is_active = 1
-              WHERE s.id = ?'
-        );
-        $stmt->execute([!empty($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null, (int) $invoice['supplier_id']]);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        if (!$row || empty($row['invoice_template_html'])) return null;
-        return ['html' => (string) $row['invoice_template_html'], 'css' => (string) ($row['invoice_template_css'] ?? '')];
-    }
-
     /** @param array<string,mixed> $supplier @param array<string,mixed> $invoice */
     private function applyLiveBrandingProfile(array $supplier, array $invoice): array
     {
+        if (empty($invoice['branding_profile_id'])) return $supplier;
         $stmt = $this->db->pdo()->prepare(
             'SELECT bp.* FROM supplier s
-               JOIN branding_profiles bp ON bp.id = COALESCE(?, s.default_branding_profile_id)
+               JOIN branding_profiles bp ON bp.id = ?
                                         AND bp.supplier_id = s.id AND bp.is_active = 1
-              WHERE s.id = ?'
+              WHERE s.id = ? AND s.branding_profiles_enabled = 1'
         );
         $stmt->execute([
-            !empty($invoice['branding_profile_id']) ? (int) $invoice['branding_profile_id'] : null,
+            (int) $invoice['branding_profile_id'],
             (int) ($invoice['supplier_id'] ?? 0),
         ]);
         $profile = $stmt->fetch(\PDO::FETCH_ASSOC);
         if ($profile === false) return $supplier;
-        foreach (['display_name', 'tagline', 'email', 'phone', 'web', 'email_footer', 'logo_path'] as $field) {
-            if ($profile[$field] !== null && $profile[$field] !== '') $supplier[$field] = $profile[$field];
-        }
-        $supplier['branding_profile_id'] = (int) $profile['id'];
-        $supplier['email_profile_id'] = $profile['email_profile_id'] !== null ? (int) $profile['email_profile_id'] : null;
-        $supplier['email_branding_enabled'] = (bool) $profile['branding_enabled'];
-        $supplier['email_accent_color'] = (string) $profile['accent_color'];
-        $supplier['pdf_logo_show_name'] = (bool) $profile['pdf_logo_show_name'];
-        return $supplier;
+        return \MyInvoice\Service\Branding\BrandingProfileOverlay::apply($supplier, $profile);
     }
 
     /**
