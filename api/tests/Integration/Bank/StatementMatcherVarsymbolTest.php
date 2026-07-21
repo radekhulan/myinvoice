@@ -116,11 +116,11 @@ final class StatementMatcherVarsymbolTest extends TestCase
         $pdo->prepare(
             "INSERT INTO invoices
                 (invoice_type, varsymbol, client_id, supplier_id, issue_date, tax_date, due_date,
-                 currency_id, status, total_without_vat, total_with_vat, amount_to_pay, paid_total, created_by)
-             VALUES ('invoice', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 currency_id, status, total_without_vat, total_with_vat, paid_total, created_by)
+             VALUES ('invoice', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )->execute([
             $varsymbol, $this->clientId, $this->supplierId, $d, $d, $d,
-            $this->currencyId, $status, $amount, $amount, $amount, $paidTotal, $this->userId,
+            $this->currencyId, $status, $amount, $amount, $paidTotal, $this->userId,
         ]);
         $this->invoiceId = (int) $pdo->lastInsertId();
 
@@ -217,11 +217,11 @@ final class StatementMatcherVarsymbolTest extends TestCase
         $pdo->prepare(
             "INSERT INTO invoices
                 (invoice_type, varsymbol, client_id, supplier_id, issue_date, tax_date, due_date,
-                 currency_id, status, total_without_vat, total_with_vat, amount_to_pay, paid_total, created_by)
-             VALUES ('proforma', '2099000260', ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?)"
+                 currency_id, status, total_without_vat, total_with_vat, paid_total, created_by)
+             VALUES ('proforma', '2099000260', ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?)"
         )->execute([
             $this->clientId, $this->supplierId, $d, $d, $d, $this->currencyId,
-            $amount, $amount, $amount, $amount, $this->userId,
+            $amount, $amount, $amount, $this->userId,
         ]);
         $proformaId = (int) $pdo->lastInsertId();
         $this->invoiceId = $proformaId;
@@ -230,11 +230,11 @@ final class StatementMatcherVarsymbolTest extends TestCase
         $pdo->prepare(
             "INSERT INTO invoices
                 (invoice_type, parent_invoice_id, varsymbol, client_id, supplier_id, issue_date, tax_date, due_date,
-                 currency_id, status, total_without_vat, total_with_vat, amount_to_pay, paid_total, created_by)
-             VALUES ('invoice', ?, '2099000261', ?, ?, ?, ?, ?, ?, 'paid', ?, ?, 0, 0, ?)"
+                 currency_id, status, total_without_vat, total_with_vat, advance_paid_amount, paid_total, created_by)
+             VALUES ('invoice', ?, '2099000261', ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, 0, ?)"
         )->execute([
             $proformaId, $this->clientId, $this->supplierId, $d, $d, $d, $this->currencyId,
-            $amount, $amount, $this->userId,
+            $amount, $amount, $amount, $this->userId,
         ]);
 
         $pdo->prepare(

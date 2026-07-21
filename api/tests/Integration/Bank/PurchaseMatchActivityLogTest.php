@@ -126,11 +126,11 @@ final class PurchaseMatchActivityLogTest extends TestCase
             "INSERT INTO purchase_invoices
                 (supplier_id, vendor_id, varsymbol, vendor_invoice_number, document_kind,
                  issue_date, tax_date, due_date, received_at, currency_id, vendor_snapshot,
-                 total_without_vat, total_with_vat, amount_to_pay, status, created_by)
-             VALUES (?, ?, ?, ?, 'invoice', ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?)"
+                 total_without_vat, total_with_vat, status, created_by)
+             VALUES (?, ?, ?, ?, 'invoice', ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?)"
         )->execute([
             $this->supplierId, $this->vendorId, self::TEST_VS, self::TEST_VS,
-            $d, $d, $d, $d, $this->currencyId, $amount, $amount, $amount, $status, $this->userId,
+            $d, $d, $d, $d, $this->currencyId, $amount, $amount, $status, $this->userId,
         ]);
         $this->purchaseId = (int) $pdo->lastInsertId();
 
@@ -209,11 +209,11 @@ final class PurchaseMatchActivityLogTest extends TestCase
             "INSERT INTO purchase_invoices
                 (supplier_id, vendor_id, varsymbol, vendor_invoice_number, document_kind,
                  issue_date, tax_date, due_date, received_at, currency_id, vendor_snapshot,
-                 total_without_vat, total_with_vat, amount_to_pay, status, created_by)
-             VALUES (?, ?, ?, ?, 'invoice', '2099-06-15','2099-06-15','2099-06-15','2099-06-15', ?, '{}', ?, ?, ?, 'paid', ?)"
+                 total_without_vat, total_with_vat, status, created_by)
+             VALUES (?, ?, ?, ?, 'invoice', '2099-06-15','2099-06-15','2099-06-15','2099-06-15', ?, '{}', ?, ?, 'paid', ?)"
         )->execute([
             $this->supplierId, $this->vendorId, $secondVno, $secondVno,
-            $this->currencyId, 2500.00, 2500.00, 2500.00, $this->userId,
+            $this->currencyId, 2500.00, 2500.00, $this->userId,
         ]);
         $secondId = (int) $pdo->lastInsertId();
 

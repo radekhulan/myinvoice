@@ -19,19 +19,23 @@ use PHPUnit\Framework\TestCase;
  * **Soft skip** pokud schema chybí v storage/xsd/ (production deploy nemusí mít).
  * Lokálně + CI po `bash cmd/download-xsd.sh` test fakticky validuje.
  *
- * Pozn.: vyžaduje validní supplier_id=1 s alespoň pár fakturami (smoke data).
- * Tj. test je **Integration** (DB-touching), ne Unit.
+ * Používá vlastního syntetického dodavatele, takže výsledek nezávisí na datech
+ * konkrétní vývojové instalace. Test je **Integration** (DB-touching), ne Unit.
  */
 final class EpoXsdValidationTest extends TestCase
 {
     private XmlSchemaValidator $validator;
     private ?\MyInvoice\Infrastructure\Database\Connection $conn = null;
+    private int $supplierId = 0;
 
     /** @var array<string, callable(): array{xml: string, summary: array, warnings: array}> */
     private array $builders = [];
 
     protected function tearDown(): void
     {
+        if ($this->conn !== null && $this->supplierId > 0) {
+            $this->conn->pdo()->prepare('DELETE FROM supplier WHERE id = ?')->execute([$this->supplierId]);
+        }
         // Uvolni MySQL connection (per-metodu container by jinak kumuloval connections
         // přes celý běh → MariaDB max_connections).
         $this->conn?->close();
@@ -56,23 +60,23 @@ final class EpoXsdValidationTest extends TestCase
         $container = Bootstrap::buildApp()->getContainer();
         $this->validator = $container->get(XmlSchemaValidator::class);
         $this->conn = $container->get(\MyInvoice\Infrastructure\Database\Connection::class);
+        $this->supplierId = $this->createSyntheticSupplier();
 
-        $supplierId = 1;
         $year = (int) date('Y');
         $month = (int) date('n');
 
         // Lazy builders — každý test si volá svůj
         $this->builders = [
             'dphdp3' => fn () => $container->get(DphPriznaniBuilder::class)
-                ->build($supplierId, $year, $month, 'monthly'),
+                ->build($this->supplierId, $year, $month, 'monthly'),
             'dphkh1' => fn () => $container->get(KontrolniHlaseniBuilder::class)
-                ->build($supplierId, $year, $month),
+                ->build($this->supplierId, $year, $month),
             'dphshv' => fn () => $container->get(SouhrnneHlaseniBuilder::class)
-                ->build($supplierId, $year, $month),
+                ->build($this->supplierId, $year, $month),
             'dpfdp5' => fn () => $container->get(IncomeTaxBuilder::class)
-                ->build($supplierId, $year - 1, 'fo'),
+                ->build($this->supplierId, $year - 1, 'fo'),
             'dppdp9' => fn () => $container->get(IncomeTaxBuilder::class)
-                ->build($supplierId, $year - 1, 'po'),
+                ->build($this->supplierId, $year - 1, 'po'),
         ];
     }
 
@@ -153,12 +157,14 @@ final class EpoXsdValidationTest extends TestCase
         // JEN když má supplier odpovídající sloupec vyplněný. FO bez sestavitele
         // legitimně nemá opr_*/sest_*, OSVČ nemá zkrobchjm — proto podmíněně (jinak by
         // test padal na neúplných, ale validních profilech).
-        $sup = $this->conn?->pdo()->query(
+        $stmt = $this->conn?->pdo()->prepare(
             'SELECT financial_office_code, workplace_code, dic, taxpayer_type, company_name,
                     street_number_pop, street_number_orient, email, phone, cz_nace_code,
                     opr_jmeno, opr_prijmeni, opr_postaveni, sest_jmeno, sest_prijmeni, sest_telefon
-               FROM supplier WHERE id = 1'
-        )->fetch(\PDO::FETCH_ASSOC) ?: [];
+               FROM supplier WHERE id = ?'
+        );
+        $stmt?->execute([$this->supplierId]);
+        $sup = $stmt?->fetch(\PDO::FETCH_ASSOC) ?: [];
 
         // Vždy povinné (struktura každého validního plátce).
         $expected = ['c_ufo', 'dic', 'typ_ds', 'ulice', 'naz_obce', 'psc', 'stat'];
@@ -249,5 +255,29 @@ final class EpoXsdValidationTest extends TestCase
             "XSD validation pro {$formCode} selhala s chybami:\n  - " . implode("\n  - ", $validation['errors']),
         );
         $this->assertEmpty($validation['errors'], "XSD errors v {$formCode}: " . print_r($validation['errors'], true));
+    }
+
+    private function createSyntheticSupplier(): int
+    {
+        $pdo = $this->conn?->pdo() ?? throw new \RuntimeException('DB connection není inicializované.');
+        $countryId = (int) ($pdo->query("SELECT id FROM countries WHERE iso2 = 'CZ' LIMIT 1")->fetchColumn() ?: 0);
+        $currencyId = (int) ($pdo->query("SELECT id FROM currencies WHERE code = 'CZK' ORDER BY id LIMIT 1")->fetchColumn() ?: 0);
+        $vatRateId = (int) ($pdo->query("SELECT id FROM vat_rates WHERE country = 'CZ' ORDER BY is_default DESC, id LIMIT 1")->fetchColumn() ?: 0);
+        if ($countryId === 0 || $currencyId === 0 || $vatRateId === 0) {
+            $this->markTestSkipped('Chybí základní CZ číselníky pro syntetického EPO dodavatele.');
+        }
+
+        $pdo->prepare(
+            'INSERT INTO supplier
+                (company_name, street, city, zip, country_id, ic, dic, is_vat_payer, email, phone,
+                 default_currency_id, default_vat_rate_id, taxpayer_type, financial_office_code,
+                 workplace_code, street_number_pop, street_number_orient)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            'TEST EPO s.r.o.', 'Testovací', 'Praha', '11000', $countryId,
+            '00000019', 'CZ12345678', 'epo-test@example.invalid', '123456789',
+            $currencyId, $vatRateId, 'po', '451', '2001', '42', '7',
+        ]);
+        return (int) $pdo->lastInsertId();
     }
 }

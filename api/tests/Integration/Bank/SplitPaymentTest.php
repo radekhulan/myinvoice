@@ -129,11 +129,11 @@ final class SplitPaymentTest extends TestCase
         $pdo->prepare(
             "INSERT INTO invoices
                 (invoice_type, varsymbol, client_id, supplier_id, issue_date, tax_date, due_date,
-                 currency_id, status, total_without_vat, total_with_vat, amount_to_pay, paid_total, created_by)
-             VALUES ('invoice', ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, 0, ?)"
+                 currency_id, status, total_without_vat, total_with_vat, paid_total, created_by)
+             VALUES ('invoice', ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, 0, ?)"
         )->execute([
             $vs, $clientId, $this->supplierId, $d, $d, $d,
-            $this->currencyId, $amount, $amount, $amount, $this->userId,
+            $this->currencyId, $amount, $amount, $this->userId,
         ]);
         return (int) $pdo->lastInsertId();
     }

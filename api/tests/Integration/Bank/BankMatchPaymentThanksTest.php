@@ -132,9 +132,9 @@ final class BankMatchPaymentThanksTest extends TestCase
         $pdo->prepare(
             "INSERT INTO invoices
                 (invoice_type, varsymbol, client_id, supplier_id, issue_date, tax_date, due_date,
-                 currency_id, status, amount_to_pay, total_without_vat, total_with_vat, created_by)
-             VALUES ('invoice', ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, 'issued', ?, 1000, ?, ?)"
-        )->execute([$this->varsymbol, $this->clientId, $this->supplierId, $this->currencyId, $amount, $amount, $userId]);
+                 currency_id, status, total_without_vat, total_with_vat, created_by)
+             VALUES ('invoice', ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, 'issued', 1000, ?, ?)"
+        )->execute([$this->varsymbol, $this->clientId, $this->supplierId, $this->currencyId, $amount, $userId]);
         $this->invoiceId = (int) $pdo->lastInsertId();
 
         // Bankovní výpis + příchozí transakce přesně na VS + částku faktury.

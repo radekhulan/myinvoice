@@ -99,10 +99,10 @@ final class KhDphTaxScenariosTest extends TestCase
         // řádků — reálné nastavení dodavatele v dev DB by testy rozbilo. Vynutit
         // plátce a v tearDown vrátit (IO režim kryje IdentifiedPersonDphTest).
         $flags = $pdo->query(
-            "SELECT is_vat_payer, is_identified FROM supplier WHERE id = {$this->supplierId}"
+            "SELECT is_vat_payer, is_identified, dic FROM supplier WHERE id = {$this->supplierId}"
         )->fetch(\PDO::FETCH_ASSOC) ?: [];
         $this->origVatFlags = $flags;
-        $pdo->prepare('UPDATE supplier SET is_vat_payer = 1, is_identified = 0 WHERE id = ?')
+        $pdo->prepare("UPDATE supplier SET is_vat_payer = 1, is_identified = 0, dic = 'CZ12345678' WHERE id = ?")
             ->execute([$this->supplierId]);
     }
 
@@ -113,10 +113,11 @@ final class KhDphTaxScenariosTest extends TestCase
         }
         $pdo = $this->db->pdo();
         if ($this->origVatFlags !== null && $this->supplierId > 0) {
-            $pdo->prepare('UPDATE supplier SET is_vat_payer = ?, is_identified = ? WHERE id = ?')
+            $pdo->prepare('UPDATE supplier SET is_vat_payer = ?, is_identified = ?, dic = ? WHERE id = ?')
                 ->execute([
                     (int) ($this->origVatFlags['is_vat_payer'] ?? 1),
                     (int) ($this->origVatFlags['is_identified'] ?? 0),
+                    $this->origVatFlags['dic'] ?? null,
                     $this->supplierId,
                 ]);
         }
