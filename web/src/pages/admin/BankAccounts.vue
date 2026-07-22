@@ -551,6 +551,7 @@ function parserTypeLabel(parserType: BankEmailProvider['parser_type']): string {
     case 'csob': return 'ČSOB'
     case 'fio': return 'Fio banka'
     case 'creditas': return 'Creditas'
+    case 'moneta': return 'MONETA Money Bank'
     default: return t('bank_accounts.parser_builtin')
   }
 }

@@ -53,6 +53,24 @@ final class AccountNumberNormalizerTest extends TestCase
         self::assertTrue(AccountNumberNormalizer::equals('0000', ''));
     }
 
+    public function testEqualsMonetaMaskedAccount(): void
+    {
+        // Moneta Info Servis: „Účet: 238***891" vs. plné číslo stejné délky.
+        self::assertTrue(AccountNumberNormalizer::equals('238***891', '238456891'));
+        self::assertTrue(AccountNumberNormalizer::equals('238456891', '238***891'));
+        self::assertTrue(AccountNumberNormalizer::equals('238***891/0600', '238456891'));
+        self::assertTrue(AccountNumberNormalizer::equals('238***891', '238456891/0600'));
+        self::assertFalse(AccountNumberNormalizer::equals('238***891', '239456891'));
+        self::assertFalse(AccountNumberNormalizer::equals('238***891', '2384567891')); // jiná délka
+        self::assertFalse(AccountNumberNormalizer::equals('238***891', '238***892')); // dvě masky
+    }
+
+    public function testMatchesAnyViaMonetaMaskedAccount(): void
+    {
+        self::assertTrue(AccountNumberNormalizer::matchesAny('238***891', '238456891', null));
+        self::assertFalse(AccountNumberNormalizer::matchesAny('238***891', '239456891', null));
+    }
+
     // ── IBAN podpora (#109 — EUR účty evidované jen IBANem vs GPC výpis) ──
 
     #[DataProvider('ibanAccountPartCases')]

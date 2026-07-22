@@ -403,7 +403,8 @@ abstract class AbstractBankEmailNoticeParser implements BankEmailNoticeParserInt
         if ($direction === '') {
             return $amount;
         }
-        if (preg_match('/odchoz|výdej|vydej|výdaj|vydaj|debet|odepsán|odepsan|outgoing/u', $direction) === 1) {
+        // Moneta Info Servis: předmět/nadpis „Odešly peníze" (ne „odchozí").
+        if (preg_match('/odchoz|ode[sš]l|výdej|vydej|výdaj|vydaj|debet|odepsán|odepsan|outgoing/u', $direction) === 1) {
             return -abs($amount);
         }
         return abs($amount);

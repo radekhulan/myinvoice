@@ -9,6 +9,7 @@ namespace MyInvoice\Service\Bank;
  *  - GPC výpisem (zero-padded 16 cifer, např. `0000000123456789`)
  *  - currencies.account_number (uložené bez padding, např. `123456789`)
  *  - CZ účty s prefixem (`19-2000145399` → `192000145399`)
+ *  - e-mailovými avízy s maskovaným číslem (Moneta Info Servis: `238***891`)
  *
  * Strip non-digits + ltrim '0'. Po normalize se dva různé zápisy stejného účtu
  * shodují.
@@ -25,10 +26,56 @@ final class AccountNumberNormalizer
         return ltrim($digitsOnly, '0');
     }
 
-    /** True pokud dvě account number stringy odkazují na stejný účet (po normalize). */
+    /**
+     * True pokud dvě account number stringy odkazují na stejný účet.
+     *
+     * Nejdřív přes normalize (GPC padding / pomlčky). Když nesedí, zkusí
+     * maskovanou shodu — Moneta v avízu posílá `238***891` místo plného čísla,
+     * a mapování e-mailových notifikací by jinak spadlo na match_failed.
+     */
     public static function equals(string $a, string $b): bool
     {
-        return self::normalize($a) === self::normalize($b);
+        if (self::normalize($a) === self::normalize($b)) {
+            return true;
+        }
+        return self::matchesMasked($a, $b) || self::matchesMasked($b, $a);
+    }
+
+    /**
+     * Maskovaný zápis (číslice + `*`) vs. plné číslo stejné délky.
+     *
+     * Každá `*` zastupuje právě jednu číslici. Pomlčky a kód banky za `/`
+     * se ignorují. Obě strany s `*` → false (dvě masky se neporovnávají).
+     *
+     * Příklad: `238***891` sedí na `238456891` i `238456891/0600`,
+     * ale ne na `239456891` (jiný prefix) ani `2384567891` (jiná délka).
+     */
+    private static function matchesMasked(string $masked, string $full): bool
+    {
+        $maskPart = explode('/', trim($masked), 2)[0];
+        if ($maskPart === '' || !str_contains($maskPart, '*')) {
+            return false;
+        }
+        if (str_contains($full, '*')) {
+            return false;
+        }
+
+        $maskPattern = preg_replace('/[^0-9*]/', '', $maskPart) ?? '';
+        $fullDigits = preg_replace('/\D/', '', explode('/', trim($full), 2)[0]) ?? '';
+        if ($maskPattern === '' || $fullDigits === '' || strlen($maskPattern) !== strlen($fullDigits)) {
+            return false;
+        }
+
+        $len = strlen($maskPattern);
+        for ($i = 0; $i < $len; $i++) {
+            if ($maskPattern[$i] === '*') {
+                continue;
+            }
+            if ($maskPattern[$i] !== $fullDigits[$i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

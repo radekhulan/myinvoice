@@ -229,6 +229,7 @@ final class Config
                     'csob' => \MyInvoice\Service\Bank\EmailNotice\Parser\CsobBankEmailNoticeParser::class,
                     'fio' => \MyInvoice\Service\Bank\EmailNotice\Parser\FioBankEmailNoticeParser::class,
                     'creditas' => \MyInvoice\Service\Bank\EmailNotice\Parser\CreditasBankEmailNoticeParser::class,
+                    'moneta' => \MyInvoice\Service\Bank\EmailNotice\Parser\MonetaBankEmailNoticeParser::class,
                 ],
             ],
         ];
