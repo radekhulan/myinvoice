@@ -25,28 +25,36 @@ final class WebklexImapMailboxClient implements ImapMailboxClientInterface
 
             $out = [];
             foreach ($messages as $message) {
-                $html = (string) $message->getHTMLBody();
-                $text = (string) $message->getTextBody();
-                $rawBody = method_exists($message, 'getRawBody') ? (string) $message->getRawBody() : ($html !== '' ? $html : $text);
-                $body = $text !== '' ? $text : ($html !== '' ? $html : $rawBody);
-                $date = $this->messageDate($message);
-                $out[] = new BankEmailNoticeMessage(
-                    uid: method_exists($message, 'getUid') ? (int) $message->getUid() : null,
-                    messageId: trim((string) $message->getMessageId()) ?: null,
-                    date: $date,
-                    sender: MimeHeaderDecoder::decode((string) $message->getFrom()),
-                    subject: MimeHeaderDecoder::decode((string) $message->getSubject()),
-                    text: $this->normalizer->normalize($body),
-                    raw: $rawBody,
-                    authResults: $this->authenticationResults($message),
-                    allowForwarded: (bool) ($settings['allow_forwarded'] ?? false),
-                    forwardedFrom: trim((string) ($settings['forwarded_from'] ?? '')),
-                );
+                $out[] = $this->toNoticeMessage($message, $settings);
             }
             return $out;
         } finally {
             $client->disconnect();
         }
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     */
+    private function toNoticeMessage(object $message, array $settings): BankEmailNoticeMessage
+    {
+        $html = (string) $message->getHTMLBody();
+        $text = (string) $message->getTextBody();
+        $rawBody = method_exists($message, 'getRawBody') ? (string) $message->getRawBody() : ($html !== '' ? $html : $text);
+        $body = $text !== '' ? $text : ($html !== '' ? $html : $rawBody);
+
+        return new BankEmailNoticeMessage(
+            uid: (int) $message->getUid() ?: null,
+            messageId: trim((string) $message->getMessageId()) ?: null,
+            date: $this->messageDate($message),
+            sender: MimeHeaderDecoder::decode((string) $message->getFrom()),
+            subject: MimeHeaderDecoder::decode((string) $message->getSubject()),
+            text: $this->normalizer->normalize($body),
+            raw: $rawBody,
+            authResults: $this->authenticationResults($message),
+            allowForwarded: (bool) ($settings['allow_forwarded'] ?? false),
+            forwardedFrom: trim((string) ($settings['forwarded_from'] ?? '')),
+        );
     }
 
     public function test(array $settings): array
