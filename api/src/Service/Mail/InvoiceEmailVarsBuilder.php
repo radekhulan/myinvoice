@@ -271,22 +271,36 @@ final class InvoiceEmailVarsBuilder
             $row['id'] = $sid;
         }
 
-        // 3. Vystavený doklad používá immutable branding ze snapshotu. U draftu
-        //    načteme explicitní profil, případně výchozí profil dodavatele.
+        // 3. Profilový branding vystaveného dokladu je immutable ve snapshotu.
+        //    Bez profilového snapshotu musí vypnutý modul zachovat původní
+        //    chování: logo, přepínač a barvu načítat živě ze supplier.
         if ($row !== null && $sid > 0) {
             $hasSnapshotProfile = !empty($row['branding_profile_id']);
-            if (!$hasSnapshotProfile && !empty($invoice['branding_profile_id'])) {
-                $profileId = (int) $invoice['branding_profile_id'];
-                $bStmt = $this->db->pdo()->prepare(
-                    'SELECT bp.* FROM supplier s
-                       JOIN branding_profiles bp ON bp.id = ?
-                                                AND bp.supplier_id = s.id AND bp.is_active = 1
-                      WHERE s.id = ? AND s.branding_profiles_enabled = 1'
+            if (!$hasSnapshotProfile) {
+                $legacyStmt = $this->db->pdo()->prepare(
+                    'SELECT branding_profiles_enabled, email_branding_enabled, email_accent_color, logo_path
+                       FROM supplier WHERE id = ?'
                 );
-                $bStmt->execute([$profileId, $sid]);
-                $br = $bStmt->fetch(\PDO::FETCH_ASSOC);
-                if ($br !== false) {
-                    $row = \MyInvoice\Service\Branding\BrandingProfileOverlay::apply($row, $br);
+                $legacyStmt->execute([$sid]);
+                $legacy = $legacyStmt->fetch(\PDO::FETCH_ASSOC);
+
+                if ($legacy !== false && empty($legacy['branding_profiles_enabled'])) {
+                    $row['email_branding_enabled'] = (bool) $legacy['email_branding_enabled'];
+                    $row['email_accent_color'] = (string) ($legacy['email_accent_color'] ?: '#3B2D83');
+                    $row['logo_path'] = $legacy['logo_path'] ?: null;
+                } elseif (!empty($invoice['branding_profile_id'])) {
+                    $profileId = (int) $invoice['branding_profile_id'];
+                    $bStmt = $this->db->pdo()->prepare(
+                        'SELECT bp.* FROM supplier s
+                           JOIN branding_profiles bp ON bp.id = ?
+                                                    AND bp.supplier_id = s.id AND bp.is_active = 1
+                          WHERE s.id = ? AND s.branding_profiles_enabled = 1'
+                    );
+                    $bStmt->execute([$profileId, $sid]);
+                    $br = $bStmt->fetch(\PDO::FETCH_ASSOC);
+                    if ($br !== false) {
+                        $row = \MyInvoice\Service\Branding\BrandingProfileOverlay::apply($row, $br);
+                    }
                 }
             }
             $row['email_branding_enabled'] = (bool) ($row['email_branding_enabled'] ?? false);
