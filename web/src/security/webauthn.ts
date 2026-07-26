@@ -22,6 +22,39 @@ function finishCeremony(controller: AbortController): void {
   if (activeCeremony === controller) activeCeremony = null
 }
 
+// Prohlížeč nemusí serverový `timeout` z options vůbec vynutit — a když se nad
+// nezaostřenou stránkou nevykreslí systémový dialog, promise nedoběhne vůbec.
+// Vlastní strop zaručí, že se UI nikdy nezasekne bez chybové hlášky.
+const CEREMONY_GRACE_MS = 5_000
+const CEREMONY_FALLBACK_TIMEOUT_MS = 120_000
+
+async function runCeremony(
+  options: JsonObject,
+  run: (signal: AbortSignal) => Promise<Credential | null>,
+): Promise<JsonObject> {
+  if (!isWebAuthnAvailable()) throw new Error('webauthn_unavailable')
+  const controller = startCeremony()
+  const configured = Number(options.timeout)
+  const limit = (Number.isFinite(configured) && configured > 0
+    ? configured
+    : CEREMONY_FALLBACK_TIMEOUT_MS) + CEREMONY_GRACE_MS
+  let timedOut = false
+  const timer = window.setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, limit)
+  try {
+    const credential = await run(controller.signal)
+    if (!(credential instanceof PublicKeyCredential)) throw new Error('webauthn_cancelled')
+    return credentialToJson(credential)
+  } catch (e: any) {
+    throw timedOut ? new Error('webauthn_timeout') : e
+  } finally {
+    window.clearTimeout(timer)
+    finishCeremony(controller)
+  }
+}
+
 export function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - value.length % 4) % 4)
   const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/') + padding)
@@ -82,31 +115,15 @@ export function credentialToJson(credential: PublicKeyCredential): JsonObject {
 }
 
 export async function getCredential(options: JsonObject): Promise<JsonObject> {
-  if (!isWebAuthnAvailable()) throw new Error('webauthn_unavailable')
-  const controller = startCeremony()
-  try {
-    const credential = await navigator.credentials.get({
-      publicKey: requestOptionsFromJson(options),
-      signal: controller.signal,
-    })
-    if (!(credential instanceof PublicKeyCredential)) throw new Error('webauthn_cancelled')
-    return credentialToJson(credential)
-  } finally {
-    finishCeremony(controller)
-  }
+  return runCeremony(options, signal => navigator.credentials.get({
+    publicKey: requestOptionsFromJson(options),
+    signal,
+  }))
 }
 
 export async function createCredential(options: JsonObject): Promise<JsonObject> {
-  if (!isWebAuthnAvailable()) throw new Error('webauthn_unavailable')
-  const controller = startCeremony()
-  try {
-    const credential = await navigator.credentials.create({
-      publicKey: creationOptionsFromJson(options),
-      signal: controller.signal,
-    })
-    if (!(credential instanceof PublicKeyCredential)) throw new Error('webauthn_cancelled')
-    return credentialToJson(credential)
-  } finally {
-    finishCeremony(controller)
-  }
+  return runCeremony(options, signal => navigator.credentials.create({
+    publicKey: creationOptionsFromJson(options),
+    signal,
+  }))
 }

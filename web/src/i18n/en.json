@@ -1198,6 +1198,7 @@
     "passkey_login": "Verify with a passkey",
     "passkey_verifying": "Verifying…",
     "passkey_failed": "Passkey verification failed.",
+    "passkey_timeout": "The passkey dialog did not open or was not completed. Try again, or use your authenticator code.",
     "passkey_unsupported_recovery": "This browser does not support passkeys. Use an available TOTP code, a supported device or browser, or ask an administrator to reset MFA.",
     "use_totp_instead": "Use an authenticator code"
   },

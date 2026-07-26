@@ -52,6 +52,18 @@ test('TOTP fallback survives a failed or cancelled passkey ceremony', async () =
   assert.doesNotMatch(login, /v-if="passkeyFlow\.methods\.includes\('totp'\)"/)
 })
 
+test('passkey MFA step keeps the captcha token instead of re-rendering the widget', async () => {
+  const login = await readFile(new URL('pages/Login.vue', root), 'utf8')
+  const branch = login.match(/code === 'mfa_required'\) \{([\s\S]*?)\} else if/)?.[1] || ''
+
+  // Re-render Turnstile bere fokus dokumentu a prohlížeč pak WebAuthn dialog
+  // nevykreslí — v této větvi se proto resetovat nesmí.
+  assert.doesNotMatch(branch, /turnstile\.reset\(\)/)
+  const fallback = login.match(/function useTotpFallback\(\) \{([\s\S]*?)\r?\n\}/)?.[1] || ''
+  assert.match(fallback, /turnstile\.reset\(\)/)
+  assert.match(fallback, /cancelActiveWebAuthnCeremony\(\)/)
+})
+
 test('TOTP code is required for the first passkey and hidden without TOTP', async () => {
   const passkeys = await readFile(new URL('pages/Passkeys.vue', root), 'utf8')
 

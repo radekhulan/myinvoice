@@ -17,9 +17,19 @@ test('session-aware polling stops for hidden or covered private UI and aborts in
 })
 
 test('locking cancels an active WebAuthn ceremony', () => {
-  assert.match(webauthn, /signal:\s*controller\.signal/)
+  // Obě ceremonie jdou přes runCeremony, který drží abortovatelný controller.
+  assert.match(webauthn, /run\(controller\.signal\)/)
+  assert.match(webauthn, /navigator\.credentials\.get\(\{[\s\S]*signal,/)
+  assert.match(webauthn, /navigator\.credentials\.create\(\{[\s\S]*signal,/)
   assert.match(webauthn, /activeCeremony\?\.abort\(\)/)
   assert.match(sessionSecurity, /cancelActiveWebAuthnCeremony\(\)/)
+})
+
+test('a stuck WebAuthn ceremony cannot hang the UI silently', () => {
+  // Bez vlastního stropu promise nedoběhne, když se systémový dialog nevykreslí.
+  assert.match(webauthn, /CEREMONY_FALLBACK_TIMEOUT_MS/)
+  assert.match(webauthn, /timedOut = true\s*\r?\n\s*controller\.abort\(\)/)
+  assert.match(webauthn, /throw timedOut \? new Error\('webauthn_timeout'\) : e/)
 })
 
 test('cold-start lock keeps the private route unmounted until full profile hydration', () => {

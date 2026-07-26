@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTurnstile } from '@/composables/useTurnstile'
 import { authApi } from '@/api/auth'
-import { getCredential, isWebAuthnAvailable } from '@/security/webauthn'
+import { cancelActiveWebAuthnCeremony, getCredential, isWebAuthnAvailable } from '@/security/webauthn'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -131,7 +131,10 @@ async function submit() {
       }
       totpRequired.value = false
       error.value = ''
-      turnstile.reset()
+      // Turnstile se tu ZÁMĚRNĚ neresetuje: passkey verify captcha token nepoužívá
+      // a re-render widgetu přebírá fokus dokumentu. Prohlížeč pak nad nezaostřenou
+      // stránkou nevykreslí WebAuthn dialog a credentials.get() visí. Nový token
+      // si vyžádá až cesta, která ho reálně potřebuje (TOTP fallback / další submit).
     } else if (code === 'email_otp_required') {
       // Heslo OK, user nemá TOTP → backend poslal kód na e-mail.
       emailOtpRequired.value = true
@@ -208,7 +211,9 @@ async function verifyPasskey() {
     // Další submit hesla proto vždy získá novou ceremony.
     passkeyFlow.value = null
     turnstile.reset()
-    error.value = e?.response?.data?.error?.message || t('auth.passkey_failed')
+    error.value = e?.message === 'webauthn_timeout'
+      ? t('auth.passkey_timeout')
+      : e?.response?.data?.error?.message || t('auth.passkey_failed')
   } finally {
     passkeyBusy.value = false
   }
@@ -217,9 +222,12 @@ async function verifyPasskey() {
 function useTotpFallback() {
   // TOTP dokončuje původní heslový login request. Aktivní passkey flow nesmí
   // držet submit disabled; nevyužitá ceremony pouze krátce expiruje na serveru.
+  cancelActiveWebAuthnCeremony()
   passkeyFlow.value = null
   totpRequired.value = true
   error.value = ''
+  // Teprve tady je nový captcha token potřeba — další submit půjde s heslem.
+  turnstile.reset()
 }
 
 // Poslat e-mailový kód znovu. Re-submitne heslo s resend_otp=1; backend pošle
@@ -320,7 +328,7 @@ async function resendCode() {
           </div>
 
           <div v-if="passkeyFlow || canUseTotpFallback"
-               class="rounded-md border border-primary-200 bg-primary-50 p-3 space-y-2">
+               class="rounded-md border border-primary-500/40 bg-primary-50 p-3 space-y-2">
             <template v-if="passkeyFlow">
               <button v-if="passkeySupported" type="button" @click="verifyPasskey" :disabled="passkeyBusy"
                       class="w-full h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white font-medium rounded-md">
