@@ -77,7 +77,7 @@ Options -Indexes -MultiViews
     # CSP: doplněno unpkg.com (Swagger UI) + cdn.redoc.ly (Redoc) + cdn.jsdelivr.net (Scalar)
     # pro /api/docs, /api/reference a /api/scalar.
     # Sladěno s web.config (IIS). worker-src 'self' blob: je nutné pro Swagger UI tryItOut request snippety.
-    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://validator.swagger.io https://cdn.redoc.ly https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://unpkg.com https://cdn.redoc.ly https://cdn.jsdelivr.net; worker-src 'self' blob:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://unpkg.com https://cdn.redoc.ly https://cdn.jsdelivr.net; frame-src 'self' blob: https://challenges.cloudflare.com; object-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://validator.swagger.io https://cdn.redoc.ly https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://unpkg.com https://cdn.redoc.ly https://cdn.jsdelivr.net; worker-src 'self' blob:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://unpkg.com https://cdn.redoc.ly https://cdn.jsdelivr.net; frame-src 'self' blob: https://challenges.cloudflare.com chrome-extension: moz-extension:; object-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     Header unset Server
     Header unset X-Powered-By
 </IfModule>
