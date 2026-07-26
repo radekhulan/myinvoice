@@ -130,6 +130,18 @@ na aktuálním zařízení není dostupná, použij jinou passkey, TOTP nebo res
 
 ### 39.2.4 Obnova přístupu
 
+Kde passkey fyzicky leží, rozhoduje o tom, co se stane při ztrátě zařízení:
+
+- **V zařízení** (Windows Hello, Touch ID, bezpečnostní klíč) — klíč je vázaný
+  na hardware. S koncem zařízení končí i on.
+- **Ve správci hesel nebo v cloudu účtu** (Keeper, 1Password, iCloud Keychain,
+  Google Password Manager) — klíč se synchronizuje, takže přežije výměnu
+  počítače a přihlásíš se jím i jinde.
+
+Kam se klíč uloží, vybírá prohlížeč při registraci; aplikace to neřídí a ani to
+nezjistí zpětně. Máš-li jediný klíč a ten je vázaný na zařízení, drž si jako
+zálohu buď druhý klíč, nebo aktivní TOTP.
+
 Nejprve použij jinou zaregistrovanou passkey nebo TOTP. Pokud není dostupný
 žádný silný faktor, správce může na serveru spustit:
 
