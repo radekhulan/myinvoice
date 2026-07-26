@@ -52,6 +52,23 @@ test('TOTP fallback survives a failed or cancelled passkey ceremony', async () =
   assert.doesNotMatch(login, /v-if="passkeyFlow\.methods\.includes\('totp'\)"/)
 })
 
+test('TOTP code is required for the first passkey and hidden without TOTP', async () => {
+  const passkeys = await readFile(new URL('pages/Passkeys.vue', root), 'utf8')
+
+  // Bez TOTP se pole vůbec nevykreslí…
+  assert.match(passkeys, /v-if="hasTotp"/)
+  // …a s TOTP, ale bez existující passkey, je povinné (label, placeholder, disabled).
+  assert.match(
+    passkeys,
+    /const totpRequired = computed\(\(\) => hasTotp\.value && list\.value\.length === 0\)/,
+  )
+  assert.match(passkeys, /totpRequired \? t\('passkeys\.totp_label_required'\)/)
+  assert.match(passkeys, /:required="totpRequired"/)
+  assert.match(passkeys, /totpRequired && !totpCodeValid/)
+  // 409 passkey_unavailable se nesmí ukázat jako generická chyba.
+  assert.match(passkeys, /code === 'passkey_unavailable'[\s\S]*totp_required_error/)
+})
+
 test('API token step-up offers both factors and keeps a passkey proof after unrelated errors', async () => {
   const tokens = await readFile(new URL('pages/ApiTokens.vue', root), 'utf8')
 

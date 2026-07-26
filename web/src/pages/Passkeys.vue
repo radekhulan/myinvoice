@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authApi, type PasskeyCredential } from '@/api/auth'
 import { createCredential, getCredential, isWebAuthnAvailable } from '@/security/webauthn'
@@ -17,13 +17,23 @@ const busy = ref(false)
 const error = ref('')
 const passkeySupported = isWebAuthnAvailable()
 
+const hasTotp = computed(() => auth.user?.totp_enabled === true)
+const totpCodeValid = computed(() => /^\d{6}$/.test(totpCode.value))
+// Step-up umí jen passkey nebo TOTP. Dokud uživatel žádnou passkey nemá, je TOTP
+// jediný použitelný faktor — tedy povinný, ne „volitelná alternativa". Jakmile
+// nějakou passkey má, může se ověřit jí a kód je skutečně volitelný.
+const totpRequired = computed(() => hasTotp.value && list.value.length === 0)
+
 async function load() {
   list.value = await authApi.passkeys()
 }
 
 async function stepUp(operation: string): Promise<string> {
-  if (/^\d{6}$/.test(totpCode.value)) {
+  if (totpCodeValid.value) {
     return authApi.totpStepUp(operation, totpCode.value)
+  }
+  if (totpRequired.value) {
+    throw new Error('totp_code_required')
   }
   const flow = await authApi.passkeyStepUpOptions(operation)
   const credential = await getCredential(flow.public_key)
@@ -32,6 +42,10 @@ async function stepUp(operation: string): Promise<string> {
 
 async function add() {
   if (!label.value.trim() || !passkeySupported) return
+  if (totpRequired.value && !totpCodeValid.value) {
+    error.value = t('passkeys.totp_required_error')
+    return
+  }
   busy.value = true
   error.value = ''
   try {
@@ -54,7 +68,10 @@ async function add() {
     totpCode.value = ''
     await load()
   } catch (e: any) {
-    error.value = e?.response?.data?.error?.message || t('passkeys.operation_failed')
+    const code = e?.response?.data?.error?.code
+    error.value = e?.message === 'totp_code_required' || code === 'passkey_unavailable'
+      ? t('passkeys.totp_required_error')
+      : e?.response?.data?.error?.message || t('passkeys.operation_failed')
   } finally {
     busy.value = false
   }
@@ -117,16 +134,21 @@ onMounted(() => void load())
                type="password" autocomplete="current-password" required
                class="w-full h-10 px-3 border border-neutral-300 rounded-md" />
       </div>
-      <div v-if="auth.user?.totp_enabled">
+      <div v-if="hasTotp">
         <label for="passkey-totp" class="block text-sm font-medium text-neutral-700 mb-1">
-          {{ t('passkeys.totp_label') }}
+          {{ totpRequired ? t('passkeys.totp_label_required') : t('passkeys.totp_label') }}
         </label>
         <input id="passkey-totp" v-model="totpCode" type="text" inputmode="numeric"
                autocomplete="one-time-code" maxlength="6" pattern="\d{6}"
-               :placeholder="t('passkeys.totp_optional')"
+               :required="totpRequired"
+               :placeholder="totpRequired ? t('passkeys.totp_required_placeholder') : t('passkeys.totp_optional')"
                class="w-full h-10 px-3 border border-neutral-300 rounded-md font-mono" />
+        <p v-if="totpRequired" class="text-xs text-neutral-500 mt-1">
+          {{ t('passkeys.totp_required_hint') }}
+        </p>
       </div>
-      <button type="button" @click="add" :disabled="busy || !label.trim() || !passkeySupported"
+      <button type="button" @click="add"
+              :disabled="busy || !label.trim() || !passkeySupported || (totpRequired && !totpCodeValid)"
               class="h-10 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white rounded-md font-medium">
         {{ t('passkeys.add') }}
       </button>
