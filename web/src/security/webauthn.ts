@@ -1,5 +1,16 @@
 type JsonObject = Record<string, any>
-let activeCeremony: AbortController | null = null
+
+/**
+ * Ceremony se NEPŘEDÁVÁ AbortSignal.
+ *
+ * Správci hesel přepisují navigator.credentials.* a jejich obal signál nemusí
+ * zvládnout — na dev instanci změřeno, že volání s už zrušeným signálem proti
+ * specifikaci neodmítne AbortError, ale vůbec nedoběhne. Signál navíc nic
+ * nezbytného neřeší: zrušit rozdělanou ceremonii umí uživatel v systémovém
+ * dialogu a náš vlastní timeout drží strop. Místo abortu proto jen zahazujeme
+ * výsledek zastaralé ceremonie podle generace.
+ */
+let ceremonyGeneration = 0
 
 export function isWebAuthnAvailable(): boolean {
   return typeof window !== 'undefined'
@@ -8,20 +19,16 @@ export function isWebAuthnAvailable(): boolean {
 }
 
 export function cancelActiveWebAuthnCeremony(): void {
-  activeCeremony?.abort()
-  activeCeremony = null
+  ceremonyGeneration += 1
 }
 
-// Signál vytváříme v témže realmu, který ho bude konzumovat.
-function startCeremony(realm: Window | null): AbortController {
-  cancelActiveWebAuthnCeremony()
-  const Ctor = (realm as any)?.AbortController ?? AbortController
-  activeCeremony = new Ctor()
-  return activeCeremony as AbortController
+function startCeremony(): number {
+  ceremonyGeneration += 1
+  return ceremonyGeneration
 }
 
-function finishCeremony(controller: AbortController): void {
-  if (activeCeremony === controller) activeCeremony = null
+function isCurrentCeremony(generation: number): boolean {
+  return generation === ceremonyGeneration
 }
 
 // Prohlížeč nemusí serverový `timeout` z options vůbec vynutit — a když se nad
@@ -103,37 +110,30 @@ function credentialsRealm(bypassExtension: boolean): Window | null {
 async function runCeremony(
   options: JsonObject,
   bypassExtension: boolean,
-  run: (
-    credentials: CredentialsContainer,
-    signal: AbortSignal,
-  ) => Promise<Credential | null>,
+  run: (credentials: CredentialsContainer) => Promise<Credential | null>,
 ): Promise<JsonObject> {
   if (!isWebAuthnAvailable()) throw new Error('webauthn_unavailable')
   const realm = credentialsRealm(bypassExtension)
-  const controller = startCeremony(realm)
+  const generation = startCeremony()
   const configured = Number(options.timeout)
   const limit = (Number.isFinite(configured) && configured > 0
     ? configured
     : CEREMONY_FALLBACK_TIMEOUT_MS) + CEREMONY_GRACE_MS
-  let timedOut = false
-  const timer = window.setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, limit)
-  try {
-    const credential = await run((realm ?? window).navigator.credentials, controller.signal)
-    if (!isPublicKeyCredential(credential)) throw new Error('webauthn_cancelled')
-    return credentialToJson(credential)
-  } catch (e: any) {
-    if (!timedOut) throw e
-    // Timeout s čistým realmem je běžné vypršení; bez něj visel obal rozšíření.
-    throw new Error(realm === null && isCredentialsApiPatched()
-      ? 'webauthn_timeout_extension'
-      : 'webauthn_timeout')
-  } finally {
-    window.clearTimeout(timer)
-    finishCeremony(controller)
-  }
+
+  const ceremony = run((realm ?? window).navigator.credentials)
+  const timeout = new Promise<never>((_, reject) => {
+    window.setTimeout(
+      () => reject(new Error(realm === null && isCredentialsApiPatched()
+        ? 'webauthn_timeout_extension'
+        : 'webauthn_timeout')),
+      limit,
+    )
+  })
+
+  const credential = await Promise.race([ceremony, timeout])
+  if (!isCurrentCeremony(generation)) throw new Error('webauthn_cancelled')
+  if (!isPublicKeyCredential(credential)) throw new Error('webauthn_cancelled')
+  return credentialToJson(credential)
 }
 
 /**
@@ -214,9 +214,8 @@ export async function getCredential(
   options: JsonObject,
   bypassExtension = false,
 ): Promise<JsonObject> {
-  return runCeremony(options, bypassExtension, (credentials, signal) => credentials.get({
+  return runCeremony(options, bypassExtension, credentials => credentials.get({
     publicKey: requestOptionsFromJson(options),
-    signal,
   }))
 }
 
@@ -224,8 +223,7 @@ export async function createCredential(
   options: JsonObject,
   bypassExtension = false,
 ): Promise<JsonObject> {
-  return runCeremony(options, bypassExtension, (credentials, signal) => credentials.create({
+  return runCeremony(options, bypassExtension, credentials => credentials.create({
     publicKey: creationOptionsFromJson(options),
-    signal,
   }))
 }

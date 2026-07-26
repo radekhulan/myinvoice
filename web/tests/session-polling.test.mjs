@@ -16,22 +16,22 @@ test('session-aware polling stops for hidden or covered private UI and aborts in
   assert.match(polling, /controller\?\.abort\(\)/)
 })
 
-test('locking cancels an active WebAuthn ceremony', () => {
-  // Obě ceremonie jdou přes runCeremony, který drží abortovatelný controller.
-  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
-  // Bypass nesmí být automatický — klíč bývá uložený právě v rozšíření.
-  assert.match(webauthn, /bypassExtension = false/)
-  assert.match(webauthn, /credentials\.get\(\{[\s\S]*signal,/)
-  assert.match(webauthn, /credentials\.create\(\{[\s\S]*signal,/)
-  assert.match(webauthn, /activeCeremony\?\.abort\(\)/)
+test('locking discards a stale WebAuthn ceremony without AbortSignal', () => {
+  // Obal správce hesel AbortSignal nezvládá (změřeno: volání se zrušeným
+  // signálem proti specifikaci nedoběhne), takže se ceremonii signál nepředává
+  // a zastaralý výsledek se jen zahodí podle generace.
+  assert.doesNotMatch(webauthn, /signal[,:]/)
+  assert.match(webauthn, /let ceremonyGeneration = 0/)
+  assert.match(webauthn, /function isCurrentCeremony/)
+  assert.match(webauthn, /if \(!isCurrentCeremony\(generation\)\) throw new Error\('webauthn_cancelled'\)/)
   assert.match(sessionSecurity, /cancelActiveWebAuthnCeremony\(\)/)
 })
 
 test('a stuck WebAuthn ceremony cannot hang the UI silently', () => {
   // Bez vlastního stropu promise nedoběhne, když se systémový dialog nevykreslí.
   assert.match(webauthn, /CEREMONY_FALLBACK_TIMEOUT_MS/)
-  assert.match(webauthn, /timedOut = true\s*\r?\n\s*controller\.abort\(\)/)
-  assert.match(webauthn, /if \(!timedOut\) throw e/)
+  assert.match(webauthn, /Promise\.race\(\[ceremony, timeout\]\)/)
+  assert.match(webauthn, /webauthn_timeout_extension/)
   assert.match(webauthn, /includes\('\[native code\]'\)/)
 })
 
@@ -42,7 +42,7 @@ test('a patched credentials API is bypassed through a pristine same-origin realm
   assert.match(webauthn, /publickey-credentials-get \*; publickey-credentials-create \*/)
   assert.match(webauthn, /isNative\(win\.navigator\.credentials\.get\)/)
   assert.match(webauthn, /bypassExtension && isCredentialsApiPatched\(\) \? nativeCredentialsRealm\(\) : null/)
-  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
+  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials\)/)
   // Bypass nesmí být automatický — klíč bývá uložený právě v rozšíření.
   assert.match(webauthn, /bypassExtension = false/)
   // Cross-realm výsledek neprojde instanceof ani u response.
