@@ -29,7 +29,10 @@ test('a stuck WebAuthn ceremony cannot hang the UI silently', () => {
   // Bez vlastního stropu promise nedoběhne, když se systémový dialog nevykreslí.
   assert.match(webauthn, /CEREMONY_FALLBACK_TIMEOUT_MS/)
   assert.match(webauthn, /timedOut = true\s*\r?\n\s*controller\.abort\(\)/)
-  assert.match(webauthn, /throw timedOut \? new Error\('webauthn_timeout'\) : e/)
+  assert.match(webauthn, /if \(!timedOut\) throw e/)
+  // Přepsané navigator.credentials.* (správci hesel) se hlásí zvlášť.
+  assert.match(webauthn, /isCredentialsApiPatched\(\) \? 'webauthn_timeout_extension' : 'webauthn_timeout'/)
+  assert.match(webauthn, /includes\('\[native code\]'\)/)
 })
 
 test('cold-start lock keeps the private route unmounted until full profile hydration', () => {

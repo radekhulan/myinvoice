@@ -28,6 +28,23 @@ function finishCeremony(controller: AbortController): void {
 const CEREMONY_GRACE_MS = 5_000
 const CEREMONY_FALLBACK_TIMEOUT_MS = 120_000
 
+/**
+ * Správci hesel a passkey rozšíření běžně přepisují navigator.credentials.*.
+ * Když jejich obal spadne (typicky `Cannot read properties of null`), promise
+ * nikdy nedoběhne a UI by jen viselo. Nativní implementaci poznáme podle
+ * `[native code]` v toString — slouží to výhradně k lepší chybové hlášce.
+ */
+export function isCredentialsApiPatched(): boolean {
+  if (!isWebAuthnAvailable()) return false
+  try {
+    return !['get', 'create'].every(name => Function.prototype.toString
+      .call((navigator.credentials as any)[name])
+      .includes('[native code]'))
+  } catch {
+    return false
+  }
+}
+
 async function runCeremony(
   options: JsonObject,
   run: (signal: AbortSignal) => Promise<Credential | null>,
@@ -48,7 +65,8 @@ async function runCeremony(
     if (!(credential instanceof PublicKeyCredential)) throw new Error('webauthn_cancelled')
     return credentialToJson(credential)
   } catch (e: any) {
-    throw timedOut ? new Error('webauthn_timeout') : e
+    if (!timedOut) throw e
+    throw new Error(isCredentialsApiPatched() ? 'webauthn_timeout_extension' : 'webauthn_timeout')
   } finally {
     window.clearTimeout(timer)
     finishCeremony(controller)

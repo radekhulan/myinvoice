@@ -1199,6 +1199,7 @@
     "passkey_verifying": "Ověřování…",
     "passkey_failed": "Ověření přístupovým klíčem se nepodařilo.",
     "passkey_timeout": "Systémový dialog pro přístupový klíč se neotevřel nebo nebyl dokončen. Zkuste to znovu, nebo použijte kód z autentikátoru.",
+    "passkey_timeout_extension": "Přihlášení přístupovým klíčem přerušilo rozšíření prohlížeče (správce hesel), které si přebírá WebAuthn a spadlo. Vypněte ho pro tuto doménu, nebo použijte kód z autentikátoru.",
     "passkey_unsupported_recovery": "Tento prohlížeč přístupové klíče nepodporuje. Použijte dostupný TOTP kód, podporované zařízení nebo prohlížeč, případně požádejte správce o obnovení MFA.",
     "use_totp_instead": "Použít kód z autentikátoru"
   },

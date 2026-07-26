@@ -211,9 +211,11 @@ async function verifyPasskey() {
     // Další submit hesla proto vždy získá novou ceremony.
     passkeyFlow.value = null
     turnstile.reset()
-    error.value = e?.message === 'webauthn_timeout'
-      ? t('auth.passkey_timeout')
-      : e?.response?.data?.error?.message || t('auth.passkey_failed')
+    error.value = e?.message === 'webauthn_timeout_extension'
+      ? t('auth.passkey_timeout_extension')
+      : e?.message === 'webauthn_timeout'
+        ? t('auth.passkey_timeout')
+        : e?.response?.data?.error?.message || t('auth.passkey_failed')
   } finally {
     passkeyBusy.value = false
   }
