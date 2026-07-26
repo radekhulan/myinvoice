@@ -31,7 +31,7 @@ test('login and locked-session UI expose a recovery message when WebAuthn is una
 test('login clears one-time passkey flow for TOTP fallback and after failed verification', async () => {
   const login = await readFile(new URL('pages/Login.vue', root), 'utf8')
   const fallback = login.match(/function useTotpFallback\(\) \{([\s\S]*?)\n\}/)?.[1] || ''
-  const verify = login.match(/async function verifyPasskey\(\) \{([\s\S]*?)\n\}/)?.[1] || ''
+  const verify = login.match(/async function verifyPasskey\([^)]*\) \{([\s\S]*?)\r?\n\}/)?.[1] || ''
 
   assert.match(fallback, /passkeyFlow\.value = null[\s\S]*totpRequired\.value = true/)
   assert.match(verify, /catch[\s\S]*passkeyFlow\.value = null[\s\S]*turnstile\.reset\(\)/)

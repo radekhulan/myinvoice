@@ -90,19 +90,26 @@ function nativeCredentialsRealm(): Window | null {
   return pristineRealm
 }
 
-function credentialsRealm(): Window | null {
-  return isCredentialsApiPatched() ? nativeCredentialsRealm() : null
+/**
+ * POZOR: čistý realm se NEPOUŽÍVÁ automaticky. Passkey bývá uložená právě ve
+ * správci hesel a nativní API ji nevidí — obejít obal by znamenalo přijít o
+ * jediný autentikátor, který klíč drží (nabídne se pak leda QR na telefon).
+ * Bypass proto zapíná až uživatel, když normální cesta selže.
+ */
+function credentialsRealm(bypassExtension: boolean): Window | null {
+  return bypassExtension && isCredentialsApiPatched() ? nativeCredentialsRealm() : null
 }
 
 async function runCeremony(
   options: JsonObject,
+  bypassExtension: boolean,
   run: (
     credentials: CredentialsContainer,
     signal: AbortSignal,
   ) => Promise<Credential | null>,
 ): Promise<JsonObject> {
   if (!isWebAuthnAvailable()) throw new Error('webauthn_unavailable')
-  const realm = credentialsRealm()
+  const realm = credentialsRealm(bypassExtension)
   const controller = startCeremony(realm)
   const configured = Number(options.timeout)
   const limit = (Number.isFinite(configured) && configured > 0
@@ -203,15 +210,21 @@ export function credentialToJson(credential: PublicKeyCredential): JsonObject {
   return payload
 }
 
-export async function getCredential(options: JsonObject): Promise<JsonObject> {
-  return runCeremony(options, (credentials, signal) => credentials.get({
+export async function getCredential(
+  options: JsonObject,
+  bypassExtension = false,
+): Promise<JsonObject> {
+  return runCeremony(options, bypassExtension, (credentials, signal) => credentials.get({
     publicKey: requestOptionsFromJson(options),
     signal,
   }))
 }
 
-export async function createCredential(options: JsonObject): Promise<JsonObject> {
-  return runCeremony(options, (credentials, signal) => credentials.create({
+export async function createCredential(
+  options: JsonObject,
+  bypassExtension = false,
+): Promise<JsonObject> {
+  return runCeremony(options, bypassExtension, (credentials, signal) => credentials.create({
     publicKey: creationOptionsFromJson(options),
     signal,
   }))

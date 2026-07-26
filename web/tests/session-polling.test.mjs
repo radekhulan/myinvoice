@@ -19,6 +19,8 @@ test('session-aware polling stops for hidden or covered private UI and aborts in
 test('locking cancels an active WebAuthn ceremony', () => {
   // Obě ceremonie jdou přes runCeremony, který drží abortovatelný controller.
   assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
+  // Bypass nesmí být automatický — klíč bývá uložený právě v rozšíření.
+  assert.match(webauthn, /bypassExtension = false/)
   assert.match(webauthn, /credentials\.get\(\{[\s\S]*signal,/)
   assert.match(webauthn, /credentials\.create\(\{[\s\S]*signal,/)
   assert.match(webauthn, /activeCeremony\?\.abort\(\)/)
@@ -39,8 +41,10 @@ test('a patched credentials API is bypassed through a pristine same-origin realm
   assert.match(webauthn, /function nativeCredentialsRealm\(\): Window \| null/)
   assert.match(webauthn, /publickey-credentials-get \*; publickey-credentials-create \*/)
   assert.match(webauthn, /isNative\(win\.navigator\.credentials\.get\)/)
-  assert.match(webauthn, /return isCredentialsApiPatched\(\) \? nativeCredentialsRealm\(\) : null/)
+  assert.match(webauthn, /bypassExtension && isCredentialsApiPatched\(\) \? nativeCredentialsRealm\(\) : null/)
   assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
+  // Bypass nesmí být automatický — klíč bývá uložený právě v rozšíření.
+  assert.match(webauthn, /bypassExtension = false/)
   // Cross-realm výsledek neprojde instanceof ani u response.
   assert.match(webauthn, /function isPublicKeyCredential/)
   assert.doesNotMatch(webauthn, /instanceof (PublicKeyCredential|AuthenticatorAssertionResponse)/)
