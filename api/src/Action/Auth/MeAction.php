@@ -85,11 +85,13 @@ final class MeAction
         $effectiveTimeout = $this->lockPolicy->effectiveTimeoutMinutes($userTimeout);
         $idleExpiresAt = null;
         if ($assurance !== 'setup' && $effectiveTimeout > 0) {
-            $lastActivity = self::parseUtc((string) ($session['last_user_activity_at'] ?? ''));
-            $idleExpiresAt = self::isoUtc($lastActivity->modify(sprintf(
-                '+%d minutes',
-                $effectiveTimeout,
-            )));
+            // Autoritou zámku je SessionLockMiddleware; /me jen reportuje. Chybějící
+            // nebo pokažený čas aktivity proto nesmí shodit celý profil na 500 —
+            // klient si deadline dotáhne z /api/auth/session/status.
+            $lastActivity = self::tryParseUtc((string) ($session['last_user_activity_at'] ?? ''));
+            $idleExpiresAt = $lastActivity !== null
+                ? self::isoUtc($lastActivity->modify(sprintf('+%d minutes', $effectiveTimeout)))
+                : null;
         }
 
         return Json::ok($response, [
@@ -119,7 +121,7 @@ final class MeAction
         ]);
     }
 
-    private static function parseUtc(string $time): \DateTimeImmutable
+    private static function tryParseUtc(string $time): ?\DateTimeImmutable
     {
         foreach (['!Y-m-d H:i:s.u', '!Y-m-d H:i:s'] as $format) {
             $parsed = \DateTimeImmutable::createFromFormat($format, $time, new \DateTimeZone('UTC'));
@@ -127,7 +129,7 @@ final class MeAction
                 return $parsed;
             }
         }
-        throw new \UnexpectedValueException('Session obsahuje neplatný UTC čas aktivity.');
+        return null;
     }
 
     private static function isoUtc(\DateTimeImmutable $time): string

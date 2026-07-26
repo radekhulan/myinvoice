@@ -59,6 +59,13 @@ final class HealthAction
                         ?? 'Konfigurace WebAuthn není platná.',
                 ];
             }
+            $mfaWarning = $this->mfaPolicy->configurationWarning();
+            if ($mfaWarning !== null) {
+                $warnings[] = [
+                    'code' => 'mfa_methods_configuration',
+                    'message' => $mfaWarning,
+                ];
+            }
             $lockWarning = $this->sessionLockPolicy->configurationWarning();
             if ($lockWarning !== null) {
                 $warnings[] = [
@@ -66,9 +73,46 @@ final class HealthAction
                     'message' => $lockWarning,
                 ];
             }
+            if ($this->sessionLockPolicy->isEnabled() && $this->hasUserWithoutPasskey()) {
+                $warnings[] = [
+                    'code' => 'session_lock_without_unlock_method',
+                    'message' => 'Automatický zámek session je zapnutý, ale někteří aktivní '
+                        . 'uživatelé nemají passkey. Zamčenou session pak lze jen odhlásit '
+                        . '— registrujte jim passkey, nebo nastavte session.lock_after_minutes = 0.',
+                ];
+            }
             $payload['warnings'] = $warnings;
         }
 
         return Json::ok($response, $payload);
+    }
+
+    /**
+     * Diagnostika, ne guard — proto tiše ustoupí, když tabulka passkeys ještě
+     * neexistuje (health musí odpovědět i před doběhnutím migrací).
+     */
+    private function hasUserWithoutPasskey(): bool
+    {
+        try {
+            $statement = $this->db->pdo()->query(
+                'SELECT EXISTS (
+                    SELECT 1
+                      FROM users u
+                     WHERE u.is_active = 1
+                       AND NOT EXISTS (
+                             SELECT 1
+                               FROM webauthn_credentials c
+                              WHERE c.user_id = u.id
+                                AND c.revoked_at IS NULL
+                           )
+                 )'
+            );
+            if ($statement === false) {
+                return false;
+            }
+            return (int) $statement->fetchColumn() === 1;
+        } catch (\PDOException) {
+            return false;
+        }
     }
 }

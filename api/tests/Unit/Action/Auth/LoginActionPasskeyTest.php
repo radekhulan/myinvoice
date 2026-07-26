@@ -160,8 +160,11 @@ final class LoginActionPasskeyTest extends TestCase
         $turnstile->expects(self::once())->method('verify')->willReturn(true);
         $ipMatcher = $this->createMock(IpMatcher::class);
         $ipMatcher->expects(self::once())->method('clientIpFromRequest')->willReturn('127.0.0.1');
+        // Nepoužitelný WebAuthn ceremony vůbec nezakládá; ptáme se jen, jestli
+        // uživatel nějakou passkey má — bez ní je heslový login v pořádku.
         $credentials = $this->createMock(PasskeyCredentialRepository::class);
-        $credentials->expects(self::once())->method('findAllForUser')->with(17)->willReturn([]);
+        $credentials->expects(self::never())->method('findAllForUser');
+        $credentials->expects(self::once())->method('countActiveForUser')->with(17)->willReturn(0);
         $policy = $this->createMock(MfaPolicyService::class);
         $policy->expects(self::exactly(2))
             ->method('isMethodAllowed')

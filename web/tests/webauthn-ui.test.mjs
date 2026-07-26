@@ -38,6 +38,32 @@ test('login clears one-time passkey flow for TOTP fallback and after failed veri
   assert.match(login, /:disabled="[^"]*!!passkeyFlow/)
 })
 
+test('TOTP fallback survives a failed or cancelled passkey ceremony', async () => {
+  const login = await readFile(new URL('pages/Login.vue', root), 'utf8')
+
+  // Nabídnuté metody se drží mimo jednorázovou ceremony…
+  assert.match(login, /const mfaMethods = ref<string\[\]>\(\[\]\)/)
+  assert.match(
+    login,
+    /const canUseTotpFallback = computed\(\(\) => !totpRequired\.value && mfaMethods\.value\.includes\('totp'\)\)/,
+  )
+  // …a tlačítko na přepnutí visí na nich, ne na passkeyFlow.
+  assert.match(login, /v-if="canUseTotpFallback"[\s\S]*use_totp_instead/)
+  assert.doesNotMatch(login, /v-if="passkeyFlow\.methods\.includes\('totp'\)"/)
+})
+
+test('API token step-up offers both factors and keeps a passkey proof after unrelated errors', async () => {
+  const tokens = await readFile(new URL('pages/ApiTokens.vue', root), 'utf8')
+
+  assert.match(tokens, /const needsStepUp = computed\(\(\) => needsTotp\.value \|\| hasPasskey\.value\)/)
+  // Passkey tlačítko i TOTP pole jsou v modalu současně; TOTP mizí až po ověření.
+  assert.match(tokens, /v-if="hasPasskey"[\s\S]*verify_passkey/)
+  assert.match(tokens, /v-if="needsTotp && !passkeyStepUpToken"/)
+  // Proof se nezahazuje preventivně před requestem.
+  assert.doesNotMatch(tokens, /const proof = passkeyStepUpToken\.value\r?\n\s*passkeyStepUpToken\.value = ''/)
+  assert.match(tokens, /step_up_proof_invalid'\) \{\s*\r?\n?\s*passkeyStepUpToken\.value = ''/)
+})
+
 test('passwordless login asks for discoverable passkey options before verification', async () => {
   const login = await readFile(new URL('pages/Login.vue', root), 'utf8')
   const authApi = await readFile(new URL('api/auth.ts', root), 'utf8')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MyInvoice\Service\Auth;
 
 use MyInvoice\Infrastructure\Database\Connection;
+use MyInvoice\Repository\PasskeyCredentialRepository;
 use PDO;
 
 final class SessionLockPreferenceService
@@ -12,6 +13,8 @@ final class SessionLockPreferenceService
     public function __construct(
         private readonly Connection $db,
         private readonly SessionLockPolicy $policy,
+        private readonly PasskeyCredentialRepository $credentials,
+        private readonly PasskeyService $passkeys,
     ) {}
 
     /**
@@ -49,6 +52,17 @@ final class SessionLockPreferenceService
     public function update(int $userId, ?int $timeoutMinutes): array
     {
         $this->policy->assertUserTimeoutAllowed($timeoutMinutes);
+        // Odemknout jde jen passkey. Vlastní zámek bez použitelné passkey by
+        // vyrobil session, kterou lze ukončit pouze odhlášením — stejná podmínka
+        // jako u ručního zámku, jen na straně preference.
+        if ($timeoutMinutes !== null
+            && (!$this->passkeys->isAvailable()
+                || $this->credentials->countActiveForUser($userId) === 0)
+        ) {
+            throw new \InvalidArgumentException(
+                'Vlastní automatický zámek vyžaduje alespoň jednu aktivní passkey.',
+            );
+        }
         $stmt = $this->db->pdo()->prepare(
             'UPDATE users
                 SET session_lock_after_minutes = ?

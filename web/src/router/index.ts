@@ -147,8 +147,10 @@ router.beforeEach(async (to) => {
 
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth)
   if (requiresAuth && !auth.isAuthenticated) {
-    const ok = await auth.refresh()
-    if (!ok) return { name: 'login' }
+    // Rozhoduje stav storu, ne návratová hodnota: refresh() při síťovém výpadku
+    // vrací false, ale známou identitu si záměrně drží.
+    await auth.refresh()
+    if (!auth.isAuthenticated) return { name: 'login' }
   }
   if (requiresAuth && auth.lockedSession) {
     useSessionSecurityStore().apply(auth.lockedSession)

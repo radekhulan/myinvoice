@@ -105,9 +105,11 @@ final class CreateTokenAction
         $stmt = $this->db->pdo()->prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?');
         $stmt->execute([$userId]);
         $u = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+        // Zaregistrovaný TOTP je step-up požadavek bez ohledu na allowed_mfa_methods.
+        // Jinak by zúžení seznamu na ['passkey'] u uživatele bez passkey step-up
+        // úplně zrušilo a token by vznikl jen z heslové session.
         $totpAvailable = (int) ($u['totp_enabled'] ?? 0) === 1
-            && !empty($u['totp_secret'])
-            && $this->mfaPolicy->isMethodAllowed('totp');
+            && !empty($u['totp_secret']);
         $passkeyAvailable = $this->mfaPolicy->isMethodAllowed('passkey')
             && $this->credentials->countActiveForUser($userId) > 0;
 

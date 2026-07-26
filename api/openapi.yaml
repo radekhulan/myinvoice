@@ -149,7 +149,12 @@ paths:
                       properties:
                         code:
                           type: string
-                          enum: [secret_encryption_key, webauthn_configuration]
+                          enum:
+                            - secret_encryption_key
+                            - webauthn_configuration
+                            - mfa_methods_configuration
+                            - session_lock_configuration
+                            - session_lock_without_unlock_method
                         message: { type: string }
 
   /api/v1/version:

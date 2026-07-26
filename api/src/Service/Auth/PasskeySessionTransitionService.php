@@ -265,9 +265,11 @@ final class PasskeySessionTransitionService
                 mb_substr($userAgent, 0, 255),
                 $userId,
             ]);
-            if ($lastLogin->rowCount() !== 1) {
-                throw new \DomainException('Uživatel už není aktivní.');
-            }
+            // rowCount() tu nic neověřuje: bez MYSQL_ATTR_FOUND_ROWS vrací počet
+            // ZMĚNĚNÝCH řádků, a last_login_at má jen sekundovou přesnost. Druhé
+            // přihlášení ve stejné sekundě ze stejné IP a UA proto nezmění nic a
+            // vrátí 0. Že je účet aktivní, garantuje lockActiveUser() — ten drží
+            // řádek uživatele zamčený po celou transakci.
             $pdo->commit();
         } catch (OneTimeTokenException|PasskeyVerificationException|\DomainException $e) {
             if ($pdo->inTransaction()) {

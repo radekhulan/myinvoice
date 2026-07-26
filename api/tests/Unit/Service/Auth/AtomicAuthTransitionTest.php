@@ -175,6 +175,49 @@ final class AtomicAuthTransitionTest extends TestCase
         );
     }
 
+    /**
+     * last_login_at má sekundovou přesnost. Druhé přihlášení ve stejné sekundě ze
+     * stejné IP a UA nezmění žádný sloupec, takže rowCount() (bez FOUND_ROWS vrací
+     * změněné, ne nalezené řádky) je 0 — to nesmí být vyhodnoceno jako neaktivní účet.
+     */
+    public function testSecondPasskeyLoginWithinTheSameSecondStillSucceeds(): void
+    {
+        [, $record] = $this->createCredential(7, 'Same second key');
+        $transition = $this->transitionFor($record->publicKeyCredentialId);
+
+        $first = $transition->completeLogin(
+            $this->createLoginFlow(),
+            ['rawId' => 'synthetic'],
+            '127.0.0.1',
+            'PHPUnit',
+            $this->userId,
+        );
+        $second = $transition->completeLogin(
+            $this->createLoginFlow(),
+            ['rawId' => 'synthetic'],
+            '127.0.0.1',
+            'PHPUnit',
+            $this->userId,
+        );
+
+        self::assertNotSame($first['session']['token'], $second['session']['token']);
+        self::assertNotNull($this->sessions->load($second['session']['token']));
+    }
+
+    private function createLoginFlow(): string
+    {
+        return $this->ceremonies->create(
+            WebAuthnCeremonyStore::PURPOSE_LOGIN,
+            $this->userId,
+            null,
+            null,
+            random_bytes(32),
+            ['challenge' => 'synthetic-login'],
+            '127.0.0.1',
+            'PHPUnit',
+        );
+    }
+
     public function testDiscoverablePasskeyLoginResolvesCredentialAndCommitsStrongSession(): void
     {
         [$credentialId, $record] = $this->createCredential(2, 'Passwordless login key');
@@ -609,7 +652,7 @@ final class AtomicAuthTransitionTest extends TestCase
             ];
             $workers[] = $this->startConcurrencyWorker($arguments);
             $workers[] = $this->startConcurrencyWorker($arguments);
-            $this->waitForWorkers($workers);
+            $this->waitForWorkers($workers, $barrierDir);
             touch($barrier);
             usleep(100_000);
             $pdo->commit();
@@ -620,12 +663,7 @@ final class AtomicAuthTransitionTest extends TestCase
                 $pdo->rollBack();
             }
             $this->terminateWorkers($workers);
-            if (is_file($barrier)) {
-                unlink($barrier);
-            }
-            if (is_dir($barrierDir)) {
-                rmdir($barrierDir);
-            }
+            $this->cleanupBarrier($barrierDir, $barrier);
         }
 
         self::assertSame(1, count(array_filter(
@@ -693,7 +731,7 @@ final class AtomicAuthTransitionTest extends TestCase
             ];
             $workers[] = $this->startConcurrencyWorker($arguments);
             $workers[] = $this->startConcurrencyWorker($arguments);
-            $this->waitForWorkers($workers);
+            $this->waitForWorkers($workers, $barrierDir);
             touch($barrier);
             usleep(100_000);
             $pdo->commit();
@@ -704,12 +742,7 @@ final class AtomicAuthTransitionTest extends TestCase
                 $pdo->rollBack();
             }
             $this->terminateWorkers($workers);
-            if (is_file($barrier)) {
-                unlink($barrier);
-            }
-            if (is_dir($barrierDir)) {
-                rmdir($barrierDir);
-            }
+            $this->cleanupBarrier($barrierDir, $barrier);
         }
 
         self::assertSame(1, count(array_filter(
@@ -768,27 +801,40 @@ final class AtomicAuthTransitionTest extends TestCase
     /**
      * @param array<int,array{process:resource,pipes:array<int,resource>,output:string}> $workers
      */
-    private function waitForWorkers(array &$workers): void
+    private function waitForWorkers(array &$workers, string $barrierDir): void
     {
-        $deadline = microtime(true) + 10;
+        $expected = count($workers);
+        $deadline = microtime(true) + 15;
         while (microtime(true) < $deadline) {
-            $ready = 0;
-            foreach ($workers as &$worker) {
-                $chunk = stream_get_contents($worker['pipes'][1]);
-                if (is_string($chunk)) {
-                    $worker['output'] .= $chunk;
-                }
-                if (str_contains($worker['output'], "READY\n")) {
-                    $ready++;
-                }
-            }
-            unset($worker);
-            if ($ready === count($workers)) {
+            clearstatcache();
+            if (count(glob($barrierDir . DIRECTORY_SEPARATOR . 'ready-*') ?: []) >= $expected) {
                 return;
+            }
+            foreach ($workers as $worker) {
+                $status = proc_get_status($worker['process']);
+                if (!$status['running']) {
+                    throw new \RuntimeException(
+                        'Concurrency worker skončil dřív, než se připravil: '
+                        . trim((string) stream_get_contents($worker['pipes'][2])),
+                    );
+                }
             }
             usleep(10_000);
         }
         throw new \RuntimeException('Concurrency workers se nepřipravily včas.');
+    }
+
+    private function cleanupBarrier(string $barrierDir, string $barrier): void
+    {
+        if (is_file($barrier)) {
+            unlink($barrier);
+        }
+        foreach (glob($barrierDir . DIRECTORY_SEPARATOR . 'ready-*') ?: [] as $readyFile) {
+            unlink($readyFile);
+        }
+        if (is_dir($barrierDir)) {
+            rmdir($barrierDir);
+        }
     }
 
     /**

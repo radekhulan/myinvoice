@@ -111,7 +111,6 @@ async function submitCreate() {
   createBusy.value = true
   createError.value = ''
   const proof = passkeyStepUpToken.value
-  passkeyStepUpToken.value = ''
   try {
     const res = await tokensApi.create({
       name: form.value.name.trim(),
@@ -121,12 +120,19 @@ async function submitCreate() {
       totp_code: !proof && hasValidTotp ? form.value.totp_code : undefined,
       step_up_token: proof || undefined,
     })
+    passkeyStepUpToken.value = ''
     showCreate.value = false
     revealed.value = res
     confirmCopied.value = false
     copied.value = false
     await load()
   } catch (e: any) {
+    // Server validuje supplier_id i expires_at ještě před spotřebou jednorázového
+    // proofu, takže po jiné než step-up chybě zůstává passkey ověření platné —
+    // nenutíme uživatele znovu sahat na klíč. TOTP kód je spotřebovaný vždy.
+    if (e?.response?.data?.error?.code === 'step_up_proof_invalid') {
+      passkeyStepUpToken.value = ''
+    }
     form.value.totp_code = ''
     createError.value = e?.response?.data?.error?.message || t('common.error')
   } finally {

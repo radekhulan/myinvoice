@@ -184,24 +184,15 @@ final class LoginAction
 
         $totpActive = (int) $user['totp_enabled'] === 1 && !empty($user['totp_secret']);
         $totpAllowed = $this->mfaPolicy->isMethodAllowed('totp');
-        $storedPasskeys = $this->mfaPolicy->isMethodAllowed('passkey')
+        $passkeysUsable = $this->mfaPolicy->isMethodAllowed('passkey')
+            && $this->passkeys->isAvailable();
+        $storedPasskeys = $passkeysUsable
             ? $this->credentials->findAllForUser((int) $user['id'])
             : [];
         if ($storedPasskeys !== []
             && !($totpCode !== '' && $totpActive && $totpAllowed)
         ) {
             $this->rehashPasswordIfNeeded($user, $password);
-            if (!$this->passkeys->isAvailable()) {
-                if ($totpActive && $totpAllowed) {
-                    return Json::error($response, 'totp_required', 'TOTP kód požadován.', 401);
-                }
-                return Json::error(
-                    $response,
-                    'passkeys_unavailable',
-                    'Passkeys nejsou kvůli konfiguraci této instalace dostupné.',
-                    503,
-                );
-            }
             $challenge = random_bytes(32);
             $options = $this->passkeys->assertionOptions(
                 array_map(
@@ -244,7 +235,31 @@ final class LoginAction
         $issueTrustedTd = false;  // vystavit trusted-device cookie po úspěšném loginu?
         $authContext = SessionAuthContext::basic('password');
 
-        if ($totpActive && $totpAllowed) {
+        // Uživatele s passkey nesmí prosté heslo pustit dovnitř jen proto, že se
+        // WebAuthn stal nedostupným (rozbité app.url) nebo že správce metodu
+        // zakázal. Připustíme jen jiný skutečný druhý faktor; countActive se díky
+        // short-circuitu ptá jen v této výjimečné konfiguraci.
+        if (!$passkeysUsable
+            && !$totpActive
+            && !$emailOtpOn
+            && $this->credentials->countActiveForUser((int) $user['id']) > 0
+        ) {
+            $this->rehashPasswordIfNeeded($user, $password);
+            $this->logger->log('auth.login_failed', (int) $user['id'], 'user', (int) $user['id'], [
+                'email' => $email, 'reason' => 'passkeys_unavailable',
+            ], $ip, $userAgent);
+            return Json::error(
+                $response,
+                'passkeys_unavailable',
+                'Passkeys nejsou kvůli konfiguraci této instalace dostupné.',
+                503,
+            );
+        }
+
+        // Faktor, který uživatel reálně má, se nikdy nepřeskakuje. `allowed_mfa_methods`
+        // řídí jen to, co splní povinné MFA (assurance), ne jestli se na faktor zeptáme —
+        // jinak by zúžení seznamu na ['passkey'] tiše zrušilo TOTP všem, kdo passkey nemají.
+        if ($totpActive) {
             if ($totpCode === '') {
                 // Nepočítej jako fail — uživatel zadal heslo OK, jen čekáme na 2FA
                 return Json::error($response, 'totp_required', 'TOTP kód požadován.', 401);
@@ -266,7 +281,9 @@ final class LoginAction
                 return Json::error($response, 'invalid_totp', 'Neplatný TOTP kód.', 401);
             }
             $this->bf->recordTotpSuccess((int) $user['id']);
-            $authContext = SessionAuthContext::strong('totp', $this->clock->now());
+            $authContext = $totpAllowed
+                ? SessionAuthContext::strong('totp', $this->clock->now())
+                : SessionAuthContext::basic('totp');
         } elseif ($emailOtpOn) {
             $tdCookieName = $this->trustedDevices->cookieName();
             $tdToken = $request->getCookieParams()[$tdCookieName] ?? null;

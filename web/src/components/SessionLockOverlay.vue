@@ -27,6 +27,12 @@ const automaticLockEnabled = computed(() => (security.state?.lock_after_minutes 
 const canUnlock = computed(() => hasPasskey.value
   && passkeySupported
   && security.error !== 'session_status_failed')
+// Bez timeoutu a bez odemykací metody se session nemá jak zamknout, takže
+// kontrola stavu při každém přepnutí okna nemá co zjistit. Zámek z jiného tabu
+// chodí přes BroadcastChannel, serverový 423 přes interceptor.
+const lockPossible = computed(() => security.state === null
+  || (security.state.lock_after_minutes ?? 0) > 0
+  || security.state.unlock_methods.length > 0)
 
 function lockedEvent() {
   security.markLocked()
@@ -57,12 +63,14 @@ function realInput(event: Event) {
   }
 }
 function visibilityChanged() {
-  if (document.visibilityState === 'visible' && privateRoute.value) {
+  if (document.visibilityState === 'visible' && privateRoute.value && lockPossible.value) {
     void security.refresh()
   }
 }
 function recheck() {
-  if (document.visibilityState === 'visible' && auth.isAuthenticated) void security.refresh()
+  if (document.visibilityState === 'visible' && auth.isAuthenticated && lockPossible.value) {
+    void security.refresh()
+  }
 }
 async function logout() {
   security.error = ''

@@ -19,15 +19,24 @@ $loaded['redis']['enabled'] = false;
 $config = new Config($loaded);
 $db = new Connection($config);
 
+// Připravenost hlásíme souborem, ne stdoutem: `stream_set_blocking(false)` je
+// pro proc_open pipe na Windows no-op, takže rodič READY nepřečte dřív, než
+// worker skončí — handshake by tam nikdy nedoběhl. Soubor funguje všude stejně.
+@touch(dirname($barrier) . DIRECTORY_SEPARATOR . 'ready-' . getmypid());
 fwrite(STDOUT, "READY\n");
 fflush(STDOUT);
 $deadline = microtime(true) + 10;
+// is_file() čte PHP stat cache, která si pamatuje i negativní výsledek. Bez
+// invalidace se barrier vytvořený jiným procesem nikdy neobjeví a worker vždy
+// vyprší — proto tyhle dva testy nikdy nic neověřily.
+clearstatcache(true, $barrier);
 while (!is_file($barrier)) {
     if (microtime(true) >= $deadline) {
         fwrite(STDOUT, "{\"ok\":false,\"error\":\"barrier_timeout\"}\n");
         exit(2);
     }
     usleep(1_000);
+    clearstatcache(true, $barrier);
 }
 
 try {

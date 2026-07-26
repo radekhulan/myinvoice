@@ -17,6 +17,8 @@ final class MfaPolicyService
     /** @var list<string> */
     private readonly array $allowedMethods;
 
+    private readonly ?string $configurationWarning;
+
     public function __construct(Config $config)
     {
         $requireMfa = $config->get('auth.require_mfa');
@@ -31,9 +33,34 @@ final class MfaPolicyService
 
         $this->legacyTotpPolicy = $requireMfa === null && $legacyRequireTotp;
         $this->required = $requireMfa ?? $legacyRequireTotp;
-        $this->allowedMethods = $this->legacyTotpPolicy
-            ? ['totp']
-            : self::normalizeMethods($config->get('auth.allowed_mfa_methods', self::SUPPORTED_METHODS));
+        if ($this->legacyTotpPolicy) {
+            $this->allowedMethods = ['totp'];
+            $this->configurationWarning = null;
+            return;
+        }
+
+        // Fail-soft: chybný seznam metod nesmí shodit boot celé aplikace (stejně
+        // jako u session.lock_after_minutes). Fallback je úplná podporovaná
+        // množina, tedy nadmnožina jakéhokoliv smysluplného záměru — nikdy tím
+        // nezmizí faktor, který uživatel reálně má. Chyba jde do health warningu.
+        try {
+            $this->allowedMethods = self::validateMethods(
+                $config->get('auth.allowed_mfa_methods', self::SUPPORTED_METHODS),
+            );
+            $this->configurationWarning = null;
+        } catch (\InvalidArgumentException $e) {
+            $this->allowedMethods = self::SUPPORTED_METHODS;
+            $this->configurationWarning = sprintf(
+                '%s Použit výchozí seznam: %s.',
+                $e->getMessage(),
+                implode(', ', self::SUPPORTED_METHODS),
+            );
+        }
+    }
+
+    public function configurationWarning(): ?string
+    {
+        return $this->configurationWarning;
     }
 
     public function isRequired(): bool
@@ -65,9 +92,12 @@ final class MfaPolicyService
     }
 
     /**
+     * Striktní validace pro místa, kde chybu musí uvidět volající (setup wizard).
+     * Runtime konstruktor si ji obaluje fail-soft fallbackem.
+     *
      * @return list<string>
      */
-    private static function normalizeMethods(mixed $methods): array
+    public static function validateMethods(mixed $methods): array
     {
         if (is_string($methods)) {
             $methods = explode(',', $methods);
@@ -83,7 +113,11 @@ final class MfaPolicyService
             }
             $method = strtolower(trim($method));
             if ($method === '' || !in_array($method, self::SUPPORTED_METHODS, true)) {
-                throw new \InvalidArgumentException('Neznámá nebo prázdná MFA metoda.');
+                throw new \InvalidArgumentException(sprintf(
+                    'Neznámá nebo prázdná MFA metoda; podporované jsou %s '
+                    . '(e-mailové OTP se nastavuje zvlášť přes auth.email_otp.enabled).',
+                    implode(', ', self::SUPPORTED_METHODS),
+                ));
             }
             if (!in_array($method, $normalized, true)) {
                 $normalized[] = $method;

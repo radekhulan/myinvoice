@@ -51,14 +51,9 @@ final class SetupAction
         $methods = $body['allowed_mfa_methods']
             ?? ($usesLegacyRequest ? ['totp'] : ['passkey', 'totp']);
         try {
-            $requestedPolicy = new MfaPolicyService(new Config([
-                'auth' => [
-                    'require_mfa' => $requireMfa,
-                    'require_totp' => $requireTotp,
-                    'allowed_mfa_methods' => $methods,
-                ],
-            ]));
-            $allowedMfaMethods = $requestedPolicy->allowedMethods();
+            // Striktně — vstup z wizardu musí chybu vidět, runtime politika je
+            // naopak fail-soft, aby překlep v cfg neshodil celou aplikaci.
+            $allowedMfaMethods = MfaPolicyService::validateMethods($methods);
         } catch (\InvalidArgumentException $e) {
             return Json::error($response, 'validation_failed', $e->getMessage(), 400);
         }

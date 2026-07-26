@@ -175,6 +175,24 @@ Starší `auth.require_totp = true` a `MYINVOICE_AUTH_REQUIRE_TOTP=true` zůstá
 podporované jako TOTP-only politika. Pro nové instalace používej obecné MFA
 nastavení.
 
+`allowed_mfa_methods` rozhoduje **co povinné MFA splní**, ne na co se přihlášení
+zeptá. Zúžení seznamu (typicky na `['passkey']` při přechodu na passkey-only)
+proto nikdy nezruší faktor, který uživatel reálně má:
+
+- Kdo má zapnuté TOTP, zadává ho i dál. Když `totp` v seznamu není, výsledná
+  session je jen `basic` — při `require_mfa = true` skončí uživatel na
+  `/setup-mfa` a zaregistruje povolenou metodu.
+- Kdo má passkey a WebAuthn je konfiguračně nedostupný (rozbité `app.url`),
+  se přihlásí přes TOTP nebo e-mailové OTP, pokud je má. Bez jakéhokoliv jiného
+  druhého faktoru vrací přihlášení `503 passkeys_unavailable` — nikdy nepropadne
+  na samotné heslo. Řešením je opravit `app.url`, jinak `reset-mfa.php`.
+- Totéž platí pro step-up při vydání API tokenu: zaregistrované TOTP se vyžaduje
+  bez ohledu na `allowed_mfa_methods`.
+
+Neznámá hodnota v seznamu (například `email_otp`, které sem nepatří) start
+aplikace neshodí: použije se výchozí `['passkey', 'totp']` a přihlášený správce
+uvidí na health endpointu warning `mfa_methods_configuration`.
+
 > ⚠️ Povolení TOTP vyžaduje validní `app.secret_encryption_key` (32B base64).
 > Health endpoint na chybnou konfiguraci upozorní; viz
 > [§ 99 Řešení problémů](99_Reseni_problemu.md).
@@ -203,8 +221,10 @@ Zapnutí v `cfg.php` (výchozí stav je **vypnuto** — nejde o breaking change)
 
 Chování:
 
-- **Priorita silného faktoru.** Má-li uživatel passkey nebo TOTP, e-mailové OTP
-  se neuplatní.
+- **Priorita silného faktoru.** Má-li uživatel použitelnou passkey nebo zapnuté
+  TOTP, e-mailové OTP se neuplatní. E-mailový kód se použije jen tam, kde silný
+  faktor chybí — nebo jako záchranná cesta pro účet s passkey, jejíž ověření
+  instalace dočasně neumí (viz § 39.2.5).
 - **Po heslu** se zobrazí pole pro kód z e-mailu + tlačítko *„Kód nedorazil?
   Odeslat znovu"* s odpočtem (cooldown). Kód je jednorázový a hashovaný v DB
   (sloupec `login_otps.code_hash`, nikdy plaintext).
@@ -251,6 +271,17 @@ jen pokud má účet alespoň jednu aktivní passkey a instalace ji umí použí
 Bez dostupné passkey se tlačítko nezobrazuje a server přímý požadavek odmítne,
 aby nevznikla session, kterou lze ukončit pouze úplným odhlášením.
 
+Stejnou podmínku má i **osobní interval**: kladnou hodnotu server uloží jen účtu
+s použitelnou passkey, jinak vrátí `400 validation_failed`. Volba *Použít
+nastavení správce* zůstává dostupná vždy.
+
+> ⚠️ Správcovská hodnota `session.lock_after_minutes > 0` platí pro **všechny**
+> účty, i pro ty bez passkey — a ty pak zamčenou session jen odhlásí (rozepsaný
+> formulář se ztratí). Typicky se to týká instalací, kde uživatelé jedou na
+> e-mailovém OTP. Aplikace na to upozorní health warningem
+> `session_lock_without_unlock_method`; buď uživatelům registruj passkey, nebo
+> nech `session.lock_after_minutes = 0` a osobní volbu na nich.
+
 Aktivitu posouvají pouze skutečné vstupy do viditelné soukromé stránky, například
 kliknutí, dotyk nebo klávesa. Polling, běžné API requesty, focus okna ani service
 worker timeout neposouvají. Po dosažení limitu backend označí session jako
@@ -281,6 +312,17 @@ standardní login; cookie není nutné ručně mazat v nastavení prohlížeče.
 Browser session a její stav zámku jsou autoritativně uložené v MariaDB. Redis
 slouží pro rate limiting, brute-force ochranu a best-effort cache; jeho výpadek
 nesmí obnovit odvolanou, nahrazenou nebo zamčenou session.
+
+Z toho plyne jedna změna configu: **`session.driver` už se nepoužívá**. Starší
+`cfg.php` ho může dál obsahovat (`'auto'` / `'redis'` / `'db'`), hodnota se ale
+ignoruje — session vždy čte a zapisuje MariaDB. Klíč lze bez náhrady smazat.
+
+Migrace `0145` přestavuje tabulku `sessions` (dvanáct nových sloupců, backfill
+a tři indexy), takže po dobu jejího běhu je tabulka zamčená a přihlašování
+nefunguje. Naměřeno na MariaDB 11.8: **~16 s na 300 000 session**, u běžných
+instalací s jednotkami až stovkami řádků je to pod sekundu. Před upgradem se
+vyplatí spustit `php api/bin/cron-cleanup.php`, ať se nepřestavují dávno
+expirované řádky.
 
 ## 39.3 Brute-force ochrana
 

@@ -140,10 +140,13 @@ const lockMinutesValid = computed(() =>
   && lockMinutes.value >= 1
   && lockMinutes.value <= lockMaximum.value
 )
-const canSaveLock = computed(() =>
-  !lockBusy.value && (lockMode.value === 'admin' || lockMinutesValid.value)
-)
 const hasPasskey = computed(() => (auth.user?.passkey_count ?? 0) > 0)
+// Vlastní interval server bez použitelné passkey odmítne (zamčenou session by
+// nešlo odemknout) — netlačíme uživatele do 400, tlačítko rovnou zůstane vypnuté.
+const canSaveLock = computed(() =>
+  !lockBusy.value
+  && (lockMode.value === 'admin' || (lockMinutesValid.value && hasPasskey.value))
+)
 const draftLockEnabled = computed(() =>
   lockMode.value === 'admin'
     ? (lockPreference.value?.admin_lock_after_minutes ?? 0) > 0

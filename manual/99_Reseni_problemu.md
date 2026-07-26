@@ -102,6 +102,26 @@ openssl rand -base64 32
 Vygenerovanou hodnotu ulož do `app.secret_encryption_key`. Klíč musí být
 base64, který po dekódování dává přesně 32 bajtů.
 
+### Varování `mfa_methods_configuration`
+
+V `auth.allowed_mfa_methods` (nebo `MYINVOICE_AUTH_MFA_METHODS`) je neznámá
+hodnota. Podporované jsou pouze `passkey` a `totp`; e-mailové OTP sem nepatří —
+zapíná se přes `auth.email_otp.enabled`. Aplikace kvůli tomu nespadne, jen
+dočasně jede na výchozím seznamu `['passkey', 'totp']`. Oprav seznam v `cfg.php`.
+
+### Varování `session_lock_without_unlock_method`
+
+`session.lock_after_minutes` je kladné, ale někteří aktivní uživatelé nemají
+passkey. Zamčenou session jde odemknout **jen passkey**, takže se z ní dostanou
+pouze odhlášením (a přijdou o rozepsaný formulář). Buď jim registruj passkey
+(**Profil → Přístupové klíče**), nebo nastav `session.lock_after_minutes = 0`
+a nech volbu intervalu na jednotlivých uživatelích.
+
+### Varování `session_lock_configuration`
+
+`session.lock_after_minutes` není celé číslo 0–1440. Výchozí automatický zámek
+je proto vypnutý; osobní intervaly uživatelů platí dál.
+
 ## 99.2 Faktury
 
 ### Nemůžu editovat vystavenou fakturu

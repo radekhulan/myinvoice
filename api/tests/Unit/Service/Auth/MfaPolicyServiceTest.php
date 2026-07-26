@@ -56,29 +56,78 @@ final class MfaPolicyServiceTest extends TestCase
         self::assertFalse($policy->satisfiesRequiredMfa('email_otp'));
     }
 
-    public function testUnknownMethodIsRejected(): void
+    public function testValidMethodsProduceNoConfigurationWarning(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $policy = new MfaPolicyService(new Config([
+            'auth' => [
+                'require_mfa'        => true,
+                'require_totp'       => false,
+                'allowed_mfa_methods' => ['passkey', 'totp'],
+            ],
+        ]));
 
-        new MfaPolicyService(new Config([
+        self::assertNull($policy->configurationWarning());
+    }
+
+    public function testUnknownMethodFallsBackToSupportedSetWithWarning(): void
+    {
+        $policy = new MfaPolicyService(new Config([
             'auth' => [
                 'require_mfa'        => true,
                 'require_totp'       => false,
                 'allowed_mfa_methods' => ['passkey', 'email_otp'],
             ],
         ]));
+
+        self::assertSame(['passkey', 'totp'], $policy->allowedMethods());
+        self::assertNotNull($policy->configurationWarning());
+        self::assertStringContainsString('email_otp', (string) $policy->configurationWarning());
     }
 
-    public function testEmptyMethodsAreRejected(): void
+    public function testEmptyMethodsFallBackToSupportedSetWithWarning(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-
-        new MfaPolicyService(new Config([
+        $policy = new MfaPolicyService(new Config([
             'auth' => [
                 'require_mfa'        => true,
                 'require_totp'       => false,
                 'allowed_mfa_methods' => [],
             ],
         ]));
+
+        self::assertSame(['passkey', 'totp'], $policy->allowedMethods());
+        self::assertNotNull($policy->configurationWarning());
+    }
+
+    public function testLegacyPolicyIgnoresBrokenMethodListWithoutWarning(): void
+    {
+        $policy = new MfaPolicyService(new Config([
+            'auth' => [
+                'require_mfa'        => null,
+                'require_totp'       => true,
+                'allowed_mfa_methods' => ['nonsense'],
+            ],
+        ]));
+
+        self::assertSame(['totp'], $policy->allowedMethods());
+        self::assertNull($policy->configurationWarning());
+    }
+
+    public function testStrictValidatorStillRejectsUnknownMethod(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        MfaPolicyService::validateMethods(['passkey', 'email_otp']);
+    }
+
+    public function testStrictValidatorStillRejectsEmptyList(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        MfaPolicyService::validateMethods([]);
+    }
+
+    public function testStrictValidatorAcceptsCsvString(): void
+    {
+        self::assertSame(['totp', 'passkey'], MfaPolicyService::validateMethods(' TOTP , passkey '));
     }
 }

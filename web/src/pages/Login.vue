@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -22,6 +22,11 @@ const password = ref('')
 const totp = ref('')
 const totpRequired = ref(false)
 const passkeyFlow = ref<{ flowToken: string; publicKey: Record<string, any>; methods: string[] } | null>(null)
+// Nabídnuté faktory přežívají jednorázovou ceremony. Passkey flow se po selhání
+// (i po pouhém zrušení systémového dialogu) zahazuje, ale možnost přepnout na
+// TOTP musí zůstat vidět — jinak by uživatel musel naslepo znovu odeslat heslo.
+const mfaMethods = ref<string[]>([])
+const canUseTotpFallback = computed(() => !totpRequired.value && mfaMethods.value.includes('totp'))
 const passkeyBusy = ref(false)
 const passwordlessBusy = ref(false)
 const passkeySupported = isWebAuthnAvailable()
@@ -98,6 +103,7 @@ async function submit() {
   }
   error.value = ''
   otpInfo.value = ''
+  mfaMethods.value = []
   try {
     await auth.login(email.value.trim(), password.value, turnstile.token.value || undefined, totp.value || undefined, {
       emailOtp: emailOtp.value || undefined,
@@ -117,10 +123,11 @@ async function submit() {
       // šel s already-consumed tokenem → captcha_failed → user musí submit 2x).
       turnstile.reset()
     } else if (code === 'mfa_required') {
+      mfaMethods.value = Array.isArray(data.methods) ? data.methods : ['passkey']
       passkeyFlow.value = {
         flowToken: data.flow_token,
         publicKey: data.public_key,
-        methods: Array.isArray(data.methods) ? data.methods : ['passkey'],
+        methods: mfaMethods.value,
       }
       totpRequired.value = false
       error.value = ''
@@ -312,15 +319,18 @@ async function resendCode() {
             <p class="text-xs text-neutral-500 mt-1">{{ t('auth.totp_hint') }}</p>
           </div>
 
-          <div v-if="passkeyFlow" class="rounded-md border border-primary-200 bg-primary-50 p-3 space-y-2">
-            <button v-if="passkeySupported" type="button" @click="verifyPasskey" :disabled="passkeyBusy"
-                    class="w-full h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white font-medium rounded-md">
-              {{ passkeyBusy ? t('auth.passkey_verifying') : t('auth.passkey_login') }}
-            </button>
-            <p v-else class="text-sm text-warning-700">
-              {{ t('auth.passkey_unsupported_recovery') }}
-            </p>
-            <button v-if="passkeyFlow.methods.includes('totp')" type="button" @click="useTotpFallback"
+          <div v-if="passkeyFlow || canUseTotpFallback"
+               class="rounded-md border border-primary-200 bg-primary-50 p-3 space-y-2">
+            <template v-if="passkeyFlow">
+              <button v-if="passkeySupported" type="button" @click="verifyPasskey" :disabled="passkeyBusy"
+                      class="w-full h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white font-medium rounded-md">
+                {{ passkeyBusy ? t('auth.passkey_verifying') : t('auth.passkey_login') }}
+              </button>
+              <p v-else class="text-sm text-warning-700">
+                {{ t('auth.passkey_unsupported_recovery') }}
+              </p>
+            </template>
+            <button v-if="canUseTotpFallback" type="button" @click="useTotpFallback"
                     class="w-full text-sm text-primary-700 hover:underline">
               {{ t('auth.use_totp_instead') }}
             </button>
