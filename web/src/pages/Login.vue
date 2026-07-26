@@ -197,13 +197,13 @@ async function loginWithPasskey() {
   }
 }
 
-async function verifyPasskey(bypassExtension = false) {
+async function verifyPasskey() {
   if (!passkeyFlow.value || !passkeySupported) return
   const flow = passkeyFlow.value
   passkeyBusy.value = true
   error.value = ''
   try {
-    const credential = await getCredential(flow.publicKey, bypassExtension)
+    const credential = await getCredential(flow.publicKey)
     await authApi.passkeyLoginVerify(flow.flowToken, credential)
     await auth.refresh()
     router.push('/')
@@ -334,7 +334,7 @@ async function resendCode() {
           <div v-if="passkeyFlow || canUseTotpFallback"
                class="rounded-md border border-primary-500/40 bg-primary-50 p-3 space-y-2">
             <template v-if="passkeyFlow">
-              <button v-if="passkeySupported" type="button" @click="verifyPasskey()" :disabled="passkeyBusy"
+              <button v-if="passkeySupported" type="button" @click="verifyPasskey" :disabled="passkeyBusy"
                       class="w-full h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 text-white font-medium rounded-md">
                 {{ passkeyBusy ? t('auth.passkey_verifying') : t('auth.passkey_login') }}
               </button>

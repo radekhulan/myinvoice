@@ -31,24 +31,9 @@ test('a stuck WebAuthn ceremony cannot hang the UI silently', () => {
   // Bez vlastního stropu promise nedoběhne, když se systémový dialog nevykreslí.
   assert.match(webauthn, /CEREMONY_FALLBACK_TIMEOUT_MS/)
   assert.match(webauthn, /Promise\.race\(\[ceremony, timeout\]\)/)
-  assert.match(webauthn, /webauthn_timeout_extension/)
+  // Přepsané navigator.credentials.* (správci hesel) se hlásí zvlášť.
+  assert.match(webauthn, /isCredentialsApiPatched\(\)[\s\S]{0,40}'webauthn_timeout_extension'/)
   assert.match(webauthn, /includes\('\[native code\]'\)/)
-})
-
-test('a patched credentials API is bypassed through a pristine same-origin realm', () => {
-  // Obal správce hesel nemusí ctít AbortSignal; ceremony proto běží v čistém
-  // realmu prázdného iframe, když je hlavní navigator.credentials přepsaný.
-  assert.match(webauthn, /function nativeCredentialsRealm\(\): Window \| null/)
-  assert.match(webauthn, /publickey-credentials-get \*; publickey-credentials-create \*/)
-  assert.match(webauthn, /isNative\(win\.navigator\.credentials\.get\)/)
-  assert.match(webauthn, /bypassExtension && isCredentialsApiPatched\(\) \? nativeCredentialsRealm\(\) : null/)
-  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials\)/)
-  // Bypass nesmí být automatický — klíč bývá uložený právě v rozšíření.
-  assert.match(webauthn, /bypassExtension = false/)
-  // Cross-realm výsledek neprojde instanceof ani u response.
-  assert.match(webauthn, /function isPublicKeyCredential/)
-  assert.doesNotMatch(webauthn, /instanceof (PublicKeyCredential|AuthenticatorAssertionResponse)/)
-  assert.match(webauthn, /realm === null && isCredentialsApiPatched\(\)/)
 })
 
 test('cold-start lock keeps the private route unmounted until full profile hydration', () => {
