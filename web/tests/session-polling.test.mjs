@@ -18,9 +18,9 @@ test('session-aware polling stops for hidden or covered private UI and aborts in
 
 test('locking cancels an active WebAuthn ceremony', () => {
   // Obě ceremonie jdou přes runCeremony, který drží abortovatelný controller.
-  assert.match(webauthn, /run\(controller\.signal\)/)
-  assert.match(webauthn, /navigator\.credentials\.get\(\{[\s\S]*signal,/)
-  assert.match(webauthn, /navigator\.credentials\.create\(\{[\s\S]*signal,/)
+  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
+  assert.match(webauthn, /credentials\.get\(\{[\s\S]*signal,/)
+  assert.match(webauthn, /credentials\.create\(\{[\s\S]*signal,/)
   assert.match(webauthn, /activeCeremony\?\.abort\(\)/)
   assert.match(sessionSecurity, /cancelActiveWebAuthnCeremony\(\)/)
 })
@@ -30,9 +30,21 @@ test('a stuck WebAuthn ceremony cannot hang the UI silently', () => {
   assert.match(webauthn, /CEREMONY_FALLBACK_TIMEOUT_MS/)
   assert.match(webauthn, /timedOut = true\s*\r?\n\s*controller\.abort\(\)/)
   assert.match(webauthn, /if \(!timedOut\) throw e/)
-  // Přepsané navigator.credentials.* (správci hesel) se hlásí zvlášť.
-  assert.match(webauthn, /isCredentialsApiPatched\(\) \? 'webauthn_timeout_extension' : 'webauthn_timeout'/)
   assert.match(webauthn, /includes\('\[native code\]'\)/)
+})
+
+test('a patched credentials API is bypassed through a pristine same-origin realm', () => {
+  // Obal správce hesel nemusí ctít AbortSignal; ceremony proto běží v čistém
+  // realmu prázdného iframe, když je hlavní navigator.credentials přepsaný.
+  assert.match(webauthn, /function nativeCredentialsRealm\(\): Window \| null/)
+  assert.match(webauthn, /publickey-credentials-get \*; publickey-credentials-create \*/)
+  assert.match(webauthn, /isNative\(win\.navigator\.credentials\.get\)/)
+  assert.match(webauthn, /return isCredentialsApiPatched\(\) \? nativeCredentialsRealm\(\) : null/)
+  assert.match(webauthn, /run\(\(realm \?\? window\)\.navigator\.credentials, controller\.signal\)/)
+  // Cross-realm výsledek neprojde instanceof ani u response.
+  assert.match(webauthn, /function isPublicKeyCredential/)
+  assert.doesNotMatch(webauthn, /instanceof (PublicKeyCredential|AuthenticatorAssertionResponse)/)
+  assert.match(webauthn, /realm === null && isCredentialsApiPatched\(\)/)
 })
 
 test('cold-start lock keeps the private route unmounted until full profile hydration', () => {
