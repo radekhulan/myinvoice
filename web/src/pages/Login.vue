@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, markRaw, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -126,7 +126,9 @@ async function submit() {
       mfaMethods.value = Array.isArray(data.methods) ? data.methods : ['passkey']
       passkeyFlow.value = {
         flowToken: data.flow_token,
-        publicKey: data.public_key,
+        // markRaw: options nesmí být reaktivní Proxy — neklonují se mezi světy
+        // a správci hesel na tom padají (viz plainJson v security/webauthn).
+        publicKey: markRaw(data.public_key),
         methods: mfaMethods.value,
       }
       totpRequired.value = false

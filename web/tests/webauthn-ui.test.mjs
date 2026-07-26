@@ -158,3 +158,14 @@ test('forced passkey setup uses existing TOTP as transition step-up', async () =
   assert.match(setup, /authorization\.current_password/)
   assert.match(setup, /await auth\.refresh\(\)[\s\S]*await sessionSecurity\.refresh\(\{ force: true \}\)/)
 })
+
+test('WebAuthn options are handed over as plain data, never as a reactive proxy', async () => {
+  const webauthn = await readFile(new URL('security/webauthn.ts', root), 'utf8')
+  const login = await readFile(new URL('pages/Login.vue', root), 'utf8')
+
+  // Options putují mezi světy přes CustomEvent a strukturovaný klon; Proxy se
+  // naklonovat nedá, detail dorazí jako null a obal správce hesel spadne.
+  assert.match(webauthn, /function plainJson/)
+  assert.match(webauthn, /const options = plainJson\(source\)/)
+  assert.match(login, /publicKey: markRaw\(data\.public_key\)/)
+})

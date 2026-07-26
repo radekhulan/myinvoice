@@ -161,7 +161,25 @@ export function toBase64Url(value: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
-export function requestOptionsFromJson(options: JsonObject): PublicKeyCredentialRequestOptions {
+/**
+ * Options musí být čistá data, ne Vue reaktivní Proxy.
+ *
+ * Správci hesel přepisují navigator.credentials a options si mezi světy posílají
+ * přes CustomEvent, jehož `detail` se strukturovaně klonuje. Proxy se naklonovat
+ * nedá, klon selže a listener dostane `detail === null` — Keeper na tom padá
+ * v `switch (t.detail.type)` a naše promise nikdy nedoběhne. Options ze serveru
+ * jsou čisté JSON, takže je stačí přelít přes JSON a zbavit se tím reaktivity;
+ * teprve pak se dělají ArrayBuffery, které přes JSON projít nesmí.
+ *
+ * Chrání to všechna volání bez ohledu na to, jestli si volající flow uložil do
+ * ref() (Login.vue) nebo drží prostý objekt (odemčení zámku, registrace).
+ */
+function plainJson(options: JsonObject): JsonObject {
+  return JSON.parse(JSON.stringify(options))
+}
+
+export function requestOptionsFromJson(source: JsonObject): PublicKeyCredentialRequestOptions {
+  const options = plainJson(source)
   return {
     ...options,
     challenge: fromBase64Url(options.challenge),
@@ -172,7 +190,8 @@ export function requestOptionsFromJson(options: JsonObject): PublicKeyCredential
   } as PublicKeyCredentialRequestOptions
 }
 
-export function creationOptionsFromJson(options: JsonObject): PublicKeyCredentialCreationOptions {
+export function creationOptionsFromJson(source: JsonObject): PublicKeyCredentialCreationOptions {
+  const options = plainJson(source)
   return {
     ...options,
     challenge: fromBase64Url(options.challenge),
