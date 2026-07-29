@@ -7,6 +7,7 @@ namespace MyInvoice\Service\Pdf;
 use Mpdf\Mpdf;
 use MyInvoice\Bootstrap;
 use MyInvoice\Infrastructure\Config\Config;
+use MyInvoice\Infrastructure\Config\RuntimePaths;
 use MyInvoice\Infrastructure\Database\Connection;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Repository\WorkReportRepository;
@@ -33,6 +34,10 @@ final class InvoicePdfRenderer
     use SignsPdf;
 
     private ?Environment $twig = null;
+    private bool $lastRenderUsedCustomTemplate = false;
+
+    private const CUSTOM_TEMPLATE = 'templates/invoice/invoice-custom.twig';
+    private const CUSTOM_CSS = 'templates/invoice/invoice-custom.css';
 
     public function __construct(
         private readonly InvoiceRepository $repo,
@@ -70,6 +75,7 @@ final class InvoicePdfRenderer
         $tplMtime = max(
             @filemtime(Bootstrap::rootDir() . '/styles/invoice.css') ?: 0,
             @filemtime(Bootstrap::rootDir() . '/api/templates/invoice/invoice.twig') ?: 0,
+            $this->templateOverrideMtime(),
             @filemtime(__FILE__) ?: 0,
         );
         $isFresh = static fn (string $p): bool =>
@@ -231,10 +237,6 @@ final class InvoicePdfRenderer
         bool $includeWorkReport = true,
     ): array
     {
-        $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
-        $css = is_file($cssPath) ? (string) file_get_contents($cssPath) : '';
-        // Per-supplier branding barva — přebarví fialové akcenty na zvolený odstín.
-        $css .= $this->brandAccentCss($this->resolveSupplier($invoice));
         // Renderuj template BEZ inline <style> bloku — CSS pošleme do mPDF zvlášť
         $body = $this->renderHtml(
             $invoice,
@@ -242,6 +244,18 @@ final class InvoicePdfRenderer
             hasIsdocAttachment: $hasIsdocAttachment,
             includeWorkReport: $includeWorkReport,
         );
+        $cssPath = $this->lastRenderUsedCustomTemplate
+            ? RuntimePaths::storage(self::CUSTOM_CSS)
+            : Bootstrap::rootDir() . '/styles/invoice.css';
+        // Custom CSS je volitelné. Bez něj vlastní Twig používá upstream styl,
+        // což je praktické pro malé strukturální úpravy šablony.
+        if (!is_file($cssPath)) {
+            $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
+        }
+        $css = is_file($cssPath) ? (string) file_get_contents($cssPath) : '';
+        // Per-supplier branding barva — přebarví fialové akcenty na zvolený odstín.
+        // Připojuje se i ke custom CSS, aby profilové barvy fungovaly stejně.
+        $css .= $this->brandAccentCss($this->resolveSupplier($invoice));
         return ['body' => $body, 'css' => $css];
     }
 
@@ -287,20 +301,39 @@ final class InvoicePdfRenderer
         }
 
         $locale = $invoice['language'] ?? 'cs';
-        $cssPath = Bootstrap::rootDir() . '/styles/invoice.css';
-        $css = $includeCss
-            ? (is_file($cssPath) ? (string) file_get_contents($cssPath) : '')
-            : '';
-        if ($includeCss && $css !== '') {
-            $css .= $this->brandAccentCss($supplierData);
-        }
-
         $twig = $this->twig();
 
         // Translation helper
         $twig->addFunction(new \Twig\TwigFunction('t', static function (string $cs, string $en) use ($locale) {
             return $locale === 'en' ? $en : $cs;
         }));
+
+        $customTemplate = RuntimePaths::storage(self::CUSTOM_TEMPLATE);
+        $customCss = RuntimePaths::storage(self::CUSTOM_CSS);
+        $templateName = 'invoice.twig';
+        $this->lastRenderUsedCustomTemplate = false;
+
+        if (is_file($customTemplate)) {
+            try {
+                // load() šablonu zkompiluje, takže zachytí syntaktickou chybu ještě
+                // před volbou CSS. Runtime chyby zachytí render níže.
+                $twig->load('invoice-custom.twig');
+                $templateName = 'invoice-custom.twig';
+                $this->lastRenderUsedCustomTemplate = true;
+            } catch (\Twig\Error\Error $e) {
+                error_log('[invoice-pdf] invoice-custom.twig nelze načíst, používám výchozí šablonu: ' . $e->getMessage());
+            }
+        }
+
+        $cssPath = $this->lastRenderUsedCustomTemplate && is_file($customCss)
+            ? $customCss
+            : Bootstrap::rootDir() . '/styles/invoice.css';
+        $css = $includeCss
+            ? (is_file($cssPath) ? (string) file_get_contents($cssPath) : '')
+            : '';
+        if ($includeCss && $css !== '') {
+            $css .= $this->brandAccentCss($supplierData);
+        }
 
         $logoPath = $this->resolveLogoPath($supplierData, (int) ($invoice['supplier_id'] ?? 0));
 
@@ -336,7 +369,23 @@ final class InvoicePdfRenderer
             'logo_show_name'    => $logoPath !== null && !empty($supplierData['pdf_logo_show_name']),
             'isdoc_attachment'  => $hasIsdocAttachment, // bool — badge gate
         ];
-        return $twig->render('invoice.twig', $vars);
+        try {
+            return $twig->render($templateName, $vars);
+        } catch (\Twig\Error\Error $e) {
+            if (!$this->lastRenderUsedCustomTemplate) {
+                throw $e;
+            }
+            error_log('[invoice-pdf] invoice-custom.twig selhala při renderu, používám výchozí šablonu: ' . $e->getMessage());
+            $this->lastRenderUsedCustomTemplate = false;
+            if ($includeCss) {
+                $defaultCss = Bootstrap::rootDir() . '/styles/invoice.css';
+                $vars['css'] = is_file($defaultCss) ? (string) file_get_contents($defaultCss) : '';
+                if ($vars['css'] !== '') {
+                    $vars['css'] .= $this->brandAccentCss($supplierData);
+                }
+            }
+            return $twig->render('invoice.twig', $vars);
+        }
     }
 
     private function newMpdf(string $tmpDir): Mpdf
@@ -352,6 +401,50 @@ final class InvoicePdfRenderer
             'autoPageBreak'     => true,
             ...MpdfFontConfig::options(),
         ]);
+    }
+
+    /**
+     * Vrací mtime markeru konfigurace lokální šablony. Samotné maximum mtime
+     * nestačí: po smazání custom souboru by hodnota klesla a dříve vygenerované
+     * PDF by zůstalo považované za čerstvé. Marker se proto obnoví při každé
+     * změně existence nebo mtime Twigu/CSS a spolehlivě invaliduje cache i při
+     * aktivaci, deaktivaci a opravě rozbité šablony.
+     */
+    private function templateOverrideMtime(): int
+    {
+        $template = RuntimePaths::storage(self::CUSTOM_TEMPLATE);
+        $css = RuntimePaths::storage(self::CUSTOM_CSS);
+        $signature = implode(':', [
+            is_file($template) ? '1' : '0',
+            (string) (@filemtime($template) ?: 0),
+            is_file($css) ? '1' : '0',
+            (string) (@filemtime($css) ?: 0),
+        ]);
+
+        $marker = RuntimePaths::storage('cache/invoice-template-override.state');
+        $current = is_file($marker) ? trim((string) @file_get_contents($marker)) : '';
+        if (!hash_equals($current, $signature)) {
+            $dir = dirname($marker);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            // Atomická náhrada přes sibling soubor řeší i střídání uživatelů:
+            // CLI může běžet jako root, zatímco PHP-FPM jako www-data. O přepsání
+            // rozhodují práva adresáře, takže rootem vlastněný starý marker
+            // nezablokuje pozdější invalidaci z webového procesu.
+            $tmpMarker = $marker . '.' . bin2hex(random_bytes(6)) . '.tmp';
+            if (@file_put_contents($tmpMarker, $signature . "\n", LOCK_EX) !== false) {
+                $nextMtime = max(time() + 1, (@filemtime($marker) ?: 0) + 1);
+                @unlink($marker);
+                if (@rename($tmpMarker, $marker)) {
+                    @touch($marker, $nextMtime);
+                } else {
+                    @unlink($tmpMarker);
+                }
+            }
+        }
+
+        return @filemtime($marker) ?: 0;
     }
 
     /**
@@ -403,7 +496,13 @@ final class InvoicePdfRenderer
     {
         // Vždy nový Environment — addFunction() lze volat jen před init,
         // a po jednom render() se environment zamkne. Cache=false stejně.
-        $loader = new FilesystemLoader(dirname(__DIR__, 3) . '/templates/invoice');
+        $customDir = dirname(RuntimePaths::storage(self::CUSTOM_TEMPLATE));
+        $paths = [];
+        if (is_dir($customDir)) {
+            $paths[] = $customDir;
+        }
+        $paths[] = dirname(__DIR__, 3) . '/templates/invoice';
+        $loader = new FilesystemLoader($paths);
         return new Environment($loader, [
             'autoescape' => 'html',
             'cache' => false,

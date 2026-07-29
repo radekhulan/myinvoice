@@ -113,7 +113,31 @@ Vygenerované PDF obsahuje:
 > loga se pak vykreslí obchodní (nebo firemní) název. Sémantické barvy zůstávají
 > vždy stejné (dobropis červená, storno šedá).
 
-### 11.2.1 Přepočet do CZK (faktury v cizí měně)
+### 11.2.1 Serverová vlastní šablona
+
+Správce self-hosted instalace může bez webového editoru nahradit vzhled faktury
+vlastními soubory v persistentním datovém adresáři:
+
+- `storage/templates/invoice/invoice-custom.twig`
+- `storage/templates/invoice/invoice-custom.css` (volitelné)
+
+V Dockeru s `MYINVOICE_DATA_DIR=/data` jsou absolutní cesty
+`/data/storage/templates/invoice/invoice-custom.*`. Soubory jsou v datovém
+volume, takže je nový image ani rebuild nepřepíše. Pokud vlastní CSS chybí,
+použije se výchozí `styles/invoice.css`.
+
+Vlastní šablona je určena výhradně správci serveru, který má přístup k
+souborovému systému a vědomě přebírá odpovědnost za správnost výsledného
+daňového dokladu. Aplikace ji nenabízí k editaci ani uploadu přes web či API.
+Po každé změně je nutné ověřit faktury s více položkami, sazbami DPH, dlouhými
+texty, QR platbou, dobropisem, zálohou a případným výkazem práce.
+
+Když `invoice-custom.twig` neexistuje, nelze jej zkompilovat nebo selže při
+renderování, aplikace zapíše chybu do logu a automaticky použije vestavěnou
+`invoice.twig` a její CSS. Přidání, změna i odstranění vlastního Twigu/CSS
+invaliduje PDF cache.
+
+### 11.2.2 Přepočet do CZK (faktury v cizí měně)
 
 Pokud je faktura v jiné měně než CZK, PDF obsahuje navíc:
 
@@ -127,7 +151,7 @@ Pokud je faktura starší a nemá zafixovaný kurz (legacy data), MyInvoice ho
 **doplní automaticky** při příštím otevření detailu nebo PDF (cache → ČNB →
 poslední známý). Detail viz [§ 10.4.2 Faktura v cizí měně](10_Faktura_editor.md#1042-faktura-v-cizi-mene-eur-usd-prepocet-do-czk).
 
-### 11.2.2 PDF/A-3b (archivní formát)
+### 11.2.3 PDF/A-3b (archivní formát)
 
 Všechna generovaná PDF (faktury, přijaté faktury, výkazy práce, Kniha DPH,
 Kniha jízd) jsou ve formátu **PDF/A-3b** (ISO 19005-3) — standardu pro
