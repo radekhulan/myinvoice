@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.56.4] — 2026-09-04
+
+### Fixed
+
+- **Kontrolní hlášení vynechávalo oddíl A.2 u dodavatele bez EU DIČ.** Přijaté plnění se samovyměřením od dodavatele, který nemá DIČ registrace k DPH v členském státě EU (třetí země, ale i neplátce se sídlem v EU), se z oddílu A.2 vyřazovalo, jenže řádek 12 (případně 5) přiznání zůstal naplněný. Křížová kontrola kontrolního součtu `celk_zd_a2` proti řádkům 3, 4, 5, 6, 9, 12 a 13 přiznání s tolerancí ±1000 Kč se proto rozešla přesně o objem těch plnění, u firmy s pravidelnými zahraničními službami každý měsíc. Odůvodnění opravy z 4.56.1 neobstálo: dokumentace atributu `vatid_dod` v `dphkh1.xsd` ten případ jmenuje doslova, u dodavatele bez VAT ID včetně „identifikace zahraniční osoby povinné k dani" zůstává pole „Identifikace dodavatele" prázdné, a obě položky (`k_stat` i `vatid_dod`) jsou v XSD `use="optional"` s `minLength="0"`. Původní analýza četla jen anotaci u `k_stat` a tuhle větu minula. Ověřeno zkušebním podáním na testovací podatelně EPO, podepsaným kvalifikovaným certifikátem: na řádek bez identifikace vrátí EPO dvě zprávy typu `P`, tedy propustné, „Kód státu dodavatele by měl být vyplněn" a „Identifikace dodavatele (VAT ID) by měla být vyplněna", a podání jako celek projde. Odpovídá to chybám č. 58 a č. 60, které GFŘ výslovně označuje za propustné; tvrzení z 4.56.1, že EPO takové podání zamítne, tedy neplatí. Nově řádek do A.2 jde s prázdnou identifikací. Kritériem už není sídlo dodavatele, ale existence DIČ registrace k DPH: osoba se sídlem ve třetí zemi registrovaná v některém členském státě identifikaci má a kód státu se odvodí z prefixu jejího VAT ID, zatímco číslo, které EU VAT ID není (OSS mimo Unii, domácí identifikátor třetí země, britské DIČ po Brexitu), se do `vatid_dod` nedostane. U dodavatele se sídlem v EU bez VAT ID náhled varuje, protože tam jde skoro vždy o neúplný kontakt. **Přiznání k DPH se nemění**: řídí se zařazením dokladu na řádek, ne sekcí kontrolního hlášení, takže samovyměření i zrcadlový odpočet zůstávají ve stejné výši a mění se výhradně kontrolní hlášení. Kniha DPH u takového dokladu nově tiskne ve sloupci „KH" sekci A.2 (ve 4.56.1 tiskla prázdno). (Ruší opravu z 4.56.1.)
+
 ## [4.56.3] — 2026-08-27
 
 ### Fixed
