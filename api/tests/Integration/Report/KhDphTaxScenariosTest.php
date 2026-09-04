@@ -764,19 +764,19 @@ final class KhDphTaxScenariosTest extends TestCase
     }
 
     /**
-     * JÁDRO OPRAVY: služba ze 3. země (§ 24, kód 24) se samovyměřením patří na ř.12
-     * DPHDP3 (+ zrcadlo ř.43), ale do KH oddílu A.2 NE.
+     * JÁDRO ISSUE #53: služba ze 3. země (§ 24, kód 24) se samovyměřením patří
+     * na ř. 12 DPHDP3 (+ zrcadlo ř. 43) A ZÁROVEŇ do KH oddílu A.2 — jen s prázdnou
+     * identifikací dodavatele.
      *
-     * VetaA2 se neobejde bez `k_stat` a `vatid_dod` — XSD u `k_stat` píše „kód státu,
-     * který přidělil DIČ REGISTRACE K DPH dodavatele … viz tabulka Daňová identifikační
-     * čísla členských států EU". Dodavatel ze 3. země takové číslo nemá, řádek by odešel
-     * prázdný a EPO podání odmítne („chybí stát a DIČ"). Že kontrolní součet `celk_zd_a2`
-     * jmenuje i ř.12/13, nic nemění: na těch řádcích sedí i dodavatelé z EU, kteří
-     * k_stat i vatid_dod mají.
+     * Metodická informace GFŘ k vyplnění KH i dokumentace `vatid_dod` v dphkh1.xsd
+     * shodně uvádějí, že u dodavatele bez VAT ID (včetně „identifikace zahraniční
+     * osoby povinné k dani“) pole „Identifikace dodavatele“ zůstává prázdné; obě
+     * položky jsou v XSD `use="optional"` s `minLength="0"`. EPO vypíše chyby č. 58
+     * a č. 60, ale ty jsou PROPUSTNÉ a podání nebrání.
      *
-     * Regrese hlídá OBOJÍ směr — KH se vyprázdní, přiznání zůstane naplněné.
+     * Regrese hlídá OBOJÍ směr — řádek je v KH i v přiznání a `celk_zd_a2` na něj sedí.
      */
-    public function testThirdCountryServiceStaysInDphButNotInKhA2(): void
+    public function testThirdCountryServiceGoesToKhA2WithEmptyIdentification(): void
     {
         $usId = $this->countryId('US');
         if ($usId === 0) {
@@ -784,41 +784,57 @@ final class KhDphTaxScenariosTest extends TestCase
         }
         $d = fn (int $day) => sprintf('%04d-%02d-%02d', self::YEAR, self::MONTH, $day);
         $usVend = $this->client('US poskytovatel', $usId, 'US12-3456789', vendor: true);
-        // Kód 24 (služba ze 3. země, ř.12), RC, fakturováno bez DPH (vat=0).
+        // Kód 24 (služba ze 3. země, ř. 12), RC, fakturováno bez DPH (vat=0).
         $this->purchase('P-2099-1401', $usVend, '24', false, 'invoice', $d(10), $d(10), [[10000, 0, 21]]);
 
-        // DPHDP3 — ř.12 samovyměření + ř.43 odpočet (net nula u plátce).
+        // DPHDP3 — ř. 12 samovyměření + ř. 43 odpočet (net nula u plátce). Na KH
+        // nezávislé: DPHDP3 se řídí dphdp3_line, ne kh_section.
         $dp = (new \SimpleXMLElement($this->dph->build($this->supplierId, self::YEAR, self::MONTH, 'monthly')['xml']))->DPHDP3;
-        $this->assertSame('10000', (string) $dp->Veta1['p_sl23_z'], 'ř.12 základ (dovoz služby 3. země)');
-        $this->assertSame('2100', (string) $dp->Veta1['dan_psl23_z'], 'ř.12 samovyměřená daň');
-        $this->assertSame('10000', (string) $dp->Veta4['nar_zdp23'], 'ř.43 mirror základ');
-        $this->assertSame('2100', (string) $dp->Veta4['od_zdp23'], 'ř.43 mirror odpočet');
+        $this->assertSame('10000', (string) $dp->Veta1['p_sl23_z'], 'ř. 12 základ (dovoz služby 3. země)');
+        $this->assertSame('2100', (string) $dp->Veta1['dan_psl23_z'], 'ř. 12 samovyměřená daň');
+        $this->assertSame('10000', (string) $dp->Veta4['nar_zdp23'], 'ř. 43 mirror základ');
+        $this->assertSame('2100', (string) $dp->Veta4['od_zdp23'], 'ř. 43 mirror odpočet');
 
-        // KH — ani A.2 (nejde sestavit platný řádek), ani B.1 (to je tuzemský § 92).
-        $kh = new \SimpleXMLElement($this->kh->build($this->supplierId, self::YEAR, self::MONTH)['xml']);
-        $this->assertCount(0, $kh->DPHKH1->VetaA2, 'služba ze 3. země NEPATŘÍ do KH A.2 (bez k_stat/vatid_dod)');
-        $this->assertCount(0, $kh->DPHKH1->VetaB1, 'NESMÍ být ani v B.1');
-        $this->assertSame('0.00', (string) $kh->DPHKH1->VetaC['celk_zd_a2'],
-            'celk_zd_a2 = 0, když se do A.2 nic nevykázalo');
+        // KH — A.2 ANO (s prázdnou identifikací), B.1 ne (to je tuzemský § 92).
+        $res = $this->kh->build($this->supplierId, self::YEAR, self::MONTH);
+        $kh = (new \SimpleXMLElement($res['xml']))->DPHKH1;
+        $this->assertCount(1, $kh->VetaA2, 'služba ze 3. země PATŘÍ do KH A.2 (issue #53)');
+        $this->assertSame('', (string) $kh->VetaA2[0]['k_stat'], 'k_stat zůstává prázdný');
+        $this->assertSame('', (string) $kh->VetaA2[0]['vatid_dod'], 'vatid_dod zůstává prázdný');
+        $this->assertSame('P-2099-1401', (string) $kh->VetaA2[0]['c_evid_dd']);
+        $this->assertSame('10000.00', (string) $kh->VetaA2[0]['zakl_dane1'], 'A.2 základ 21 %');
+        $this->assertSame('2100.00', (string) $kh->VetaA2[0]['dan1'], 'A.2 samovyměřená daň');
+        $this->assertCount(0, $kh->VetaB1, 'NESMÍ být v B.1');
+        $this->assertSame('10000.00', (string) $kh->VetaC['celk_zd_a2'],
+            'celk_zd_a2 musí sedět s ř. 12 přiznání (křížová kontrola KH/DP)');
+        $this->assertSame([], array_values(array_filter(
+            $res['warnings'],
+            static fn (string $w): bool => str_contains($w, 'P-2099-1401'),
+        )), '3. země je běžný stav — uživatel nemá co doplnit, žádné varování');
 
-        // Kniha DPH tiskne u takového dokladu prázdný sloupec KH (shodně s výstupem účetní).
+        // XSD musí pustit i řádek s prázdnou identifikací (`use="optional"`, `minLength="0"`).
+        $this->assertKhXmlValidatesAgainstXsd($res['xml']);
+
+        // Kniha DPH tiskne u takového dokladu A.2, shodně s výkazem.
         $book = $this->book->build($this->supplierId, self::YEAR, self::MONTH);
-        foreach ($book['sections'] as $s) {
-            foreach ($s['rows'] as $r) {
+        $seen = false;
+        foreach ($book['sections'] as $section) {
+            foreach ($section['rows'] as $r) {
                 if (($r['original_doc_number'] ?? '') === 'P-2099-1401') {
-                    $this->assertSame('', (string) ($r['kh_section'] ?? ''), 'Kniha DPH: 3. země bez KH sekce');
+                    $seen = true;
+                    $this->assertSame('A.2', (string) ($r['kh_section'] ?? ''), 'Kniha DPH: 3. země má sekci A.2');
                 }
             }
         }
+        $this->assertTrue($seen, 'doklad musí být v Knize DPH — jinak kontrola nic neověřuje');
     }
 
     /**
-     * Přísnější kritérium než „není z EU": dodavatel SE SÍDLEM V EU, který ale nemá
-     * použitelné DIČ registrace k DPH (neplátce, chybějící údaj na kontaktu), do A.2
-     * také nemůže — řádek by odešel s prázdným `vatid_dod` a EPO ho odmítne stejně
-     * jako u 3. země. Na rozdíl od 3. země je to ale typicky neúplný údaj → warning.
+     * Dodavatel SE SÍDLEM V EU bez použitelného VAT ID (neplátce, chybějící údaj na
+     * kontaktu) do A.2 také patří, také s prázdnou identifikací. Na rozdíl od 3. země
+     * je to ale skoro vždy neúplný údaj, který lze před podáním doplnit → varování.
      */
-    public function testEuSupplierWithoutVatIdExcludedFromA2WithWarning(): void
+    public function testEuSupplierWithoutVatIdStillReportedInA2WithWarning(): void
     {
         $d = fn (int $day) => sprintf('%04d-%02d-%02d', self::YEAR, self::MONTH, $day);
         $vend = $this->client('DE dodavatel bez VAT ID', $this->deId, null, vendor: true);
@@ -826,25 +842,51 @@ final class KhDphTaxScenariosTest extends TestCase
 
         $res = $this->kh->build($this->supplierId, self::YEAR, self::MONTH);
         $kh = (new \SimpleXMLElement($res['xml']))->DPHKH1;
-        $this->assertCount(0, $kh->VetaA2, 'EU dodavatel bez VAT ID nemůže do A.2');
-        $this->assertSame('0.00', (string) $kh->VetaC['celk_zd_a2'], 'celk_zd_a2 nesmí nést nevykázaný řádek');
+        $this->assertCount(1, $kh->VetaA2, 'EU dodavatel bez VAT ID patří do A.2 s prázdnou identifikací');
+        $this->assertSame('', (string) $kh->VetaA2[0]['vatid_dod']);
+        $this->assertSame('5000.00', (string) $kh->VetaC['celk_zd_a2'], 'celk_zd_a2 nese i řádek bez identifikace');
         $this->assertNotEmpty(
             array_filter($res['warnings'], static fn (string $w): bool => str_contains($w, 'P-2099-1402')),
             'chybějící EU VAT ID musí uživatel vidět jako varování'
         );
 
-        // Samovyměření v přiznání zůstává (ř.5 služba z EU + zrcadlo ř.43).
+        // Samovyměření v přiznání zůstává (ř. 5 služba z EU + zrcadlo ř. 43).
         $dp = (new \SimpleXMLElement($this->dph->build($this->supplierId, self::YEAR, self::MONTH, 'monthly')['xml']))->DPHDP3;
-        $this->assertSame('5000', (string) $dp->Veta1['p_sl23_e'], 'ř.5 základ zůstává');
-        $this->assertSame('1050', (string) $dp->Veta1['dan_psl23_e'], 'ř.5 samovyměřená daň zůstává');
+        $this->assertSame('5000', (string) $dp->Veta1['p_sl23_e'], 'ř. 5 základ zůstává');
+        $this->assertSame('1050', (string) $dp->Veta1['dan_psl23_e'], 'ř. 5 samovyměřená daň');
     }
 
     /**
-     * Žádná VetaA2 nesmí odejít s prázdným `k_stat`/`vatid_dod` — přesně to EPO odmítá.
-     * Invariant nad CELÝM XML, ne nad jedním scénářem: kdyby budoucí změna klasifikace
-     * poslala do A.2 dodavatele bez EU registrace k DPH, spadne to tady.
+     * Dodavatel se sídlem ve 3. zemi, ale REGISTROVANÝ K DPH v členském státě (US firma
+     * s irským DIČ), identifikaci MÁ — `k_stat` je stát REGISTRACE, ne stát sídla.
+     * Kritérium „není z EU → bez identifikace“ by ho zahodilo.
      */
-    public function testNoVetaA2IsEmittedWithoutCountryAndVatId(): void
+    public function testNonEuSupplierWithEuVatIdKeepsIdentification(): void
+    {
+        $usId = $this->countryId('US');
+        if ($usId === 0) {
+            $this->markTestSkipped('US není v číselníku countries.');
+        }
+        $d = fn (int $day) => sprintf('%04d-%02d-%02d', self::YEAR, self::MONTH, $day);
+        $vend = $this->client('US firma s IE registrací', $usId, 'IE3668997OH', vendor: true);
+        $this->purchase('P-2099-1405', $vend, '24', false, 'invoice', $d(13), $d(13), [[2000, 0, 21]]);
+
+        $kh = (new \SimpleXMLElement($this->kh->build($this->supplierId, self::YEAR, self::MONTH)['xml']))->DPHKH1;
+        $this->assertCount(1, $kh->VetaA2);
+        $this->assertSame('IE', (string) $kh->VetaA2[0]['k_stat'], 'k_stat z prefixu VAT ID, ne ze země sídla');
+        $this->assertSame('3668997OH', (string) $kh->VetaA2[0]['vatid_dod'], 'vatid_dod bez prefixu, s písmeny');
+    }
+
+    /**
+     * INVARIANT nad celým XML: `celk_zd_a2` sedí jak na součet SKUTEČNĚ emitovaných vět
+     * A.2, tak (v toleranci ±1000 Kč dle dphkh1.xsd) na součet řádků 3, 4, 5, 6, 12
+     * a 13 přiznání. Právě tuhle křížovou kontrolu rozbíjelo vyřazování dodavatelů
+     * bez EU DIČ z A.2 (issue #53) — ř. 12 byl naplněný, celk_zd_a2 nulový.
+     *
+     * (Ř. 9 — pořízení nového dopravního prostředku — do součtu podle XSD také patří,
+     * builder ho ale do A.2 nesměřuje, takže ve scénáři není.)
+     */
+    public function testCelkZdA2MatchesEmittedRowsAndDeclarationLines(): void
     {
         $usId = $this->countryId('US');
         $d = fn (int $day) => sprintf('%04d-%02d-%02d', self::YEAR, self::MONTH, $day);
@@ -856,30 +898,41 @@ final class KhDphTaxScenariosTest extends TestCase
         $this->purchase('P-2099-1404', $de, '23', false, 'invoice', $d(12), $d(12), [[3000, 0, 21]]);
 
         $xml = $this->kh->build($this->supplierId, self::YEAR, self::MONTH)['xml'];
-
-        // XML s reálným řádkem A.2 musí projít oficiálním XSD (dphkh1.xsd).
-        $xsd = dirname(__DIR__, 3) . '/xsd/dphkh1.xsd';
-        if (is_file($xsd)) {
-            $doc = new \DOMDocument();
-            $doc->loadXML($xml);
-            $prev = libxml_use_internal_errors(true);
-            $valid = $doc->schemaValidate($xsd);
-            $errors = array_map(static fn ($e): string => trim($e->message), libxml_get_errors());
-            libxml_clear_errors();
-            libxml_use_internal_errors($prev);
-            $this->assertTrue($valid, 'KH XML neprošlo dphkh1.xsd: ' . implode(' | ', $errors));
-        }
+        $this->assertKhXmlValidatesAgainstXsd($xml);
 
         $kh = (new \SimpleXMLElement($xml))->DPHKH1;
         $this->assertGreaterThan(0, $kh->VetaA2->count(), 'kontrola dává smysl jen s alespoň jednou větou A.2');
         $sum = 0.0;
         foreach ($kh->VetaA2 as $a2) {
-            $this->assertNotSame('', (string) $a2['k_stat'], 'VetaA2 bez k_stat = EPO podání odmítne');
-            $this->assertNotSame('', (string) $a2['vatid_dod'], 'VetaA2 bez vatid_dod = EPO podání odmítne');
             $sum += (float) $a2['zakl_dane1'] + (float) $a2['zakl_dane2'];
         }
         $this->assertEqualsWithDelta($sum, (float) $kh->VetaC['celk_zd_a2'], 0.005,
             'celk_zd_a2 musí sedět na součet skutečně emitovaných vět A.2');
+
+        $dp = (new \SimpleXMLElement($this->dph->build($this->supplierId, self::YEAR, self::MONTH, 'monthly')['xml']))->DPHDP3;
+        $declared = 0.0;
+        foreach (['p_zb23', 'p_zb5', 'p_sl23_e', 'p_sl5_e', 'p_sl23_z', 'p_sl5_z'] as $attr) {
+            $declared += (float) ($dp->Veta1[$attr] ?? 0);
+        }
+        $this->assertEqualsWithDelta($declared, (float) $kh->VetaC['celk_zd_a2'], 1000.0,
+            'celk_zd_a2 vs. ř. 3+4+5+6+12+13 přiznání — tolerance ±1000 Kč dle dphkh1.xsd');
+    }
+
+    /** Sdílená kontrola proti oficiálnímu XSD — ať se libxml boilerplate neopakuje. */
+    private function assertKhXmlValidatesAgainstXsd(string $xml): void
+    {
+        $xsd = dirname(__DIR__, 3) . '/xsd/dphkh1.xsd';
+        if (!is_file($xsd)) {
+            return;
+        }
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+        $prev = libxml_use_internal_errors(true);
+        $valid = $doc->schemaValidate($xsd);
+        $errors = array_map(static fn ($e): string => trim($e->message), libxml_get_errors());
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+        $this->assertTrue($valid, 'KH XML neprošlo dphkh1.xsd: ' . implode(' | ', $errors));
     }
 
     /**
@@ -1644,7 +1697,7 @@ final class KhDphTaxScenariosTest extends TestCase
         $this->assertSame('2100.00', (string) $kh->VetaB1[0]['dan1']);
     }
 
-    public function testThirdCountryServiceNotInKhButSelfAssessedInDph(): void
+    public function testThirdCountryServiceInKhA2AndSelfAssessedInDph(): void
     {
         $usId = $this->countryId('US');
         if ($usId === 0) $this->markTestSkipped('US není v číselníku countries.');
@@ -1652,11 +1705,13 @@ final class KhDphTaxScenariosTest extends TestCase
         $vendor = $this->client('US poskytovatel', $usId, null, vendor: true);
         $this->purchase('US-SVC-24', $vendor, '24', true, 'invoice', $d, $d, [[20000, 0, 21]]);
 
-        // KH — dodavatel ze 3. země nemá DIČ registrace k DPH v členském státě, takže
-        // z plnění nejde sestavit platný řádek A.2 (k_stat/vatid_dod). Nevykazuje se.
+        // KH — dodavatel ze 3. země nemá DIČ registrace k DPH v členském státě, ale
+        // řádek do A.2 přesto patří: identifikace dodavatele zůstává prázdná (issue #53).
         $kh = (new \SimpleXMLElement($this->kh->build($this->supplierId, self::YEAR, self::MONTH)['xml']))->DPHKH1;
-        $this->assertCount(0, $kh->VetaA2, 'US služba (§ 24) NEPATŘÍ do KH A.2');
-        $this->assertSame('0.00', (string) $kh->VetaC['celk_zd_a2'], 'celk_zd_a2 = 0 (nic se do A.2 nevykázalo)');
+        $this->assertCount(1, $kh->VetaA2, 'US služba (§ 24) patří do KH A.2');
+        $this->assertSame('', (string) $kh->VetaA2[0]['k_stat'], 'bez kódu státu');
+        $this->assertSame('', (string) $kh->VetaA2[0]['vatid_dod'], 'bez VAT ID');
+        $this->assertSame('20000.00', (string) $kh->VetaC['celk_zd_a2'], 'celk_zd_a2 sedí na ř. 12 přiznání');
 
         // Samovyměření v DPHDP3 (ř.12) zůstává beze změny — mění se jen KH.
         $dp = (new \SimpleXMLElement($this->dph->build($this->supplierId, self::YEAR, self::MONTH, 'monthly')['xml']))->DPHDP3;

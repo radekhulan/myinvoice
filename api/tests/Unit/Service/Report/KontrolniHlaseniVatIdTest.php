@@ -49,29 +49,42 @@ final class KontrolniHlaseniVatIdTest extends TestCase
     }
 
     /**
-     * Kritérium zařazení do A.2: dodavatel musí mít DIČ REGISTRACE K DPH v členském
-     * státě EU. Nestačí „je z EU" (neplátce VAT ID nemá) ani „má nějaké číslo"
-     * (3. země). Bez obou údajů nejde sestavit platná VetaA2 a EPO podání odmítne.
+     * Identifikace dodavatele v A.2 se řídí EXISTENCÍ DIČ registrace k DPH v členském
+     * státě, ne sídlem dodavatele — a když chybí, vrací se PRÁZDNÁ identifikace, ne
+     * `null`. Řádek se z A.2 nevyřazuje: metodika GFŘ i dokumentace `vatid_dod`
+     * v dphkh1.xsd shodně říkají, že u dodavatele bez VAT ID pole „Identifikace
+     * dodavatele“ zůstává prázdné a EPO na to reaguje jen propustnými chybami
+     * č. 58 / č. 60 (issue #53).
      *
-     * @return array<string, array{0:?string,1:bool,2:?string,3:?array{k_stat:string,vatid_dod:string}}>
+     * @return array<string, array{0:?string,1:bool,2:?string,3:array{k_stat:string,vatid_dod:string}}>
      */
     public static function a2IdentificationProvider(): array
     {
+        $none = ['k_stat' => '', 'vatid_dod' => ''];
+
         return [
-            // [country ISO2, is EU, raw VAT ID, expected identification|null]
+            // [country ISO2, is EU, raw VAT ID, expected identification]
             'EU plátce'                 => ['IE', true,  'IE3668997OH', ['k_stat' => 'IE', 'vatid_dod' => '3668997OH']],
             'Řecko → k_stat EL'         => ['GR', true,  'EL123456789', ['k_stat' => 'EL', 'vatid_dod' => '123456789']],
-            '3. země s VAT ID'          => ['US', false, 'US12-3456789', null],
-            '3. země bez VAT ID'        => ['US', false, null, null],
-            'EU neplátce (bez VAT ID)'  => ['DE', true,  null, null],
-            'EU s prázdným VAT ID'      => ['DE', true,  '   ', null],
-            'EU s VAT ID jen prefix'    => ['DE', true,  'DE', null],
-            'neznámá země'              => [null, true,  'DE123456789', null],
+            // Sídlo mimo EU, ale registrace v členském státě (US firma s irským DIČ):
+            // k_stat se bere z prefixu VAT ID, protože `k_stat` = stát REGISTRACE.
+            '3. země s EU registrací'   => ['US', false, 'IE3668997OH', ['k_stat' => 'IE', 'vatid_dod' => '3668997OH']],
+            // Číslo, které není EU VAT ID: OSS non-union (EU372041333), US federal ID,
+            // britské DIČ po Brexitu. Do `vatid_dod` nepatří → prázdná identifikace.
+            '3. země s OSS číslem'      => ['US', false, 'EU372041333', $none],
+            '3. země s vlastním číslem' => ['US', false, 'US12-3456789', $none],
+            'GB po Brexitu'             => ['GB', false, 'GB123456789', $none],
+            '3. země bez VAT ID'        => ['US', false, null, $none],
+            'EU neplátce (bez VAT ID)'  => ['DE', true,  null, $none],
+            'EU s prázdným VAT ID'      => ['DE', true,  '   ', $none],
+            'EU s VAT ID jen prefix'    => ['DE', true,  'DE', $none],
+            'neznámá země, EU VAT ID'   => [null, true,  'DE123456789', ['k_stat' => 'DE', 'vatid_dod' => '123456789']],
         ];
     }
 
+    /** @param array{k_stat:string,vatid_dod:string} $expected */
     #[DataProvider('a2IdentificationProvider')]
-    public function testA2Identification(?string $iso2, bool $isEu, ?string $vatId, ?array $expected): void
+    public function testA2Identification(?string $iso2, bool $isEu, ?string $vatId, array $expected): void
     {
         $this->assertSame($expected, KontrolniHlaseniBuilder::a2Identification($iso2, $isEu, $vatId));
     }

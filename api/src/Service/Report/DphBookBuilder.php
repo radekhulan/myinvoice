@@ -376,12 +376,11 @@ final class DphBookBuilder
      * default (kód 40 → "B.2"), takže by Kniha ukazovala B.2 i u drobných
      * dokladů, které v KH reálně jdou do sumace B.3 (POHODA tiskne efektivní
      * sekci — reference DPH_LIST_KH 42026.pdf: 2026-0010 → B.2, zbytek B.3).
-     * Stejně tak A.2: dodavatel bez DIČ registrace k DPH v členském státě EU (3. země,
-     * neplátce z EU) se do KH nevykáže vůbec — VetaA2 by neměla `k_stat`/`vatid_dod`
-     * a EPO by podání odmítlo. Kniha proto u takového dokladu tiskne prázdný sloupec
-     * KH, shodně s reálným výstupem účetní. Pravidlo je SSOT v
-     * {@see KontrolniHlaseniBuilder::a2Identification()}, ať se výkaz a Kniha nerozejdou.
-     * Ostatní sekce (A.1, B.1, NULL) se nepřepočítávají.
+     * A.2 se naopak NEPŘEPOČÍTÁVÁ podle dodavatele: plnění od osoby neusazené
+     * v tuzemsku tam patří i bez EU DIČ, jen s prázdnou identifikací (issue #53,
+     * {@see KontrolniHlaseniBuilder::a2Identification()}). Kniha proto u dokladu
+     * ze 3. země tiskne A.2 — stejně jako výkaz.
+     * Ostatní sekce (A.1, A.2, B.1, NULL) se nepřepočítávají.
      *
      * @param array<string,mixed> $g kanonický (seskupený) řádek ledgeru
      * @param float $itemThreshold limit KH pro rok období (číselník daňových konstant)
@@ -389,13 +388,6 @@ final class DphBookBuilder
     private function effectiveKhSection(array $g, float $itemThreshold): ?string
     {
         $kh = $g['kh_section'] ?? null;
-        if ($kh === 'A.2') {
-            return KontrolniHlaseniBuilder::a2Identification(
-                $g['country_iso2'] ?? null,
-                !empty($g['country_is_eu']),
-                $g['counterparty_dic'] ?? null,
-            ) !== null ? 'A.2' : null;
-        }
         if (!in_array($kh, ['A.4', 'A.5', 'B.2', 'B.3'], true)) {
             return $kh;
         }
