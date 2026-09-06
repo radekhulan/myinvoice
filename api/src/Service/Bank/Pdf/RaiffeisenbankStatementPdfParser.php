@@ -39,8 +39,11 @@ final class RaiffeisenbankStatementPdfParser implements BankStatementPdfParserIn
     private const FX_RATE = '-?\d{1,3}(?:[\x{00A0} ]\d{3})*\.\d+';
     private const FX_RATE_LINE = '/^' . self::FX_RATE . '\s+[A-Z]{3}\/[A-Z]{3}$/u';
 
-    /** Hlavičkové zůstatky/součty: číslo s mezerami tisíců a tečkou (bez povinného znaménka). */
-    private const MONEY_H = '([\d\x{00A0} ]+\.\d{2})';
+    /** Hlavičkové zůstatky/součty: volitelné znaménko, mezery tisíců a desetinná tečka. */
+    private const MONEY_H = '(-?[\d\x{00A0} ]+\.\d{2})';
+
+    /** Za tímto textem RB rozepisuje složení poplatku, nikoli další bankovní pohyby. */
+    private const FEE_BREAKDOWN_START = 'V rámci souhrnné položky k účtu jsou zahrnuty poplatky';
 
     /**
      * Řádky, které v tabulce transakcí NEJSOU transakce — opakovaná záhlaví/hlavička
@@ -272,12 +275,20 @@ final class RaiffeisenbankStatementPdfParser implements BankStatementPdfParserIn
             $idx++;
         }
 
-        // Částka = POSLEDNÍ peněžní hodnota (s tečkou) ve zbytku slice, ale JEN ve měně účtu.
+        // Částka = POSLEDNÍ peněžní hodnota (s tečkou) před případným rozpisem
+        // souhrnného poplatku, ale JEN ve měně účtu.
         // Symboly/reference jsou celočíselné, takže „poslední s .dd" je jednoznačné; u kartové
         // platby v cizí měně se ale za CZK částkou tiskne ještě původní částka („-6.06 USD")
         // a kurz („21.83 CZK/USD") — obojí je nutné vynechat, jinak by amount = kurz (#205).
         $amount = null;
+        $inFeeBreakdown = false;
         for ($j = $idx; $j < $n; $j++) {
+            // Rozpis služeb patří do popisu stejné transakce, jeho dílčí hodnoty ale
+            // nesmějí přepsat hlavní účetní částku uvedenou před rozpisem.
+            if (str_starts_with($slice[$j], self::FEE_BREAKDOWN_START)) {
+                $inFeeBreakdown = true;
+            }
+            if ($inFeeBreakdown) continue;
             if (preg_match(self::FX_RATE_LINE, $slice[$j])) continue; // řádek kurzu, ne částka
             // Hodnota s volitelným měnovým sufixem; cizí měnu (např. USD) přeskoč, ber jen
             // částku bez sufixu nebo v měně účtu.

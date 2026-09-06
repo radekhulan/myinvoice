@@ -66,6 +66,36 @@ final class RaiffeisenbankStatementPdfParserTest extends TestCase
         self::assertSame(1234.56, $header['debit_total']);
     }
 
+    public function testNegativeBalancesAndFeeBreakdownUseMainTransactionAmount(): void
+    {
+        $rows = "30. 6. 2026\n30. 6. 2026\n1000000005\n"
+              . "Poplatek\tVedení účtu\n"
+              . "KS:898\n"
+              . "Souhrnná položka k účtu 1000000005.\n"
+              . "898\t-49.00 CZK\n"
+              . "V rámci souhrnné položky k účtu jsou zahrnuty poplatky za následující služby:\n"
+              . "Přímé bankovnictví: 0.00 CZK\n"
+              . "Vedení běžného účtu v hlavní měně: 49.00 CZK\n"
+              . "Vedení spořicího účtu: 0.00 CZK\n";
+        $text = str_replace(
+            "Poplatky celkem:\t0.00",
+            "Poplatky celkem:\t999.00",
+            $this->statement('-100.00', '-149.00', '0.00', '49.00', $rows),
+        );
+
+        $result = $this->parser()->parse('%PDF-fake', $text);
+
+        self::assertSame(-100.0, $result['header']['prev_balance']);
+        self::assertSame(-149.0, $result['header']['curr_balance']);
+        self::assertSame(49.0, $result['header']['debit_total']);
+        self::assertCount(1, $result['transactions']);
+        self::assertSame(-49.0, $result['transactions'][0]['amount']);
+        self::assertStringContainsString(
+            'V rámci souhrnné položky k účtu jsou zahrnuty poplatky',
+            (string) $result['transactions'][0]['description'],
+        );
+    }
+
     public function testParsesIncomingPaymentWithCounterpartyName(): void
     {
         // Příchozí úhrada: Kategorie / účet / Název protiúčtu / Typ+částka (bez znaménka).
