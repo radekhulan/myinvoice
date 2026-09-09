@@ -96,6 +96,12 @@ Tabulka transakcí:
 | Stav | `Spárováno` (zelená) / `Bez shody` (šedá) / `Ignorováno` (oranž.) |
 | Faktura | Pokud spárováno, číslo faktury (klikatelné) |
 
+Tlačítko s **ikonou oka** na konci akcí řádku otevře detail transakce: částku, stav párování, datum, protistranu,
+vlastní účet i účet protistrany, platební symboly, bankovní referenci a dostupný
+zůstatek, pokud je banka poskytla. Nechybí odkazy na spárované faktury, celý
+popis z banky a případná poznámka k ignorování. Detail lze otevřít i u pohybu
+bez popisu. Funguje také na mobilu; delší text se zalamuje.
+
 ### 24.4.1 Částečné platby (více převodů na jednu fakturu)
 
 Příchozí platba se **shodným variabilním symbolem**, ale nižší částkou než
@@ -165,7 +171,21 @@ Pro transakce, které nejsou platby faktur (poplatky, převody mezi vlastními
 účty, refundace, …):
 
 1. Klik **Ignorovat**.
-2. Status → `Ignorováno`. Pro reporting se nepočítá.
+2. V potvrzovacím dialogu můžeš doplnit vlastní poznámku (nejvýše 1000 znaků).
+3. Potvrď **Ignorovat**. Stav a poznámka se aktualizují přímo v seznamu bez
+   opětovného načtení stránky; nastavený filtr zůstává zachovaný. Při filtru
+   **Bez shody** transakce ze seznamu zmizí.
+
+Poznámka je uložená u transakce a zobrazuje se u ignorovaného pohybu i při
+příštím otevření výpisu, v tabulce i na mobilu. Zrušení dialogu nic nemění.
+
+Akce **Zrušit spárování**, u ignorovaného pohybu **Zrušit ignorování**, otevře
+potvrzovací dialog s datem, částkou a protistranou. Zrušení ignorování vrátí
+pohyb mezi pohyby bez shody.
+Pokud má pohyb poznámku k ignorování, dialog ji zobrazí a upozorní na její
+odstranění. Po potvrzení se poznámka smaže; zrušení dialogu ji zachová.
+Po potvrzení se řádek a počet spárovaných transakcí aktualizují bez reloadu;
+filtr zůstává zachovaný. Případná chyba se zobrazí přímo v dialogu.
 
 ### 24.4.4 Vytvoření přijaté faktury z výpisu (doklad o úhradě)
 

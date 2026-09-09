@@ -7,6 +7,7 @@ import { formatMoney, formatDate } from '@/composables/useFormat'
 import { useHotkey } from '@/composables/useHotkey'
 import { useToast } from '@/composables/useToast'
 import { apiErrorMessage } from '@/api/errors'
+import Modal from '@/components/ui/Modal.vue'
 import VendorPicker from '@/components/purchase/VendorPicker.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { invoicesApi } from '@/api/invoices'
@@ -310,19 +311,87 @@ async function confirmMatch() {
   }
 }
 
-async function ignoreTx(tx: BankTransaction) {
-  if (!confirm(t('bank.ignore_confirm'))) return
-  await bankApi.ignore(tx.id)
-  await load()
+const textDetail = ref<BankTransaction | null>(null)
+const transactionDetailFields = computed(() => {
+  const tx = textDetail.value
+  if (!tx) return []
+  return [
+    { label: t('bank.transaction_date'), value: formatDate(tx.posted_at) },
+    { label: t('bank.counterparty'), value: tx.counterparty_name },
+    { label: t('bank.counterparty_account'), value: formatAccountNumber(tx.counterparty_account, tx.counterparty_bank) },
+    { label: t('bank.own_account'), value: formatAccountNumber(statement.value?.account_number, statement.value?.bank_code) },
+    { label: t('bank.variable_symbol'), value: tx.variable_symbol },
+    { label: t('bank.constant_symbol'), value: tx.constant_symbol },
+    { label: t('bank.specific_symbol'), value: tx.specific_symbol },
+    { label: t('bank.bank_reference'), value: tx.bank_ref },
+    { label: t('bank.transaction_balance'), value: tx.balance != null ? formatMoney(tx.balance, tx.currency ?? statement.value?.currency ?? 'CZK') : null },
+  ].filter(field => field.value != null && field.value !== '')
+})
+const ignoreTarget = ref<BankTransaction | null>(null)
+const ignoreNote = ref('')
+const ignoring = ref(false)
+const ignoreError = ref('')
+
+function ignoreTx(tx: BankTransaction) {
+  ignoreTarget.value = tx
+  ignoreNote.value = tx.ignore_note ?? ''
+  ignoreError.value = ''
 }
 
-async function unmatchTx(tx: BankTransaction) {
-  if (!confirm(t('bank.unmatch_confirm'))) return
+function closeIgnore() {
+  if (!ignoring.value) ignoreTarget.value = null
+}
+
+async function confirmIgnore() {
+  const tx = ignoreTarget.value
+  if (!tx || ignoring.value) return
+  ignoring.value = true
+  ignoreError.value = ''
+  try {
+    const result = await bankApi.ignore(tx.id, ignoreNote.value.trim() || null)
+    tx.match_status = 'ignored'
+    tx.ignore_note = result.ignore_note
+    ignoreTarget.value = null
+  } catch (e) {
+    ignoreError.value = apiErrorMessage(e, t('bank.ignore_failed'))
+  } finally {
+    ignoring.value = false
+  }
+}
+
+const unmatchTarget = ref<BankTransaction | null>(null)
+const unmatching = ref(false)
+const unmatchError = ref('')
+
+function unmatchTx(tx: BankTransaction) {
+  unmatchTarget.value = tx
+  unmatchError.value = ''
+}
+
+function closeUnmatch() {
+  if (!unmatching.value) unmatchTarget.value = null
+}
+
+async function confirmUnmatch() {
+  const tx = unmatchTarget.value
+  if (!tx || unmatching.value) return
+  unmatching.value = true
+  unmatchError.value = ''
   try {
     await bankApi.unmatch(tx.id)
-    await load()
-  } catch (e: any) {
-    alert(apiErrorMessage(e, t('bank.unmatch_failed')))
+    if (statement.value && ['auto_exact', 'auto_partial', 'manual'].includes(tx.match_status)) {
+      statement.value.matched_count = Math.max(0, statement.value.matched_count - 1)
+    }
+    Object.assign(tx, {
+      match_status: 'unmatched', ignore_note: null, matched_invoice_id: null, matched_purchase_invoice_id: null,
+      matched_varsymbol: null, matched_invoice_amount: null, matched_client_name: null,
+      matched_purchase_ref: null, matched_vendor_name: null, matched_invoices: [], matched_at: null,
+    })
+    unmatchTarget.value = null
+  } catch (e) {
+    unmatchError.value = apiErrorMessage(e, t('bank.unmatch_failed'))
+  } finally {
+    unmatching.value = false
   }
 }
 
@@ -499,6 +568,7 @@ async function rematchStatement() {
             </td>
             <td class="px-3 py-2 text-xs">
               <div class="font-mono text-neutral-600">{{ tx.counterparty_account }}<span v-if="tx.counterparty_bank">/{{ tx.counterparty_bank }}</span></div>
+              <div v-if="tx.match_status === 'ignored' && tx.ignore_note" class="text-neutral-600 whitespace-pre-wrap break-words max-w-xs">{{ t('bank.ignore_note_label') }}: {{ tx.ignore_note }}</div>
               <div v-if="tx.description" class="text-neutral-500 truncate max-w-xs">{{ tx.description }}</div>
             </td>
             <td class="px-3 py-2 text-xs">
@@ -547,7 +617,15 @@ async function rematchStatement() {
               </button>
               <button v-if="(['auto_exact','auto_partial','manual','ignored'].includes(tx.match_status)) && auth.canWrite"
                 @click="unmatchTx(tx)" class="cursor-pointer text-neutral-500 hover:text-danger-600">
-                {{ t('bank.unmatch') }}
+                {{ t(tx.match_status === 'ignored' ? 'bank.unignore' : 'bank.unmatch') }}
+              </button>
+              <button type="button" @click="textDetail = tx" :title="t('bank.show_transaction_text')"
+                :aria-label="t('bank.show_transaction_text')"
+                class="cursor-pointer shrink-0 inline-flex items-center justify-center w-7 h-7 ml-2 align-middle border border-primary-500/40 text-primary-700 hover:bg-primary-50 rounded focus-visible:outline-2 focus-visible:outline-primary-500">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
               </button>
             </td>
           </tr>
@@ -602,6 +680,7 @@ async function rematchStatement() {
             </RouterLink>
             <span v-if="tx.matched_vendor_name" class="text-neutral-500 ml-2">{{ tx.matched_vendor_name }}</span>
           </div>
+          <p v-if="tx.match_status === 'ignored' && tx.ignore_note" class="text-xs text-neutral-600 whitespace-pre-wrap break-words">{{ t('bank.ignore_note_label') }}: {{ tx.ignore_note }}</p>
           <div class="flex flex-wrap gap-2 pt-1">
             <RouterLink v-if="tx.matched_invoice_id" :to="`/invoices/${tx.matched_invoice_id}`"
               class="flex-1 h-9 inline-flex items-center justify-center text-sm border border-primary-500/40 text-primary-700 hover:bg-primary-50 rounded-md">
@@ -627,12 +706,120 @@ async function rematchStatement() {
             <button v-if="(['auto_exact','auto_partial','manual','ignored'].includes(tx.match_status)) && auth.canWrite"
               @click="unmatchTx(tx)"
               class="cursor-pointer flex-1 h-9 text-sm border border-neutral-300 text-neutral-600 hover:bg-danger-50 hover:text-danger-600 rounded-md">
-              {{ t('bank.unmatch') }}
+              {{ t(tx.match_status === 'ignored' ? 'bank.unignore' : 'bank.unmatch') }}
             </button>
+            <button type="button" @click="textDetail = tx" :title="t('bank.show_transaction_text')"
+                :aria-label="t('bank.show_transaction_text')"
+                class="cursor-pointer shrink-0 inline-flex items-center justify-center w-9 h-9 border border-primary-500/40 text-primary-700 hover:bg-primary-50 rounded focus-visible:outline-2 focus-visible:outline-primary-500">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
           </div>
         </div>
       </div>
     </div>
+
+    <Modal v-if="textDetail" :title="t('bank.show_transaction_text')" width-class="max-w-xl" @close="textDetail = null">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <p class="text-xl font-semibold font-mono" :class="textDetail.amount > 0 ? 'text-success-600' : 'text-danger-500'">
+          {{ textDetail.amount > 0 ? '+' : '' }}{{ formatMoney(textDetail.amount, textDetail.currency ?? statement.currency ?? 'CZK') }}
+        </p>
+        <span class="text-xs px-2 py-0.5 rounded font-medium" :class="statusBadge(textDetail.match_status)">
+          {{ statusLabel(textDetail.match_status) }}
+        </span>
+      </div>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-5">
+        <div v-for="field in transactionDetailFields" :key="field.label" class="min-w-0">
+          <dt class="text-neutral-500 mb-1">{{ field.label }}</dt>
+          <dd class="text-neutral-700 whitespace-pre-wrap break-words">{{ field.value }}</dd>
+        </div>
+      </dl>
+      <dl class="space-y-4 text-sm">
+        <div v-if="textDetail.matched_invoices?.length || textDetail.matched_invoice_id || textDetail.matched_purchase_invoice_id">
+          <dt class="font-medium mb-1">{{ t('bank.invoice') }}</dt>
+          <dd class="space-y-1 break-words">
+            <template v-if="textDetail.matched_invoices?.length">
+              <div v-for="invoice in textDetail.matched_invoices" :key="invoice.invoice_id">
+                <RouterLink :to="`/invoices/${invoice.invoice_id}`" class="text-primary-600 hover:underline">
+                  {{ invoice.varsymbol || `#${invoice.invoice_id}` }}
+                </RouterLink>
+                <span v-if="invoice.client_name" class="text-neutral-500"> · {{ invoice.client_name }}</span>
+              </div>
+            </template>
+            <div v-else-if="textDetail.matched_invoice_id">
+              <RouterLink :to="`/invoices/${textDetail.matched_invoice_id}`" class="text-primary-600 hover:underline">
+                {{ textDetail.matched_varsymbol || `#${textDetail.matched_invoice_id}` }}
+              </RouterLink>
+              <span v-if="textDetail.matched_client_name" class="text-neutral-500"> · {{ textDetail.matched_client_name }}</span>
+            </div>
+            <div v-if="textDetail.matched_purchase_invoice_id">
+              <RouterLink :to="`/purchase-invoices/${textDetail.matched_purchase_invoice_id}`" class="text-primary-600 hover:underline">
+                {{ textDetail.matched_purchase_ref || `#${textDetail.matched_purchase_invoice_id}` }}
+              </RouterLink>
+              <span v-if="textDetail.matched_vendor_name" class="text-neutral-500"> · {{ textDetail.matched_vendor_name }}</span>
+            </div>
+          </dd>
+        </div>
+        <div v-if="textDetail.description">
+          <dt class="font-medium mb-1">{{ t('bank.transaction_description') }}</dt>
+          <dd class="text-neutral-700 whitespace-pre-wrap break-words">{{ textDetail.description }}</dd>
+        </div>
+        <div v-if="textDetail.match_status === 'ignored' && textDetail.ignore_note">
+          <dt class="font-medium mb-1">{{ t('bank.ignore_note_label') }}</dt>
+          <dd class="text-neutral-700 whitespace-pre-wrap break-words">{{ textDetail.ignore_note }}</dd>
+        </div>
+      </dl>
+      <template #footer>
+        <button type="button" @click="textDetail = null"
+          class="cursor-pointer px-3 py-2 text-sm rounded-md border border-neutral-300">{{ t('common.close') }}</button>
+      </template>
+    </Modal>
+
+    <Modal v-if="unmatchTarget" :title="t(unmatchTarget.match_status === 'ignored' ? 'bank.unignore' : 'bank.unmatch')" width-class="max-w-md" @close="closeUnmatch">
+      <p class="text-sm mb-3">{{ t(unmatchTarget.match_status === 'ignored' ? 'bank.unignore_confirm' : 'bank.unmatch_confirm') }}</p>
+      <p class="text-xs text-neutral-500">
+        {{ formatDate(unmatchTarget.posted_at) }} · {{ formatMoney(unmatchTarget.amount, unmatchTarget.currency ?? statement.currency ?? 'CZK') }}
+        <span v-if="unmatchTarget.counterparty_name"> · {{ unmatchTarget.counterparty_name }}</span>
+      </p>
+      <div v-if="unmatchTarget.ignore_note" class="mt-4 text-sm">
+        <p class="font-medium mb-1">{{ t('bank.ignore_note_label') }}</p>
+        <p class="text-neutral-700 whitespace-pre-wrap break-words">{{ unmatchTarget.ignore_note }}</p>
+        <p class="text-neutral-500 mt-2">{{ t('bank.unmatch_note_removed') }}</p>
+      </div>
+      <p v-if="unmatchError" role="alert" class="text-sm text-danger-600 mt-2">{{ unmatchError }}</p>
+      <template #footer>
+        <button type="button" :disabled="unmatching" @click="closeUnmatch"
+          class="cursor-pointer px-3 py-2 text-sm rounded-md border border-neutral-300 disabled:opacity-50">{{ t('common.cancel') }}</button>
+        <button type="button" :disabled="unmatching" @click="confirmUnmatch"
+          class="cursor-pointer px-3 py-2 text-sm rounded-md bg-danger-600 text-white disabled:opacity-50">
+          {{ unmatching ? t('common.saving') : t(unmatchTarget.match_status === 'ignored' ? 'bank.unignore' : 'bank.unmatch') }}
+        </button>
+      </template>
+    </Modal>
+
+    <Modal v-if="ignoreTarget" :title="t('bank.ignore')" width-class="max-w-md" @close="closeIgnore">
+      <form id="ignore-transaction" @submit.prevent="confirmIgnore">
+        <p class="text-sm mb-3">{{ t('bank.ignore_confirm') }}</p>
+        <p class="text-xs text-neutral-500 mb-4">
+          {{ formatDate(ignoreTarget.posted_at) }} · {{ formatMoney(ignoreTarget.amount, ignoreTarget.currency ?? statement.currency ?? 'CZK') }}
+          <span v-if="ignoreTarget.counterparty_name"> · {{ ignoreTarget.counterparty_name }}</span>
+        </p>
+        <label for="ignore-note" class="block text-sm font-medium mb-1">{{ t('bank.ignore_note') }}</label>
+        <textarea id="ignore-note" v-model="ignoreNote" :disabled="ignoring" maxlength="1000" rows="3"
+          class="w-full rounded-md border border-neutral-300 bg-surface px-3 py-2 text-sm" />
+        <p v-if="ignoreError" role="alert" class="text-sm text-danger-600 mt-2">{{ ignoreError }}</p>
+      </form>
+      <template #footer>
+        <button type="button" :disabled="ignoring" @click="closeIgnore"
+          class="cursor-pointer px-3 py-2 text-sm rounded-md border border-neutral-300 disabled:opacity-50">{{ t('common.cancel') }}</button>
+        <button type="submit" form="ignore-transaction" :disabled="ignoring"
+          class="cursor-pointer px-3 py-2 text-sm rounded-md bg-primary-600 text-white disabled:opacity-50">
+          {{ ignoring ? t('common.saving') : t('bank.ignore') }}
+        </button>
+      </template>
+    </Modal>
 
     <!-- Manual match modal — návrhy dle částky + ruční VS jako druhá možnost -->
     <div v-if="matchingTx" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
