@@ -11,6 +11,7 @@ use MyInvoice\Service\Bank\StatementMatcher;
 use MyInvoice\Service\Invoice\FinalFromProformaCreator;
 use PDO;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -173,6 +174,69 @@ final class PurchaseMatchActivityLogTest extends TestCase
                 AND action = 'purchase_invoice.payment_matched'"
         )->fetchColumn();
         self::assertSame(1, $logCount, 'Auto-spárování platby musí zapsat aktivitu purchase_invoice.payment_matched.');
+    }
+
+    public static function paymentDetails(): array
+    {
+        return [
+            'platební VS odlišný od čísel dokladu' => ['2099000261', '2099000261', 0.0, 0.0],
+            'platební VS s úvodními nulami' => ['0020990261', '20990261', 0.0, 0.0],
+            'zaokrouhlení dolů' => [self::TEST_VS, self::TEST_VS, -0.24, 0.0],
+            'zaokrouhlení nahoru' => [self::TEST_VS, self::TEST_VS, 0.36, 0.0],
+            'VS, zaokrouhlení a odečtená záloha' => ['2099000261', '2099000261', -0.24, 500.0],
+        ];
+    }
+
+    #[DataProvider('paymentDetails')]
+    public function testPurchasePaymentUsesPaymentSymbolAndRoundedBalance(
+        string $paymentVs, string $bankVs, float $rounding, float $advance,
+    ): void {
+        $this->seed(2500.00, 'received', $bankVs);
+        $pdo = $this->db->pdo();
+        $pdo->prepare('UPDATE purchase_invoices SET payment_variable_symbol = ?, rounding = ?, advance_paid_amount = ? WHERE id = ?')
+            ->execute([$paymentVs, $rounding, $advance, $this->purchaseId]);
+        $paid = round(2500.00 + $rounding - $advance, 2);
+        $pdo->prepare('UPDATE bank_transactions SET amount = ? WHERE id = ?')
+            ->execute([-$paid, $this->transactionId]);
+
+        $res = $this->matcher->match($this->transactionId);
+
+        self::assertSame('auto_exact', $res['status'] ?? null);
+        self::assertSame($this->purchaseId, $res['purchase_invoice_id'] ?? null);
+        self::assertSame('paid', $pdo->query("SELECT status FROM purchase_invoices WHERE id = {$this->purchaseId}")->fetchColumn());
+        self::assertEquals($paid, $pdo->query("SELECT amount FROM payment_matches WHERE bank_transaction_id = {$this->transactionId}")->fetchColumn());
+    }
+
+    public function testUnroundedPaymentIsStillPartial(): void
+    {
+        $this->seed(2500.00);
+        $pdo = $this->db->pdo();
+        $pdo->prepare('UPDATE purchase_invoices SET rounding = 0.36 WHERE id = ?')
+            ->execute([$this->purchaseId]);
+
+        $res = $this->matcher->match($this->transactionId);
+
+        self::assertSame('auto_partial', $res['status'] ?? null);
+        self::assertEquals(2500.36, $res['expected'] ?? null);
+        self::assertSame('received', $pdo->query("SELECT status FROM purchase_invoices WHERE id = {$this->purchaseId}")->fetchColumn());
+    }
+
+    public function testAmountDateMatchingUsesRounding(): void
+    {
+        $this->seed(2500.00, 'paid', null);
+        $pdo = $this->db->pdo();
+        $pdo->prepare('UPDATE purchase_invoices SET rounding = 0.36 WHERE id = ?')
+            ->execute([$this->purchaseId]);
+        // Od nezaokrouhlené částky je rozdíl pod tolerancí 1 Kč,
+        // od skutečného doplatku nad ní — nesmí vzniknout falešná shoda.
+        $pdo->prepare('UPDATE bank_transactions SET amount = -2499.20 WHERE id = ?')
+            ->execute([$this->transactionId]);
+
+        $res = $this->matcher->match($this->transactionId);
+
+        self::assertSame('unmatched', $res['status'] ?? null);
+        self::assertSame('no_amount_date_match', $res['reason'] ?? null);
+        self::assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM payment_matches WHERE bank_transaction_id = {$this->transactionId}")->fetchColumn());
     }
 
     public function testOutgoingCardPaymentMatchesPaidPurchaseByAmountAndDate(): void

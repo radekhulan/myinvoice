@@ -19,8 +19,8 @@ use PDO;
  *   1. Příchozí (amount > 0) — hledá fakturu se shodným varsymbol
  *      a) |amount - amount_to_pay| <= 0.05 Kč → 'auto_exact', faktura → paid
  *      b) |amount - amount_to_pay| <= 1 Kč → 'auto_partial' (částečná platba)
- *   2. Odchozí (amount < 0) — hledá přijatou fakturu (varsymbol nebo
- *      vendor_invoice_number), payment_matches N:N.
+ *   2. Odchozí (amount < 0) — hledá přijatou fakturu podle payment_variable_symbol,
+ *      varsymbol nebo vendor_invoice_number a částky včetně zaokrouhlení, payment_matches N:N.
  *
  * Tolerance 0.05 Kč pro exact match: typické zaokrouhlení 21 % DPH na
  * vícepoložkové faktuře dává ±0.01 — ±0.04 Kč rozdíl mezi součtem
@@ -522,22 +522,19 @@ final class StatementMatcher
         // (ať ve výpisu nevisí). Status/paid_at v tom případě nepřepisujeme.
         // Currency guard viz match() — bez něj by EUR výdaj napároval CZK přijatou.
         //
-        // VS lookup: na rozdíl od vystavených faktur (kde klient platí naši `varsymbol`),
-        // u přijatých platíme my dodavateli — do bank převodu typicky vepíšeme
-        // **VS dodavatele** = `vendor_invoice_number`. Náš `purchase_invoices.varsymbol`
-        // je interní PF-YYYYMM-NNNN, jen občas se s `vendor_invoice_number` shodují
-        // (když user nepoužívá auto-counter). Hledáme proto OR na obojí — uživatel může
-        // platit pod naším PF-... i pod původním číslem dodavatele.
-        // Přesná shoda na náš VS i VS dodavatele + numerická shoda po normalizaci
-        // (číslo dokladu s pomlčkou „PF-2026-0001" × jen-číslice z banky). Viz match().
+        // Platební VS dodavatele může být jiný než číslo dokladu. Vedle něj
+        // zachováváme hledání podle interního i dodavatelského čísla dokladu,
+        // včetně numerické normalizace (oddělovače a úvodní nuly).
         $vsDigits = VariableSymbolNormalizer::digits($vs);
         $sql = "SELECT pi.id, pi.varsymbol, pi.vendor_invoice_number,
-                       COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) AS amount_to_pay,
+                       COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) + COALESCE(pi.rounding, 0) AS amount_to_pay,
                        pi.exchange_rate, pi.status, cur.code AS currency
                   FROM purchase_invoices pi
              LEFT JOIN currencies cur ON cur.id = pi.currency_id
                  WHERE pi.supplier_id = ?
-                   AND (pi.varsymbol = ? OR pi.vendor_invoice_number = ?
+                   AND (pi.payment_variable_symbol = ? OR pi.varsymbol = ? OR pi.vendor_invoice_number = ?
+                        OR (pi.payment_variable_symbol REGEXP '[1-9]'
+                            AND CAST(REGEXP_REPLACE(pi.payment_variable_symbol, '[^0-9]', '') AS UNSIGNED) = CAST(? AS UNSIGNED))
                         OR (pi.varsymbol REGEXP '[1-9]'
                             AND CAST(REGEXP_REPLACE(pi.varsymbol, '[^0-9]', '') AS UNSIGNED) = CAST(? AS UNSIGNED))
                         OR (pi.vendor_invoice_number REGEXP '[1-9]'
@@ -545,7 +542,7 @@ final class StatementMatcher
                    AND pi.status IN ('received', 'booked', 'paid')
                  LIMIT 1";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$supplierId, $vs, $vs, $vsDigits, $vsDigits]);
+        $stmt->execute([$supplierId, $vs, $vs, $vs, $vsDigits, $vsDigits, $vsDigits]);
         $pi = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$pi) {
             return ['status' => 'unmatched', 'reason' => 'no_purchase_with_vs', 'tx_currency' => $txCurrency];
@@ -639,7 +636,7 @@ final class StatementMatcher
     {
         // Měnu nefiltrujeme v SQL — částku porovnáváme přes expectedMatch (cizoměnová
         // faktura placená kartou z CZK účtu se přepočte kurzem faktury).
-        $sql = "SELECT pi.id, COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) AS amount_to_pay,
+        $sql = "SELECT pi.id, COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) + COALESCE(pi.rounding, 0) AS amount_to_pay,
                        pi.exchange_rate, c.company_name AS vendor_name, cur.code AS currency
                   FROM purchase_invoices pi
                   JOIN clients c ON c.id = pi.vendor_id
@@ -706,7 +703,7 @@ final class StatementMatcher
     {
         $win = self::AMOUNT_DATE_DAY_WINDOW;
         $sql = "SELECT pi.id, pi.status,
-                       COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) AS amount_to_pay,
+                       COALESCE(pi.amount_to_pay, pi.total_with_vat, 0) + COALESCE(pi.rounding, 0) AS amount_to_pay,
                        pi.exchange_rate, cur.code AS currency
                   FROM purchase_invoices pi
              LEFT JOIN currencies cur ON cur.id = pi.currency_id
