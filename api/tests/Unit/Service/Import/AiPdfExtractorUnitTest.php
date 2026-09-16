@@ -878,6 +878,40 @@ final class AiPdfExtractorUnitTest extends TestCase
 
     // ── Helper: reflection invokers ────────────────────────────────────────
 
+    // ── vatIdCountryCandidate ───────────────────────────────────────────────
+    // Prefix DIČ jako kandidát země pro RC klasifikaci (přednost před adresou
+    // sídla — Anthropic/GitHub fakturují z US adresy přes irskou registraci).
+
+    public function testVatIdCandidate_irish_dic_returns_ie(): void
+    {
+        self::assertSame('IE', AiPdfExtractor::vatIdCountryCandidate('IE4276970QH'));
+    }
+
+    public function testVatIdCandidate_greek_el_prefix_maps_to_gr(): void
+    {
+        self::assertSame('GR', AiPdfExtractor::vatIdCountryCandidate('EL123456789'));
+    }
+
+    public function testVatIdCandidate_numeric_or_empty_returns_null(): void
+    {
+        self::assertNull(AiPdfExtractor::vatIdCountryCandidate('123456789'));
+        self::assertNull(AiPdfExtractor::vatIdCountryCandidate(''));
+        self::assertNull(AiPdfExtractor::vatIdCountryCandidate('  '));
+        self::assertNull(AiPdfExtractor::vatIdCountryCandidate('1E234'));
+    }
+
+    public function testVatIdCandidate_oss_eu_prefix_is_returned_for_db_check(): void
+    {
+        // Non-Union OSS DIČ „EU372…" vrací kandidáta 'EU' — ten v číselníku zemí
+        // neexistuje, takže volající (vendorCountryInfo) přepnutí na EU neprovede.
+        self::assertSame('EU', AiPdfExtractor::vatIdCountryCandidate('EU372012345'));
+    }
+
+    public function testVatIdCandidate_whitespace_and_case_normalized(): void
+    {
+        self::assertSame('IE', AiPdfExtractor::vatIdCountryCandidate('  ie6388047V '));
+    }
+
     private function invokeResolvePricesInclVat(array $data, string $documentKind): bool
     {
         $ref = new \ReflectionMethod($this->extractor, 'resolvePricesIncludeVat');

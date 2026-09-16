@@ -78,6 +78,11 @@ bez DPH), doklad automaticky daňově připraví:
   z EU → ř. 3 + ř. 43, KH A.2), **24** (služba), **25** (zboží ze 3. země).
   Částka k úhradě se nemění — daň zůstává na dokladu nulová, samovyměří se až
   ve výkazech.
+- O tom, zda jde o **EU, nebo 3. zemi**, rozhoduje přednostně **prefix DIČ**
+  dodavatele, teprve potom adresa sídla: firma s mimoevropskou adresou fakturující
+  přes EU registraci k DPH (typicky Anthropic či GitHub s irským `IE…` DIČ) se
+  správně klasifikuje jako plnění z EU (služba → **24e**, ř. 5). Non-Union OSS
+  prefix `EU…` členským státem není a zůstává 3. zemí.
 - U **pořízení zboží z EU** se dopočítá zákonné **DUZP dle § 25** (15. den
   měsíce po dodání, pokud doklad nebyl vystaven dříve) a k němu se naváže
   **kurz ČNB** — pozdě vystavená faktura tak spadne do správného DPH období.
