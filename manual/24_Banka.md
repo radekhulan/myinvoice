@@ -102,6 +102,12 @@ zůstatek, pokud je banka poskytla. Nechybí odkazy na spárované faktury, cel�
 popis z banky a případná poznámka k ignorování. Detail lze otevřít i u pohybu
 bez popisu. Funguje také na mobilu; delší text se zalamuje.
 
+Odchozí platby se u přijatých faktur párují podle **platebního variabilního
+symbolu**, interního čísla nebo čísla dokladu dodavatele. Při porovnání se
+zohledňují také úvodní nuly a oddělovače v číslech dokladů. Očekávaná částka
+zahrnuje **zaokrouhlení dokladu** a odečítá již uhrazené zálohy; stejně se
+počítá i při hledání podle názvu protistrany nebo částky a data.
+
 ### 24.4.1 Částečné platby (více převodů na jednu fakturu)
 
 Příchozí platba se **shodným variabilním symbolem**, ale nižší částkou než
