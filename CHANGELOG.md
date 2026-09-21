@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.58.0] - 2026-09-21
+
+### Added
+
+- **Poznámka k ignorování bankovního pohybu a jednotné dialogy transakcí.** Ignorování i zrušení spárování nově používají dialog aplikace s identifikací pohybu místo potvrzení prohlížeče. K ignorování lze připojit volitelnou poznámku (až 1000 znaků), která se zobrazí v detailu a zapisuje se do auditního logu. Zpětná akce se jmenuje „Zrušit ignorování" a upozorní na odstranění poznámky. Po akci se aktualizuje jen dotčený pohyb, filtr zůstává zachovaný a stránka se znovu nenačítá. Nový detail pohybu (ikona oka) ukazuje částku, stav, protistranu, účty, symboly, bankovní referenci, zůstatek, spárované faktury a nezkrácený popis. Migrace 0151 přidává `bank_transactions.ignore_note`, OpenAPI popisuje nové pole. (#281, díky @blondak)
+
+### Fixed
+
+- **Párování přijatých faktur podle platebního VS a se zaokrouhlením.** Bankovní párování hledalo přijaté faktury jen podle interního a dodavatelského čísla dokladu a samostatný platební variabilní symbol přehlíželo. Očekávaná částka navíc nezahrnovala zaokrouhlení, takže i úplná úhrada mohla skončit jako částečná shoda. Nově se zohledňuje `payment_variable_symbol` včetně normalizace úvodních nul a oddělovačů a částka k úhradě zahrnuje zaokrouhlení při zachování odpočtu uhrazených záloh. (#282, díky @blondak)
+- **Přepárování výpisu nezakládá duplicitní úhrady přijatých faktur.** Opakované „Přepárovat" u odchozí platby ve stavu částečné shody vkládalo při každém běhu další řádek párování. Částečná shoda podle VS se nově zahodí a vyhodnotí znovu, takže ji započtené zaokrouhlení povýší na přesnou. Shody, které už fakturu označily jako zaplacenou, zůstávají beze změny. (#272)
+- **Import vydaných faktur zachovává zaokrouhlení.** Import z Fakturoidu a iDokladu přepočítal celkovou částku z položek a zaokrouhlení zdroje zahodil, takže zaokrouhlená úhrada klienta vycházela jako přeplatek nebo částečná úhrada. Částka k úhradě vydané faktury nově zahrnuje zaokrouhlení (migrace 0152, u stávajících dokladů beze změny), Fakturoid přenáší rozdíl celku proti položkám, iDoklad ukládá zaokrouhlovací položku jako zaokrouhlení místo řádku s 0 % DPH. Dobropis ze storna vrací zaokrouhlení s opačným znaménkem, PDF i detail faktury zobrazují řádek Zaokrouhlení. Skript `api/bin/backfill-imported-invoice-rounding.php` doplní zaokrouhlení u dříve importovaných faktur (výchozí je dry-run). (#258)
+- **Importované otevřené vydané doklady jsou vystavené.** Neuhrazené, po splatnosti a částečně uhrazené doklady z iDokladu i Fakturoidu se nově zakládají jako vystavené se snapshoty a původním číslem, ne jako koncepty. Automatické upomínky jsou u nich vypnuté, aby historické pohledávky nezačaly hromadně upomínat. Doklad bez čísla zůstává konceptem. (#250)
+
 ## [4.57.0] - 2026-09-09
 
 ### Added
