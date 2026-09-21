@@ -235,6 +235,13 @@ final class InvoiceRepository
         )->execute([$rate, $rateDate, $invoiceId]);
     }
 
+    /** Zaokrouhlení dokladu (#258) — InvoiceCalculator ho při přepočtu zachovává. */
+    public function setRounding(int $invoiceId, float $rounding): void
+    {
+        $this->db->pdo()->prepare('UPDATE invoices SET rounding = ? WHERE id = ?')
+            ->execute([round($rounding, 2), $invoiceId]);
+    }
+
     // ── Propojení zálohové faktury (proforma) s vyúčtovacím daňovým dokladem ──
     // Symetrické s PurchaseInvoiceRepository::linkAdvance — u vydaných je „záloha"
     // = invoice_type='proforma', vazba se ukládá NA finální fakturu (parent_invoice_id),

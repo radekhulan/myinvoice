@@ -37,8 +37,8 @@ final class ImportedPaymentStateMapperTest extends TestCase
         self::assertSame(['status' => 'cancelled', 'paid_at' => null], $state);
     }
 
-    /** Otevřené/po splatnosti/nedobytné doklady zůstávají draft — žádné auto-vystavení. */
-    public function testFakturoidOpenStatesStayDraft(): void
+    /** Otevřené/po splatnosti/nedobytné doklady nemají platební stav (import je vystaví bez upomínek, #250). */
+    public function testFakturoidOpenStatesHaveNoPaymentState(): void
     {
         foreach (['open', 'sent', 'overdue', 'uncollectible', '', 'unknown'] as $status) {
             self::assertNull(
@@ -76,7 +76,7 @@ final class ImportedPaymentStateMapperTest extends TestCase
         self::assertSame('paid', $state['status'] ?? null);
     }
 
-    public function testIdokladUnpaidAndPartialStayDraft(): void
+    public function testIdokladUnpaidAndPartialHaveNoPaymentState(): void
     {
         self::assertNull(ImportedPaymentStateMapper::fromIdoklad(['PaymentStatus' => 0]));
         self::assertNull(ImportedPaymentStateMapper::fromIdoklad(['PaymentStatus' => 2]));

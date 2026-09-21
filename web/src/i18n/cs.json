@@ -1917,6 +1917,7 @@
       "vat_total": "DPH celkem",
       "total": "Celkem",
       "advance_deduction": "Odečet zálohy",
+      "rounding": "Zaokrouhlení",
       "amount_due": "K úhradě"
     },
     "czk_recap": {

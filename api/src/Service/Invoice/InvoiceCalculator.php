@@ -16,7 +16,7 @@ use PDO;
  *              total_with_vat = total_without_vat + total_vat
  *  - Reverse charge: items se vat_rate_snapshot = 0 (i kdyby byl jiný)
  *  - Faktura: SUM jednotlivých položek
- *  - amount_to_pay je generated column v DB (total_with_vat - advance_paid_amount)
+ *  - amount_to_pay je generated column v DB (total_with_vat + rounding - advance_paid_amount)
  */
 final class InvoiceCalculator
 {
@@ -61,9 +61,11 @@ final class InvoiceCalculator
             $updateItem->execute([$r['base'], $r['vat'], $r['with'], (int) $item['id']]);
         }
 
-        // Persist invoice totals (amount_to_pay je generated column)
+        // Persist invoice totals (amount_to_pay je generated column). `rounding` se
+        // nepřepisuje: nese zaokrouhlení dokladu převzaté z importu (#258), které se
+        // do DPH nepočítá a přičítá se až k částce k úhradě.
         $stmt = $pdo->prepare(
-            'UPDATE invoices SET total_without_vat = ?, total_vat = ?, total_with_vat = ?, rounding = 0
+            'UPDATE invoices SET total_without_vat = ?, total_vat = ?, total_with_vat = ?
              WHERE id = ?'
         );
         $stmt->execute([

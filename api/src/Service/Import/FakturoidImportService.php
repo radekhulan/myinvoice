@@ -35,7 +35,8 @@ use Psr\Log\LoggerInterface;
  *
  * Platební stav (#121): doklady se zakládají jako draft, ale `status` z Fakturoidu
  * 'paid'/'cancelled' se promítne hned při importu (paid_at = `paid_on`) — viz
- * ImportedPaymentStateMapper. Ostatní stavy zůstávají draft (review flow).
+ * ImportedPaymentStateMapper. Ostatní vydané doklady se vystaví (issued) bez
+ * automatických upomínek (#250).
  */
 final class FakturoidImportService
 {
@@ -209,7 +210,13 @@ final class FakturoidImportService
             try {
                 $invoiceId = $this->createIssued($inv, $supplierId, $userId);
                 $this->db->pdo()->prepare('UPDATE invoices SET fakturoid_id = ? WHERE id = ?')->execute([$fakturoidId, $invoiceId]);
-                $this->invCalc->recompute($invoiceId);
+                $computed = $this->invCalc->recompute($invoiceId);
+                // #258: zaokrouhlení celkové částky z Fakturoidu, jinak by klientova
+                // zaokrouhlená úhrada vyšla jako přeplatek / částečná úhrada.
+                $rounding = ImportedInvoiceRounding::fromFakturoid($inv, (float) $computed['totals']['with_vat']);
+                if ($rounding !== 0.0) {
+                    $this->invoices->setRounding($invoiceId, $rounding);
+                }
                 if ($downloadAttachments) {
                     $this->archiveIssuedPdf($supplierId, $invoiceId, $fakturoidId, $inv);
                 }
@@ -301,8 +308,13 @@ final class FakturoidImportService
 
     /**
      * Aplikuje namapovaný platební stav na čerstvě importovanou vydanou fakturu
-     * (issue #121). Jen pro doklady ve stavu 'draft' (guard v WHERE) — existující
+     * (issue #121, #250). Jen pro doklady ve stavu 'draft' (guard v WHERE) — existující
      * doklady, které už uživatel zpracoval, se nemění.
+     *
+     * Otevřený doklad (state null: open/sent/overdue/uncollectible, vč. částečných
+     * úhrad) se importuje jako 'issued' (#250) — ve Fakturoidu už je vystavený.
+     * sent_at zůstává NULL a auto_send_reminders = 0, aby historické pohledávky
+     * nespustily hromadné upomínky (#121). Doklad bez čísla zůstává draft.
      *
      * Doklad opouští 'draft', proto dostává snapshoty (client/supplier/bank)
      * stejně jako file import (InvoiceImportService) a IssueInvoiceAction —
@@ -311,12 +323,10 @@ final class FakturoidImportService
      * záznamu — originál byl stornován už ve zdrojovém systému, interní storno
      * doklad by tu byl jen šum.
      *
-     * @param ?array{status:string, paid_at:?string} $state  null = ponechat draft
+     * @param ?array{status:string, paid_at:?string} $state  null = otevřený doklad
      */
     private function applyIssuedPaymentState(int $invoiceId, int $clientId, int $currencyId, int $supplierId, ?array $state, string $fallbackPaidAt, string $issueDate): void
     {
-        if ($state === null) return;
-
         $snapshots = $this->snapshots->build($clientId, $currencyId, $supplierId);
 
         $snapshotSql = 'client_snapshot = ?, supplier_snapshot = ?, bank_snapshot = ?';
@@ -326,7 +336,12 @@ final class FakturoidImportService
             $snapshots['bank'] !== null ? json_encode($snapshots['bank'], JSON_UNESCAPED_UNICODE) : null,
         ];
 
-        if ($state['status'] === 'paid') {
+        if ($state === null) {
+            $this->db->pdo()->prepare(
+                "UPDATE invoices SET status = 'issued', auto_send_reminders = 0, {$snapshotSql}
+                  WHERE id = ? AND status = 'draft' AND varsymbol IS NOT NULL AND varsymbol <> ''"
+            )->execute(array_merge($snapshotParams, [$invoiceId]));
+        } elseif ($state['status'] === 'paid') {
             $this->db->pdo()->prepare(
                 "UPDATE invoices SET status = 'paid', paid_at = ?, sent_at = ?, {$snapshotSql}
                   WHERE id = ? AND status = 'draft'"

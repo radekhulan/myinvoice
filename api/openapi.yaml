@@ -6049,7 +6049,7 @@ components:
         total_without_vat: { type: number, format: float }
         total_vat: { type: number, format: float }
         total_with_vat: { type: number, format: float }
-        rounding: { type: number, format: float, description: "Zaokrouhlení (CZK)" }
+        rounding: { type: number, format: float, description: "Zaokrouhlení dokladu v měně faktury (např. převzaté z importu Fakturoid/iDoklad). Do DPH se nepočítá, je součástí amount_to_pay." }
         advance_paid_amount: { type: number, format: float, description: "Záloha k odečtení (u faktury vystavované po proforme)" }
         amount_to_pay: { type: number, format: float, description: "total_with_vat + rounding − advance_paid_amount" }
         paid_total: { type: number, format: float, description: "Suma evidovaných plateb (invoice_payments, #89); zbývá k úhradě = amount_to_pay − paid_total" }

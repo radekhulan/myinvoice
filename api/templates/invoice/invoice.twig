@@ -360,9 +360,20 @@
         </tr>
         {% endif %}
         {% endif %}
+        {% set rounding = invoice.totals.rounding ?? 0 %}
+        {% if rounding != 0 %}
+        <tr class="subtotal">
+          <td class="tot-label">{{ t('Celkem s DPH', 'Total incl. VAT') }}</td>
+          <td class="tot-num nowrap">{{ invoice.totals.with_vat|number_format(2, decimal_sep, thousand_sep) }} {{ invoice.currency }}</td>
+        </tr>
+        <tr class="subtotal">
+          <td class="tot-label">{{ t('Zaokrouhlení', 'Rounding') }}</td>
+          <td class="tot-num nowrap">{{ rounding|number_format(2, decimal_sep, thousand_sep) }} {{ invoice.currency }}</td>
+        </tr>
+        {% endif %}
         <tr class="grand">
           <td class="tot-label">{{ t('Celkem', 'Total') }}</td>
-          <td class="tot-num nowrap">{{ invoice.totals.with_vat|number_format(2, decimal_sep, thousand_sep) }} {{ invoice.currency }}</td>
+          <td class="tot-num nowrap">{{ (invoice.totals.with_vat + rounding)|number_format(2, decimal_sep, thousand_sep) }} {{ invoice.currency }}</td>
         </tr>
         {% if invoice.advance_paid_amount > 0 %}
         <tr class="advance">

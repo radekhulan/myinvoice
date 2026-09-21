@@ -236,10 +236,18 @@ od file uploadu (§ 16.3), kde se stáří jen odhaduje pravidlem 30 dní:
 
 - Doklad v iDokladu **Uhrazeno / Přeplaceno** → importuje se jako **Zaplacená**
   (`paid_at` = datum úhrady z iDokladu; nepošle se na ni upomínka).
-- Vše ostatní (neuhrazeno, částečně uhrazeno) → **Koncept**. Doklady si
-  zkontroluješ a vystavíš sám — záměrně se automaticky nevystavují, aby na
-  reálně nezaplacené historické faktury nezačaly klientům odcházet upomínky.
-- Totéž platí pro **přijaté faktury** (uhrazeno → Zaplacená, jinak Koncept).
+- Vše ostatní (neuhrazeno, po splatnosti, částečně uhrazeno) → **Vystavená**
+  s původním číslem, daty a zafixovanými údaji klienta, dodavatele a účtu.
+  V iDokladu už jde o vystavený doklad, takže ho po importu nemusíš ručně
+  vystavovat. Jako odeslaná se neoznačí, protože import neví, zda a kdy
+  doklad klientovi odešel.
+- Importované vystavené faktury mají **vypnuté automatické upomínky**
+  (přepínač v detailu faktury), aby na historické pohledávky nezačaly
+  klientům hromadně odcházet upomínky. Ruční upomínku pošleš kdykoli
+  a automatické upomínky si u vybraných faktur zapneš v detailu.
+- Částky dřívějších částečných úhrad se nepřebírají. Úhrady se doplní
+  spárováním s bankovním výpisem nebo ručně.
+- **Přijaté faktury**: uhrazeno → Zaplacená, jinak Koncept.
 - **Přijaté účtenky/paragony** jsou hrazené na místě → importují se rovnou jako
   **Zaplacená** (datum úhrady = datum vystavení), pokud iDoklad nevrátí jiný stav.
 
@@ -257,6 +265,12 @@ Pro neplátce DPH je tohle bez dopadu — účtenka je jen daňový náklad.
 (viz § 10.4.1), u přijatých jako záporná položka „Sleva X %" po sazbách DPH;
 položková sleva se zapečetí do jednotkové ceny. Importovaná částka tak odpovídá
 iDokladu (dřív se sleva ignorovala a faktura se importovala za plnou cenu).
+
+**Zaokrouhlení** — položka zaokrouhlení z iDokladu (typicky na celé koruny) se
+nezakládá jako řádek s 0 % DPH, ale uloží se jako **zaokrouhlení dokladu**.
+Do DPH se nepočítá, je součástí částky k úhradě a zobrazí se v detailu i v PDF.
+Zaokrouhlená úhrada od klienta tak fakturu vyrovná přesně, bez přeplatku
+nebo nedoplatku v haléřích.
 
 **Idempotence:** každý záznam má v DB sloupec `idoklad_id`, který se uloží při
 prvním importu. Druhý import téhož období záznamy **přeskočí** (žádné duplicity,
@@ -317,7 +331,18 @@ Identické s iDoklad (viz § 16.8.3) — vyber roky, sekce, dry-run.
 **Platební stav** — stejně jako u iDokladu (§ 16.8.5) se přebírá
 skutečný stav z Fakturoidu: doklad **Zaplaceno** → importuje se jako Zaplacená
 (`paid_at` = datum úhrady `paid_on`), **Stornováno** → Stornovaná; vše ostatní
-(vč. částečných úhrad) zůstává Koncept k ručnímu vystavení.
+(vč. částečných úhrad) se importuje jako **Vystavená** s vypnutými
+automatickými upomínkami. Doklad bez čísla zůstane Koncept.
+
+**Zaokrouhlení** — celková částka z Fakturoidu (pole `total`, případně
+`rounding_adjustment`) se porovná se součtem položek a rozdíl do 1 jednotky
+měny se uloží jako zaokrouhlení dokladu (stejně jako u iDokladu výše).
+
+Faktury importované před touto úpravou doplní skript
+`php api/bin/backfill-imported-invoice-rounding.php`. Zaokrouhlení dopočítá
+z evidovaných úhrad, pokud klient zaplatil částku zaokrouhlenou na celé
+jednotky a rozdíl je nejvýš 0,50. Bez parametru běží nanečisto, zápis
+provede `--apply`.
 
 Fakturoid stránkuje po 40 záznamech — MyInvoice automaticky tahá všechny stránky
 za vybrané roky.

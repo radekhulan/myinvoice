@@ -1917,6 +1917,7 @@
       "vat_total": "Total VAT",
       "total": "Total",
       "advance_deduction": "Advance deduction",
+      "rounding": "Rounding",
       "amount_due": "Amount due"
     },
     "czk_recap": {

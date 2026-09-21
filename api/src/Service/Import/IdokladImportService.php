@@ -430,10 +430,14 @@ final class IdokladImportService
 
         $invoiceId = $this->invoices->createDraft($payload, $userId);
 
-        // Items
+        // Items (#258: zaokrouhlovací položka → invoices.rounding, ne řádek s 0 % DPH)
         $vatRates = $this->loadVatRateMap();
+        $rounding = ImportedInvoiceRounding::fromIdokladItems($i['Items'] ?? []);
         $items = [];
         foreach (($i['Items'] ?? []) as $idx => $line) {
+            if ($rounding !== null && ImportedInvoiceRounding::isIdokladRoundingItem($line)) {
+                continue;
+            }
             $rate = (float) ($line['VatRate'] ?? 0);
             $vatRateId = $this->matchVatRateId($vatRates, $rate);
             $items[] = [
@@ -447,6 +451,9 @@ final class IdokladImportService
         }
         if (!empty($items)) {
             $this->invoices->replaceItems($invoiceId, $items);
+        }
+        if ($rounding !== null && $rounding !== 0.0) {
+            $this->invoices->setRounding($invoiceId, $rounding);
         }
 
         // #238: kurz z iDokladu (ExchangeRate) → jinak ČNB fallback k DUZP.
@@ -468,18 +475,39 @@ final class IdokladImportService
 
     /**
      * Aplikuje namapovaný platební stav na čerstvě importovanou vydanou fakturu
-     * (issue #121). Jen pro doklady ve stavu 'draft' (guard v WHERE). Doklad opouští
-     * 'draft', proto dostává snapshoty (client/supplier/bank) stejně jako file import
-     * (InvoiceImportService) a IssueInvoiceAction; sent_at = issue_date 12:00 (stejná
-     * aproximace jako file import).
+     * (issue #121, #250). Jen pro doklady ve stavu 'draft' (guard v WHERE). Doklad
+     * opouští 'draft', proto dostává snapshoty (client/supplier/bank) stejně jako file
+     * import (InvoiceImportService) a IssueInvoiceAction.
      *
-     * @param ?array{status:string, paid_at:?string} $state  null = ponechat draft
+     *   - uhrazený → 'paid', sent_at = issue_date 12:00 (aproximace jako file import)
+     *   - neuhrazený / částečně uhrazený (state null) → 'issued' (#250): v iDokladu už
+     *     jde o vystavený doklad s číslem. sent_at zůstává NULL (o odeslání nevíme)
+     *     a auto_send_reminders = 0, aby historické pohledávky nezačaly klientům
+     *     posílat hromadné upomínky (#121). Ruční upomínky i zapnutí přepínače
+     *     v detailu faktury fungují dál.
+     *
+     * @param ?array{status:string, paid_at:?string} $state  null = otevřený doklad
      */
     private function applyIssuedPaymentState(int $invoiceId, int $clientId, int $currencyId, int $supplierId, ?array $state, string $fallbackPaidAt, string $issueDate): void
     {
-        if ($state === null || $state['status'] !== 'paid') return;
+        if ($state !== null && $state['status'] !== 'paid') return;
 
         $snapshots = $this->snapshots->build($clientId, $currencyId, $supplierId);
+        $snapshotParams = [
+            json_encode($snapshots['client'],   JSON_UNESCAPED_UNICODE),
+            json_encode($snapshots['supplier'], JSON_UNESCAPED_UNICODE),
+            $snapshots['bank'] !== null ? json_encode($snapshots['bank'], JSON_UNESCAPED_UNICODE) : null,
+        ];
+
+        if ($state === null) {
+            $this->db->pdo()->prepare(
+                "UPDATE invoices SET status = 'issued', auto_send_reminders = 0,
+                        client_snapshot = ?, supplier_snapshot = ?, bank_snapshot = ?
+                  WHERE id = ? AND status = 'draft' AND varsymbol IS NOT NULL AND varsymbol <> ''"
+            )->execute([...$snapshotParams, $invoiceId]);
+            return;
+        }
+
         $this->db->pdo()->prepare(
             "UPDATE invoices SET status = 'paid', paid_at = ?, sent_at = ?,
                     client_snapshot = ?, supplier_snapshot = ?, bank_snapshot = ?
@@ -487,9 +515,7 @@ final class IdokladImportService
         )->execute([
             $state['paid_at'] ?? $fallbackPaidAt,
             $issueDate . ' 12:00:00',
-            json_encode($snapshots['client'],   JSON_UNESCAPED_UNICODE),
-            json_encode($snapshots['supplier'], JSON_UNESCAPED_UNICODE),
-            $snapshots['bank'] !== null ? json_encode($snapshots['bank'], JSON_UNESCAPED_UNICODE) : null,
+            ...$snapshotParams,
             $invoiceId,
         ]);
     }
@@ -1341,10 +1367,14 @@ final class IdokladImportService
                     'UPDATE invoices SET idoklad_id = ? WHERE id = ?'
                 )->execute([$idokladId, $invoiceId]);
 
-                // Items
+                // Items (#258: zaokrouhlovací položka → invoices.rounding)
                 $vatRates = $this->loadVatRateMap();
+                $rounding = ImportedInvoiceRounding::fromIdokladItems($i['Items'] ?? []);
                 $items = [];
                 foreach (($i['Items'] ?? []) as $idx => $line) {
+                    if ($rounding !== null && ImportedInvoiceRounding::isIdokladRoundingItem($line)) {
+                        continue;
+                    }
                     $rate = (float) ($line['VatRate'] ?? 0);
                     $items[] = [
                         'description'            => (string) ($line['Name'] ?? $line['Description'] ?? ''),
@@ -1357,6 +1387,9 @@ final class IdokladImportService
                 }
                 if (!empty($items)) {
                     $this->invoices->replaceItems($invoiceId, $items);
+                }
+                if ($rounding !== null && $rounding !== 0.0) {
+                    $this->invoices->setRounding($invoiceId, $rounding);
                 }
                 // #238: kurz z iDokladu (ExchangeRate) → jinak ČNB fallback k DUZP.
                 $this->applyIssuedExchangeRate($invoiceId, $i, $supplierId);

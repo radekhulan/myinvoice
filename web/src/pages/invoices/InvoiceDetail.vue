@@ -1848,9 +1848,13 @@ const invoiceActions = computed<ActionItem[]>(() => {
             <dt>{{ t('invoice.totals.vat_total') }}</dt>
             <dd class="font-mono">{{ formatMoney(invoice.totals.vat, invoice.currency) }}</dd>
           </div>
+          <div v-if="Number(invoice.totals.rounding || 0) !== 0" class="flex justify-between text-neutral-600">
+            <dt>{{ t('invoice.totals.rounding') }}</dt>
+            <dd class="font-mono">{{ formatMoney(Number(invoice.totals.rounding), invoice.currency) }}</dd>
+          </div>
           <div class="flex justify-between border-t border-neutral-300 pt-2 mt-2 text-lg font-semibold text-primary-700">
             <dt>{{ t('invoice.totals.total') }}</dt>
-            <dd class="font-mono">{{ formatMoney(invoice.totals.with_vat, invoice.currency) }}</dd>
+            <dd class="font-mono">{{ formatMoney(Number(invoice.totals.with_vat) + Number(invoice.totals.rounding || 0), invoice.currency) }}</dd>
           </div>
           <div v-if="invoice.advance_paid_amount > 0" class="flex justify-between text-sm text-neutral-600 pt-2">
             <dt>{{ t('invoice.totals.advance_deduction') }}</dt>

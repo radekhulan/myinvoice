@@ -12,17 +12,19 @@ namespace MyInvoice\Service\Import;
  * Vrací ?array{status: 'paid'|'cancelled', paid_at: ?string}:
  *   - 'paid'      → doklad ve zdroji uhrazen (paid_at = datum úhrady, pokud ho zdroj má)
  *   - 'cancelled' → doklad ve zdroji stornován (jen Fakturoid; iDoklad storno stav nemá)
- *   - null        → ponechat draft (open/sent/overdue/partial/uncollectible) — uživatel
- *                   doklad vystaví sám; auto-povýšení na 'sent' by u reálně nezaplacených
- *                   historických dokladů spustilo hromadné upomínky klientům.
+ *   - null        → otevřený doklad (open/sent/overdue/partial/uncollectible). Vydaný
+ *                   doklad importy zakládají jako 'issued' s vypnutými automatickými
+ *                   upomínkami (#250) — povýšení na 'sent' nebo zapnuté upomínky by
+ *                   u historických pohledávek spustily hromadné upomínky klientům (#121).
+ *                   Přijatý doklad zůstává draft.
  */
 final class ImportedPaymentStateMapper
 {
     /**
      * Fakturoid v3: invoice.status ∈ {open, sent, overdue, paid, cancelled, uncollectible},
      * expense.status ∈ {open, overdue, paid}; paid_on = datum označení jako zaplaceno.
-     * Částečné platby nechávají status 'open' → zůstává draft (náš model parciální
-     * úhrady vydaných nemá).
+     * Částečné platby nechávají status 'open' → otevřený doklad (částky úhrad
+     * se z Fakturoidu nepřebírají).
      *
      * @param array<string,mixed> $doc  Fakturoid invoice/expense JSON
      * @return ?array{status:string, paid_at:?string}

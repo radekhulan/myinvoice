@@ -147,8 +147,8 @@ final class CancelInvoiceAction
                 'INSERT INTO invoices
                    (invoice_type, parent_invoice_id, client_id, project_id, supplier_id, branding_profile_id,
                     issue_date, tax_date, due_date, currency_id, reverse_charge, prices_include_vat, language,
-                    note_above_items, revenue_category_id, status, created_by)
-                 VALUES ("credit_note", ?, ?, ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, ?, ?, ?, ?, ?, "draft", ?)'
+                    note_above_items, revenue_category_id, rounding, status, created_by)
+                 VALUES ("credit_note", ?, ?, ?, ?, ?, CURDATE(), CURDATE(), CURDATE(), ?, ?, ?, ?, ?, ?, ?, "draft", ?)'
             );
             $stmt->execute([
                 $invoice['id'],
@@ -165,6 +165,9 @@ final class CancelInvoiceAction
                 $reason !== '' ? "Dobropis k faktuře {$invoice['varsymbol']}: $reason" : "Dobropis k faktuře {$invoice['varsymbol']}",
                 // Dobropis dědí kategorii tržby původní faktury (záporná tržba ve stejné kategorii).
                 $invoice['revenue_category_id'] ?? null,
+                // Zaokrouhlení dokladu (#258) se vrací s opačným znaménkem, ať dobropis
+                // vyrovná přesně zaokrouhlenou částku původní faktury.
+                -1 * (float) ($invoice['rounding'] ?? 0),
                 $userId,
             ]);
             $creditNoteId = (int) $pdo->lastInsertId();
