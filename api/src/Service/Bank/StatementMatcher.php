@@ -215,6 +215,32 @@ final class StatementMatcher
 
         // ── Outgoing → purchase_invoice (přijaté faktury) ────────────────
         if ($isOutgoing) {
+            // Rematch bere i auto_partial. Částečnou shodu dle VS (confidence 70, status
+            // faktury nemění) zahodíme a vyhodnotíme znovu, ať ji třeba nově započtené
+            // zaokrouhlení povýší na přesnou. Fuzzy / částka+datum shody fakturu už
+            // překlopily na paid — ty necháme a jen ohlásíme, jinak by vznikla duplicitní
+            // payment_matches.
+            if (($row['match_status'] ?? '') === 'auto_partial') {
+                $prevStmt = $pdo->prepare('SELECT purchase_invoice_id, match_type, match_confidence FROM payment_matches WHERE bank_transaction_id = ?');
+                $prevStmt->execute([$transactionId]);
+                $prev = $prevStmt->fetchAll(PDO::FETCH_ASSOC);
+                $resettable = $prev !== [] && array_filter(
+                    $prev,
+                    static fn (array $p): bool => $p['match_type'] !== 'auto' || (int) $p['match_confidence'] !== 70,
+                ) === [];
+                if ($prev !== [] && !$resettable) {
+                    return [
+                        'status'              => 'auto_partial',
+                        'purchase_invoice_id' => (int) $prev[0]['purchase_invoice_id'],
+                        'already_recorded'    => true,
+                    ];
+                }
+                if ($resettable) {
+                    $pdo->prepare('DELETE FROM payment_matches WHERE bank_transaction_id = ?')->execute([$transactionId]);
+                    $pdo->prepare("UPDATE bank_transactions SET match_status = 'unmatched', matched_at = NULL WHERE id = ?")
+                        ->execute([$transactionId]);
+                }
+            }
             // 1) přesný match dle VS dodavatele (vendor_invoice_number / varsymbol)
             if ($vs) {
                 $res = $this->matchPurchase($pdo, $supplierId, (string) $vs, abs($amount), (string) $row['posted_at'], $transactionId, $txCurrency);

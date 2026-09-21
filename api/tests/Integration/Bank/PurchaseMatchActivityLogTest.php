@@ -221,6 +221,40 @@ final class PurchaseMatchActivityLogTest extends TestCase
         self::assertSame('received', $pdo->query("SELECT status FROM purchase_invoices WHERE id = {$this->purchaseId}")->fetchColumn());
     }
 
+    public function testRematchUpgradesVsPartialWithoutDuplicateMatch(): void
+    {
+        $this->seed(2500.00);
+        $pdo = $this->db->pdo();
+        $pdo->prepare('UPDATE bank_transactions SET amount = -2500.36 WHERE id = ?')
+            ->execute([$this->transactionId]);
+
+        // Stav před opravou #272: platba se zaokrouhlením spárovaná jen částečně.
+        self::assertSame('auto_partial', $this->matcher->match($this->transactionId)['status'] ?? null);
+        $pdo->prepare('UPDATE purchase_invoices SET rounding = 0.36 WHERE id = ?')
+            ->execute([$this->purchaseId]);
+
+        $res = $this->matcher->match($this->transactionId);
+
+        self::assertSame('auto_exact', $res['status'] ?? null);
+        self::assertSame('paid', $pdo->query("SELECT status FROM purchase_invoices WHERE id = {$this->purchaseId}")->fetchColumn());
+        self::assertSame(1, (int) $pdo->query("SELECT COUNT(*) FROM payment_matches WHERE bank_transaction_id = {$this->transactionId}")->fetchColumn());
+    }
+
+    public function testRematchKeepsAmountDatePartialWithoutDuplicate(): void
+    {
+        $this->seed(2500.00, 'received', null);
+        $pdo = $this->db->pdo();
+        $pdo->prepare('UPDATE bank_transactions SET amount = -2500.50 WHERE id = ?')
+            ->execute([$this->transactionId]);
+
+        self::assertSame('auto_partial', $this->matcher->match($this->transactionId)['status'] ?? null);
+        $res = $this->matcher->match($this->transactionId);
+
+        self::assertSame('auto_partial', $res['status'] ?? null);
+        self::assertTrue($res['already_recorded'] ?? false);
+        self::assertSame(1, (int) $pdo->query("SELECT COUNT(*) FROM payment_matches WHERE bank_transaction_id = {$this->transactionId}")->fetchColumn());
+    }
+
     public function testAmountDateMatchingUsesRounding(): void
     {
         $this->seed(2500.00, 'paid', null);
