@@ -2269,6 +2269,7 @@ paths:
     post:
       tags: [Bank]
       summary: Odpojí transakci od faktury (a vrátí fakturu z paid → issued)
+      description: Vrátí transakci do stavu unmatched a odstraní případnou poznámku k ignorování.
       responses:
         '200':
           description: OK
@@ -2283,9 +2284,26 @@ paths:
     post:
       tags: [Bank]
       summary: Označí transakci jako „ignorovat" (nesedí na žádnou fakturu)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: [string, "null"], maxLength: 1000, description: "Volitelná poznámka; prázdný text se uloží jako null." }
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ignored: { type: boolean, const: true }
+                  ignore_note: { type: [string, "null"], maxLength: 1000 }
+        '422':
+          description: Poznámka není text nebo přesahuje 1000 znaků.
 
   /api/v1/settings/supplier:
     parameters:
@@ -6930,6 +6948,7 @@ components:
         counterparty_name: { type: [string, "null"] }
         description: { type: [string, "null"] }
         bank_ref: { type: [string, "null"], description: "Bankovní referenční ID transakce" }
+        ignore_note: { type: [string, "null"], maxLength: 1000, description: "Uživatelská poznámka k ignorování transakce." }
         match_status:
           type: string
           enum: [unmatched, auto_exact, auto_partial, manual, ignored]
