@@ -43,7 +43,7 @@ Ve výchozím nastavení je faktura ve splatnosti po celý den uvedený jako dat
 **po splatnosti** patří až následující kalendářní den, pokud zůstává neuhrazená;
 teprve tehdy se také nabízí běžná upomínka. Rozhoduje datum v časové zóně aplikace
 (`app.timezone`, výchozí `Europe/Prague`), nikoli časové pásmo prohlížeče. Stejná hranice platí pro filtr
-přijatých faktur, dashboard a souhrny klientů a zakázek.
+přijatých faktur, dashboard včetně výzvy „Pošli upomínky“ a souhrny klientů a zakázek.
 
 Provozovatel může v `cfg.local.php` zapnout zahrnutí dnešních dokladů do označení
 a filtrů „po splatnosti“ v seznamech vystavených a přijatých faktur a do souhrnů
