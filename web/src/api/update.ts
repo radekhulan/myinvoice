@@ -11,6 +11,8 @@ export interface UpdateStatus {
   last_check_error: string | null
   cache_stale: boolean
   environment: 'docker' | 'native'
+  /** false = nasazení řídí platforma (Coolify, Portainer…), UI upgrade nespouští. */
+  in_app_upgrade: boolean
   upgrade_in_progress: boolean
   /** Krok běžícího nativního upgradu; Docker flow ho neplní. */
   upgrade_progress: {
