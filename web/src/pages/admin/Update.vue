@@ -52,6 +52,7 @@ async function load(signal?: AbortSignal) {
     // ruční postup.
     if (
       nextStatus.environment === 'native' &&
+      nextStatus.in_app_upgrade &&
       nextStatus.has_update &&
       nextStatus.latest &&
       preflight.value === null
@@ -399,7 +400,7 @@ function fmtDate(s?: string | null): string {
             {{ checking ? t('updates.checking') : t('updates.check_now') }}
           </button>
           <button
-            v-if="status.has_update && !status.upgrade_in_progress"
+            v-if="status.has_update && status.in_app_upgrade && !status.upgrade_in_progress"
             type="button"
             @click="triggerUpgrade"
             :disabled="triggering"
@@ -501,7 +502,7 @@ function fmtDate(s?: string | null): string {
         </h2>
         <div class="text-sm text-neutral-700 mt-1.5 space-y-0.5">
           <div v-if="status.last_upgrade_result.target_version">
-            <span class="text-neutral-500">{{ t('updates.latest_version') }}:</span>
+            <span class="text-neutral-500">{{ t('updates.target_version') }}:</span>
             v{{ status.last_upgrade_result.target_version }}
           </div>
           <div v-if="status.last_upgrade_result.applied_at">
@@ -533,7 +534,15 @@ function fmtDate(s?: string | null): string {
       <section class="rounded-lg border border-neutral-200 bg-surface p-5">
         <h2 class="text-lg font-semibold text-neutral-900 mb-3">{{ t('updates.how_it_works') }}</h2>
 
-        <template v-if="status.environment === 'docker'">
+        <template v-if="!status.in_app_upgrade">
+          <h3 class="text-sm font-semibold text-neutral-800 flex items-center gap-2 mt-1">
+            <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            {{ t('updates.how_external_title') }}
+          </h3>
+          <p class="text-sm text-neutral-600 mt-1.5 leading-relaxed">{{ t('updates.how_external_desc') }}</p>
+        </template>
+
+        <template v-else-if="status.environment === 'docker'">
           <h3 class="text-sm font-semibold text-neutral-800 flex items-center gap-2 mt-1">
             <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7L9 18l-5-5"/></svg>
             {{ t('updates.how_docker_title') }}

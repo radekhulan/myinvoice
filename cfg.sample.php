@@ -387,4 +387,12 @@ return [
                                                      // Šifruje se obsah souborů; názvy souborů uvnitř ZIPu zůstávají čitelné.
         ],
     ],
+
+    // Aktualizace z UI (Systém → Aktualizace). Docker deleguje upgrade na host-side
+    // watcher, nativní instalace na worker s production bundlem. Kde novou verzi
+    // nasazuje platforma (Coolify, Portainer, Kubernetes…), nastav false — tlačítko
+    // „Aktualizovat" zmizí a stránka jen hlásí novou verzi. ENV: MYINVOICE_IN_APP_UPGRADE.
+    'updates' => [
+        'in_app_upgrade' => true,
+    ],
 ];
