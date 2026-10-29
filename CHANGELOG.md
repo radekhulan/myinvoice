@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.59.4] - 2026-10-29
+
+### Added
+
+- **Anglická e-mailová avíza Fio banky.** Systémový Fio parser rozpozná i avíza v angličtině („the balance of account … has increased by CZK 1.00 on 10/25/2026"), vlastní regex provider na ně už není potřeba. (#291)
+
+### Fixed
+
+- **Nahrávání přijatých faktur z iPhonu.** Service worker přeposílal požadavky na API a iOS Safari při tom zahodilo tělo souboru, takže AI extrakce i import přijatých faktur končily chybou „Nahrajte PDF" / „Nahrajte alespoň jeden soubor". Požadavky na API teď service worker nechává přímo prohlížeči. Aplikaci přidanou na plochu iPhonu je po aktualizaci potřeba ukončit a znovu spustit. (#292)
+- **Doména ve whitelistu odesílatelů e-mailových avíz.** Položka bez „@" (např. `fio.cz`) se dřív brala jen jako přesná adresa, takže prošla v Testu parseru, ale při scanu schránky s odesílatelem `automat@fio.cz` ne. Nově znamená doménu včetně subdomén. (#291)
+- **Automatický scan e-mailových avíz u všech dodavatelů.** Cron skenoval jen výchozího dodavatele z konfigurace, schránka nastavená u jiného dodavatele se zpracovala jen ručně. Nově projde všechny dodavatele se zapnutou IMAP schránkou. (#291)
+
 ## [4.59.3] - 2026-10-21
 
 ### Security
