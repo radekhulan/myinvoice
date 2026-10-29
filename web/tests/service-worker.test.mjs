@@ -5,20 +5,24 @@ import { createWorker, loadWorkerSource } from './helpers/worker-harness.mjs'
 
 const source = await loadWorkerSource('service-worker.js')
 
-test('API requests always bypass caches', async () => {
-  for (const pathname of ['/api', '/api/v1/invoices']) {
-    const worker = createWorker(source)
-    const result = worker.dispatchFetch({
-      url: `https://invoice.test${pathname}`,
-      method: 'GET',
-      destination: '',
-    })
+// API nesmí přes service worker projít vůbec, ani jako pass-through přes
+// `respondWith(fetch(...))`: na iOS WebKitu se při přeposlání ztratí tělo
+// uploadu ze souboru a import faktur skončí na 400 no_file / no_files.
+test('API requests are left entirely to the browser', async () => {
+  for (const method of ['GET', 'POST']) {
+    for (const pathname of ['/api', '/api/v1/invoices', '/api/admin/imports/ai-extract-pdf']) {
+      const worker = createWorker(source)
+      const result = worker.dispatchFetch({
+        url: `https://invoice.test${pathname}`,
+        method,
+        destination: '',
+      })
 
-    assert.ok(result)
-    await result
-    assert.equal(worker.cacheOpenCount, 0)
-    assert.equal(worker.fetchCalls.length, 1)
-    assert.equal(worker.fetchCalls[0][1].cache, 'no-store')
+      assert.equal(result, undefined, `${method} ${pathname} nesmí volat respondWith`)
+      assert.equal(worker.cacheOpenCount, 0)
+      assert.equal(worker.fetchCalls.length, 0)
+      assert.equal(worker.cachePutCalls.length, 0)
+    }
   }
 })
 

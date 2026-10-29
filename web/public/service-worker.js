@@ -80,10 +80,13 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return
 
-  if (isApiRequest(url)) {
-    event.respondWith(fetch(request, { cache: 'no-store' }))
-    return
-  }
+  // API se NIKDY nesmí dostat přes service worker. Přeposlání přes
+  // `respondWith(fetch(request, { cache: 'no-store' }))` sestaví z requestu
+  // nový a na iOS WebKitu přitom zahodí tělo streamované ze souboru
+  // z `<input type="file">`: upload faktury dorazí s CONTENT_LENGTH 0
+  // a prázdným $_FILES. Bez `respondWith` request obslouží přímo prohlížeč,
+  // se všemi původními vlastnostmi.
+  if (isApiRequest(url)) return
 
   const strategy = selectStrategy(request, url)
   if (strategy) {
