@@ -222,6 +222,94 @@ TEXT;
         self::assertFalse($parser->supports($message, $this->provider($parser)));
     }
 
+    public function testParsesEnglishProseIncomingNotice(): void
+    {
+        $body = <<<TEXT
+Dear Client,
+
+the balance of account 2901618111 has increased by CZK 1.00 on 10/25/2026 at 10:37.
+
+Additional details
+Transaction type: Credit transfers within the bank
+Counterparty: 1234567890/2010 (Novák, Jan)
+Instruction ID: 4711
+Variable symbol: 123456
+Message for beneficiary: Faktura 123456
+
+Current balance: CZK 1,234.75
+
+If you no longer wish to receive this information, you can disable it anytime in the settings of our applications.
+
+Fio banka
+TEXT;
+
+        $parser = new FioBankEmailNoticeParser();
+        $message = $this->message($body, 'Fio banka - new income on account');
+        $provider = $this->provider($parser);
+
+        self::assertTrue($parser->supports($message, $provider));
+
+        $parsed = $parser->parse($message, $provider);
+
+        self::assertSame('123456', $parsed->variableSymbol);
+        self::assertSame(1.0, $parsed->amount);
+        self::assertSame('CZK', $parsed->currency);
+        self::assertSame('2026-10-25', $parsed->postedAt);
+        self::assertSame('2901618111/2010', $parsed->recipientAccount);
+        self::assertSame('1234567890', $parsed->counterpartyAccount);
+        self::assertSame('2010', $parsed->counterpartyBank);
+        self::assertSame('Novák, Jan', $parsed->counterpartyName);
+        self::assertNull($parsed->constantSymbol);
+        self::assertSame('Faktura 123456', $parsed->message);
+        self::assertSame('4711', $parsed->bankRef);
+        self::assertSame(1234.75, $parsed->balance);
+    }
+
+    public function testParsesEnglishProseOutgoingNoticeAsNegativeAmount(): void
+    {
+        $body = <<<TEXT
+the balance of account 2901618111 has decreased by EUR 5,000.00 on 9/1/2026 at 8:05.
+
+Additional details
+Counterparty: 7654320005/3030
+Variable symbol: 08111111
+Constant symbol: 0308
+
+Current balance: EUR 17,449.23
+TEXT;
+
+        $parser = new FioBankEmailNoticeParser();
+        $message = $this->message($body, 'Fio banka - new expense on account');
+        $provider = $this->provider($parser);
+
+        self::assertTrue($parser->supports($message, $provider));
+
+        $parsed = $parser->parse($message, $provider);
+
+        self::assertSame('8111111', $parsed->variableSymbol);
+        self::assertSame(-5000.0, $parsed->amount);
+        self::assertSame('EUR', $parsed->currency);
+        self::assertSame('2026-09-01', $parsed->postedAt);
+        self::assertSame('7654320005', $parsed->counterpartyAccount);
+        self::assertSame('3030', $parsed->counterpartyBank);
+        self::assertNull($parsed->counterpartyName);
+        self::assertSame('0308', $parsed->constantSymbol);
+        self::assertNull($parsed->message);
+        self::assertSame(17449.23, $parsed->balance);
+    }
+
+    public function testEnglishProseNoticeRejectsDayMonthSwappedDate(): void
+    {
+        $parser = new FioBankEmailNoticeParser();
+        $message = $this->message(
+            'the balance of account 2901618111 has increased by CZK 1.00 on 25/10/2026 at 10:37.',
+            'Fio banka - new income on account',
+        );
+
+        $this->expectException(\RuntimeException::class);
+        $parser->parse($message, $this->provider($parser));
+    }
+
     private function message(string $body, string $subject): BankEmailNoticeMessage
     {
         return new BankEmailNoticeMessage(

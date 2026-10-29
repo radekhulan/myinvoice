@@ -37,6 +37,15 @@ use MyInvoice\Service\Bank\EmailNotice\ParsedBankEmailNotice;
  *      Aktuální zůstatek: 1,75 CZK
  *    „zvýšil" = příjem, „snížil" = výdaj (ukládá se se záporným znaménkem).
  *
+ * C) Anglická varianta formátu B (předmět „Fio banka - new income on account"),
+ *    datum je ve tvaru m/d/Y, částka s desetinnou tečkou a měnou před ní:
+ *      the balance of account 1111 has increased by CZK 1.00 on 10/25/2026 at 10:37.
+ *      Counterparty: 1234567890/0800 (ing. Novák)
+ *      Instruction ID: 1111
+ *      Variable symbol: 0000
+ *      Message for beneficiary: Faktura 1111
+ *      Current balance: CZK 1.75
+ *
  * Účet „na kontě" / „zůstatek účtu" je bez kódu banky — doplní se /2010
  * (účet vedený u Fio).
  */
@@ -47,6 +56,12 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
         . '\s+se\s+(?<date>\d{1,2}\.\s*\d{1,2}\.\s*\d{4})(?:\s+v\s+(?<time>\d{1,2}:\d{2}))?'
         . '\s+(?<direction>zv[ýy][šs]il|sn[íi][žz]il)\s+o\s*(?<amount>[+\-]?[0-9][0-9 .]*,[0-9]{2})'
         . '\s*(?<currency>[A-Za-z]{3}|Kč|Kc)?/u';
+
+    /** Formát C: hlavička „balance of account … has increased/decreased by CZK … on m/d/Y". */
+    private const PROSE_HEADER_EN = '/balance\s+of\s+account\s*(?<account>[0-9\-]+(?:\/[0-9]{4})?)'
+        . '\s+has\s+(?<direction>increased|decreased)\s+by\s*(?<currency>[A-Za-z]{3})?'
+        . '\s*(?<amount>[+\-]?[0-9][0-9,]*\.[0-9]{2})'
+        . '(?:\s+on\s+(?<month>\d{1,2})\/(?<day>\d{1,2})\/(?<year>\d{4}))?/iu';
 
     public function key(): string
     {
@@ -70,7 +85,7 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
             enabled: true,
             senderWhitelist: 'fio.cz',
             subjectPattern: 'Fio\\s+banka\\s+-\\s+(?:prijem|vydaj|příjem|výdaj)\\s+na\\s+kont[ěe]',
-            bodyPattern: '(?:(?:Příjem|Výdaj)\\s+na\\s+kontě|z[ůu]statek\\s+[úu][čc]tu)',
+            bodyPattern: '(?:(?:Příjem|Výdaj)\\s+na\\s+kontě|z[ůu]statek\\s+[úu][čc]tu|balance\\s+of\\s+account)',
             fieldPatterns: [],
             normalizerConfig: [],
             system: true,
@@ -84,7 +99,7 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
         }
 
         $text = $this->normalizeText($message->text);
-        if ($this->isProseNotice($text)) {
+        if ($this->isProseNotice($text) || $this->isEnglishProseNotice($text)) {
             return true;
         }
 
@@ -107,6 +122,9 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
 
         if ($this->isProseNotice($text)) {
             return $this->parseProseNotice($text, $message);
+        }
+        if ($this->isEnglishProseNotice($text)) {
+            return $this->parseEnglishProseNotice($text, $message);
         }
 
         $header = $this->match(
@@ -213,6 +231,69 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
         );
     }
 
+    private function isEnglishProseNotice(string $text): bool
+    {
+        return preg_match(self::PROSE_HEADER_EN, $text) === 1;
+    }
+
+    /**
+     * Formát C. Datum m/d/Y se ověřuje přes checkdate, aby se prohozený den
+     * a měsíc (25/10/2026) nepřevedl tiše na jiné datum.
+     */
+    private function parseEnglishProseNotice(string $text, BankEmailNoticeMessage $message): ParsedBankEmailNotice
+    {
+        $header = $this->match($text, self::PROSE_HEADER_EN);
+        if ($header === null) {
+            throw new \RuntimeException('Fio banka parser nenašel částku.');
+        }
+
+        $year = (int) ($header['year'] ?? 0);
+        if ($year > 0) {
+            $month = (int) $header['month'];
+            $day = (int) $header['day'];
+            if (!checkdate($month, $day, $year)) {
+                throw new \RuntimeException('Fio banka parser nenašel validní datum platby.');
+            }
+            $postedAt = sprintf('%04d-%02d-%02d', $year, $month, $day);
+        } elseif ($message->date instanceof \DateTimeImmutable) {
+            $postedAt = $message->date->format('Y-m-d');
+        } else {
+            throw new \RuntimeException('Fio banka parser nenašel datum e-mailu.');
+        }
+
+        $variableSymbol = $this->optional($text, '/(?:^|\R)\s*Variable\s+symbol\s*:\s*(?<value>[0-9]+)/iu');
+        $constantSymbol = $this->optional($text, '/(?:^|\R)\s*Constant\s+symbol\s*:\s*(?<value>[0-9]+)/iu');
+        $note = $this->optional($text, '/(?:^|\R)\s*Message\s+for\s+beneficiary\s*:\s*(?<value>[^\r\n]+)/iu')
+            ?? $this->optional($text, '/(?:^|\R)\s*Message\s+for\s+me\s*:\s*(?<value>[^\r\n]+)/iu')
+            ?? $this->optional($text, '/(?:^|\R)\s*User\s+(?:symbol|message)\s*:\s*(?<value>[^\r\n]+)/iu');
+        $bankRef = $this->optional($text, '/(?:^|\R)\s*Instruction\s+ID\s*:\s*(?<value>[^\r\n]+)/iu');
+        $balance = $this->optional(
+            $text,
+            '/(?:^|\R)\s*Current\s+balance\s*:\s*(?:[A-Za-z]{3}\s*)?(?<value>[+\-]?[0-9][0-9,]*\.[0-9]{2})/iu',
+        );
+
+        [$cpAccount, $cpBank, $cpName] = $this->parseCounterparty($text, 'Counterparty');
+        [$recipientAccount, $recipientBank] = $this->splitAccount((string) $header['account']);
+
+        $currency = trim((string) ($header['currency'] ?? ''));
+        $direction = strtolower((string) $header['direction']) === 'decreased' ? 'výdaj' : 'příjem';
+
+        return new ParsedBankEmailNotice(
+            variableSymbol: $this->normalizeSymbol((string) $variableSymbol),
+            amount: $this->applyDirection($this->parseAmount((string) $header['amount']), $direction),
+            currency: $currency !== '' ? $this->normalizeCurrency($currency) : 'CZK',
+            postedAt: $postedAt,
+            recipientAccount: $recipientAccount . '/' . ($recipientBank ?? '2010'),
+            counterpartyAccount: $cpAccount,
+            counterpartyBank: $cpBank,
+            counterpartyName: $cpName,
+            constantSymbol: $constantSymbol,
+            message: $note,
+            bankRef: $bankRef,
+            balance: $balance !== null ? $this->parseAmount($balance) : null,
+        );
+    }
+
     /**
      * „Protistrana: 1234567890/0800 (ing. Novák)" → účet, kód banky, název.
      * Kód banky bere 1–4 číslice (avíza chodí i s maskovaným protiúčtem),
@@ -220,9 +301,9 @@ final class FioBankEmailNoticeParser extends AbstractBankEmailNoticeParser
      *
      * @return array{0:?string,1:?string,2:?string}
      */
-    private function parseCounterparty(string $text): array
+    private function parseCounterparty(string $text, string $label = 'Protistrana'): array
     {
-        $value = $this->optional($text, '/(?:^|\R)\s*Protistrana\s*:\s*(?<value>[^\r\n]+)/u');
+        $value = $this->optional($text, '/(?:^|\R)\s*' . $label . '\s*:\s*(?<value>[^\r\n]+)/iu');
         if ($value === null) {
             return [null, null, null];
         }

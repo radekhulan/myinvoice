@@ -287,8 +287,10 @@ abstract class AbstractBankEmailNoticeParser implements BankEmailNoticeParserInt
     }
 
     /**
-     * Whitelist odesílatelů providera (mezera/čárka/středník oddělené adresy);
-     * prázdný = povolit vše. Matchuje přesnou adresu i tvar „Jméno <adresa>".
+     * Whitelist odesílatelů providera (mezera/čárka/středník oddělené adresy
+     * nebo domény); prázdný = povolit vše. Adresa matchuje přesně i ve tvaru
+     * „Jméno <adresa>", položka bez „@" je doména včetně subdomén (jako
+     * `fio.cz` u systémového providera), viz #291.
      */
     protected function senderAllowed(string $sender, string $whitelist): bool
     {
@@ -300,6 +302,12 @@ abstract class AbstractBankEmailNoticeParser implements BankEmailNoticeParserInt
         foreach (preg_split('/[\s,;]+/', strtolower($whitelist)) ?: [] as $allowed) {
             $allowed = trim($allowed);
             if ($allowed === '') {
+                continue;
+            }
+            if (!str_contains($allowed, '@')) {
+                if (SenderDomain::matches($sender, $allowed)) {
+                    return true;
+                }
                 continue;
             }
             if ($sender === $allowed || str_contains($sender, '<' . $allowed . '>')) {

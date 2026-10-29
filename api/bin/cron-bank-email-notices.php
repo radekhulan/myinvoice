@@ -23,12 +23,14 @@ $run     = CronRun::start($conn->pdo(), 'cron-bank-email-notices');
 $container = Bootstrap::buildApp()->getContainer();
 $scanner = $container->get(BankEmailNoticeScanner::class);
 
-$scanAll = (bool) $config->get('app.scan_all_suppliers', false);
-if ($scanAll) {
-    $supplierIds = array_map('intval', $conn->pdo()->query('SELECT id FROM supplier')->fetchAll(\PDO::FETCH_COLUMN));
-} else {
-    $supplierIds = [(int) $config->get('app.default_supplier_id', 1)];
-}
+// Cron obsluhuje zapnuté schránky celé instalace. Výchozí dodavatel z konfigurace
+// rozsahem úlohy není: schránka nastavená u jiného dodavatele se jinak skenovala
+// jen ručně (#291). Opt-inem je `enabled` u samotné schránky.
+$supplierIds = array_map('intval', $conn->pdo()->query('
+    SELECT DISTINCT supplier_id FROM bank_email_imap_settings
+     WHERE enabled = 1
+     ORDER BY supplier_id
+')->fetchAll(\PDO::FETCH_COLUMN));
 
 $started = microtime(true);
 $summary = [
