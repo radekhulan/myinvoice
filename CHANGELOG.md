@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.59.5] - 2026-11-22
+
+### Fixed
+
+- **Kurz cizí měny po změně DUZP.** Editor dřív posílal kurz při každém uložení jako ruční hodnotu, takže koncept po změně DUZP, data vystavení nebo měny ponechal kurz k původnímu dni. Kurz se nově posílá jen při skutečné změně pole a jinak se kurz ČNB přenačte. (#294)
+- **Ruční kurz se ukládá k DUZP.** Dřív dostal datum vystavení, nově rozhodný den (DUZP, a když chybí, datum vystavení). (#294)
+- **Náhradní kurz není novější než DUZP.** Když ČNB není dostupná, poslední známý kurz se bere jen do rozhodného dne, starší faktura tak nedostane pozdější kurz. (#294)
+- **`POST /api/v1/invoices` respektuje ruční `exchange_rate`** stejně jako PUT, dřív ho přepsal kurz ČNB. (#294)
+- **Pole kurzu v editoru už nemění šipky ani kolečko myši**, jedním stiskem šipky šlo nechtěně změnit kurz o 0,0001. (#293)
+- **Změna kurzu v historii faktury.** Úprava kurzu a data kurzu se zapisuje do historie (i u odemčené vystavené faktury). (#293)
+- **Přesný kurz v PDF.** Kurz se tiskne se všemi platnými desetinnými místy (3 až 6), takže odpovídá přepočtu do CZK (např. 24,9999 nebo 0,06123 CZK / 1 HUF). Popisek je neutrální „Kurz", protože může jít i o ručně zadaný kurz. (#293)
+
 ## [4.59.4] - 2026-10-29
 
 ### Added
