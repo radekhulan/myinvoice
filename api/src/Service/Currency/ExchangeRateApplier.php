@@ -9,8 +9,8 @@ use MyInvoice\Infrastructure\Database\Connection;
 use MyInvoice\Repository\InvoiceRepository;
 
 /**
- * Po každém Create/Update faktury: pokud měna ≠ CZK, zjistí kurz CNB pro issue_date
- * (s fallbackem den-zpět + last-known) a uloží do `invoices.exchange_rate`.
+ * Po každém Create/Update faktury: pokud měna ≠ CZK, zjistí kurz CNB k DUZP
+ * (fallback datum vystavení; s fallbackem den-zpět + last-known) a uloží do `invoices.exchange_rate`.
  *
  * Vrací metadata pro UI (warning toast po uložení) — null pokud se nic neaplikuje
  * (CZK faktura) nebo pokud DB neobsahuje žádný kurz pro danou měnu (ani last-known).
@@ -24,6 +24,42 @@ final class ExchangeRateApplier
     ) {}
 
     /**
+     * Ruční kurz zadaný uživatelem / API klientem. Ukládá se k rozhodnému dni
+     * (DUZP, fallback datum vystavení) stejně jako automatický kurz. U CZK faktury
+     * se kurz vynuluje. Vrací true, když byl ruční kurz uložen.
+     */
+    public function applyManualRate(int $invoiceId, float $rate): bool
+    {
+        $row = $this->rateContext($invoiceId);
+        if ($row === null) return false;
+        if (strtoupper((string) $row['currency']) === 'CZK' || $rate <= 0) {
+            $this->invoices->setExchangeRate($invoiceId, null, null);
+            return false;
+        }
+        $this->invoices->setExchangeRate($invoiceId, $rate, substr((string) $row['rate_date'], 0, 10));
+        return true;
+    }
+
+    /**
+     * Rozhodný den kurzu + kód měny. Kurz se váže k DUZP (§ 4 odst. 8 ZDPH, den vzniku
+     * povinnosti přiznat daň), ne k datu vystavení; fallback na issue_date.
+     *
+     * @return array{rate_date: string, currency: string}|null
+     */
+    private function rateContext(int $invoiceId): ?array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COALESCE(i.tax_date, i.issue_date) AS rate_date, cur.code AS currency
+               FROM invoices i
+               JOIN currencies cur ON cur.id = i.currency_id
+              WHERE i.id = ?'
+        );
+        $stmt->execute([$invoiceId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    /**
      * @return array{
      *   currency: string,
      *   rate: float,
@@ -34,17 +70,8 @@ final class ExchangeRateApplier
      */
     public function applyToInvoice(int $invoiceId): ?array
     {
-        // Kurz se váže k DUZP (§ 4 odst. 5 / § 8 ZDPH — den vzniku daňové povinnosti),
-        // ne k datu vystavení. Fallback na issue_date, když DUZP chybí.
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT COALESCE(i.tax_date, i.issue_date) AS rate_date, cur.code AS currency
-               FROM invoices i
-               JOIN currencies cur ON cur.id = i.currency_id
-              WHERE i.id = ?'
-        );
-        $stmt->execute([$invoiceId]);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        if ($row === false) return null;
+        $row = $this->rateContext($invoiceId);
+        if ($row === null) return null;
 
         $code = strtoupper((string) $row['currency']);
         if ($code === 'CZK') {

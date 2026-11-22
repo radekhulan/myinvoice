@@ -405,8 +405,8 @@
         {% if invoice.czk_recap %}
         <tr class="rate-note">
           <td colspan="2" class="rate-note-cell">
-            {{ t('Kurz ČNB', 'CNB rate') }}:
-            {{ invoice.czk_recap.rate|number_format(3, decimal_sep, thousand_sep) }}&nbsp;CZK / 1&nbsp;{{ invoice.currency }}
+            {{ t('Kurz', 'Exchange rate') }}:
+            {{ invoice.czk_recap.rate|number_format(invoice.czk_recap.rate_decimals ?? 3, decimal_sep, thousand_sep) }}&nbsp;CZK / 1&nbsp;{{ invoice.currency }}
             ({{ invoice.czk_recap.rate_date }})
           </td>
         </tr>
@@ -422,8 +422,8 @@
     <td colspan="2" class="czk-recap-title">
       {{ t('Přepočet do CZK', 'Conversion to CZK') }}
       <span class="czk-recap-rate">
-        {{ t('kurz ČNB', 'CNB rate') }}:
-        {{ invoice.czk_recap.rate|number_format(3, decimal_sep, thousand_sep) }}&nbsp;CZK / 1&nbsp;{{ invoice.currency }}
+        {{ t('kurz', 'exchange rate') }}:
+        {{ invoice.czk_recap.rate|number_format(invoice.czk_recap.rate_decimals ?? 3, decimal_sep, thousand_sep) }}&nbsp;CZK / 1&nbsp;{{ invoice.currency }}
         ({{ invoice.czk_recap.rate_date }})
       </span>
     </td>

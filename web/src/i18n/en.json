@@ -1725,7 +1725,9 @@
       "income_tax_exempt": "income tax exempt",
       "revenue_category": "revenue category",
       "language": "language",
-      "items": "items"
+      "items": "items",
+      "exchange_rate": "exchange rate",
+      "exchange_rate_date": "exchange rate date"
     },
     "more_actions": "More actions",
     "items": "Items",

@@ -71,7 +71,14 @@ final class CreateInvoiceAction
         }
         $this->repo->replaceItems($id, (array) ($body['items'] ?? []));
         $this->calc->recompute($id);
-        $rateMeta = $this->rateApplier->applyToInvoice($id);
+        // Ruční kurz z těla má přednost před ČNB stejně jako u PUT (UpdateInvoiceAction),
+        // rozhodný den je DUZP s fallbackem na vystavení. U CZK ho applier vynuluje.
+        $userRate = $body['exchange_rate'] ?? null;
+        $rateMeta = null;
+        if (!(is_numeric($userRate) && (float) $userRate > 0
+            && $this->rateApplier->applyManualRate($id, (float) $userRate))) {
+            $rateMeta = $this->rateApplier->applyToInvoice($id);
+        }
 
         $ip = $this->ipMatcher->clientIpFromRequest($request->getServerParams());
         $this->logger->log('invoice.created', $userId, 'invoice', $id, [

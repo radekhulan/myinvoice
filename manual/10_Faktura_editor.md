@@ -186,13 +186,21 @@ pro přepočet **základů DPH** a **DPH** do CZK (kvůli českému účetnictv�
 **Kdy se kurz načítá:**
 
 - Po každém uložení EUR (cizí) faktury — server pošle požadavek na
-  `cnb.cz` (kurzovní lístek pro `issue_date`).
+  `cnb.cz` (kurzovní lístek k **DUZP**, když DUZP chybí, tak k datu vystavení;
+  rozhodný den podle § 4 odst. 8 ZDPH).
+- U **konceptu** se kurz načte znovu po změně DUZP, data vystavení nebo měny.
 - Pokud kurz pro daný den ještě není (víkend, svátek, pozdě večer):
   systém zkusí **až 7 dní zpět** a najde nejbližší dříve dostupný kurz.
 - Kurz se cachuje v lokální DB — opakované otevření faktury už neposílá
   nový request.
 - Pokud ČNB nedostupné a žádný kurz není v cache: použije se **poslední
-  známý kurz** (z dřívější faktury) a zobrazí se ⚠️ upozornění toast po uložení.
+  známý kurz** (nejnovější uložený kurz, nikdy ne pozdější než DUZP) a zobrazí
+  se ⚠️ upozornění toast po uložení.
+
+**Ruční kurz:** pole „Kurz CZK / 1 EUR" v editoru můžeš přepsat. Ruční hodnota
+má přednost před ČNB a uloží se k DUZP. Odešle se jen při skutečné změně pole;
+šipky ani kolečko myši kurz nemění. Změna kurzu se zapíše do historie faktury.
+Ruční kurz přijímá i API (`POST` i `PUT /api/v1/invoices`, pole `exchange_rate`).
 
 **Co se přepočítává:**
 
@@ -207,7 +215,8 @@ Zaokrouhlování CZK přepočtu: **HALF_UP, 2 desetinná místa, zvlášť per s
 
 - **Detail faktury** — sekce „Přepočet do CZK" pod hlavními totály
 - **PDF** — samostatná tabulka „Přepočet do CZK" pod sumářem (světle šedé
-  podbarvení), plus drobná řádka „Kurz ČNB: X CZK / 1 EUR (datum)"
+  podbarvení), plus drobná řádka „Kurz: X CZK / 1 EUR (datum)"; kurz se tiskne
+  se všemi platnými desetinnými místy (3 až 6), přesně jak se jím přepočítává
 - **Editor (re-edit)** — informativní řádka pod totály s použitým kurzem
 
 ## 10.5 Tlačítka

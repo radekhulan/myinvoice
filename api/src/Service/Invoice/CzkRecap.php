@@ -57,6 +57,7 @@ final class CzkRecap
 
         return [
             'rate'                  => $exchangeRate,
+            'rate_decimals'         => self::rateDecimals($exchangeRate),
             'rate_date'             => $rateDate,
             'fallback_used'         => $fallbackUsed,
             'breakdown'             => $rows,
@@ -64,6 +65,18 @@ final class CzkRecap
             'total_vat_czk'         => $totalVat,
             'total_with_vat_czk'    => self::roundHalfUp($totalBase + $totalVat),
         ];
+    }
+
+    /**
+     * Počet desetinných míst pro tisk kurzu: všechna platná místa (min. 3, max. 6),
+     * aby PDF ukazovalo přesně ten kurz, kterým se přepočítává (24,9999; 0,06123).
+     */
+    public static function rateDecimals(float $rate): int
+    {
+        $s = rtrim(sprintf('%.6F', $rate), '0');
+        $dot = strpos($s, '.');
+        $decimals = $dot === false ? 0 : strlen($s) - $dot - 1;
+        return max(3, min(6, $decimals));
     }
 
     /**

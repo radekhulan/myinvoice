@@ -6266,7 +6266,7 @@ components:
           enum: [bank_transfer, card, cash, other]
           default: bank_transfer
           description: "Způsob úhrady. Pro card/cash se v PDF/emailu nevygeneruje QR ani bankovní spojení."
-        exchange_rate: { type: [number, "null"], format: float, description: "Volitelný manuální override ČNB kurzu (CZK / 1 jednotka cizí měny)" }
+        exchange_rate: { type: [number, "null"], format: float, description: "Volitelný manuální override ČNB kurzu (CZK / 1 jednotka cizí měny). Platí pro POST i PUT, uloží se k DUZP (fallback datum vystavení). Bez pole se u konceptu kurz ČNB přenačte po změně DUZP, data vystavení nebo měny; u CZK faktury se ignoruje." }
         note: { type: [string, "null"], description: "Generická poznámka (mapuje se na note_below_items pokud není uvedeno jinak)" }
         note_above_items: { type: [string, "null"] }
         note_below_items: { type: [string, "null"] }

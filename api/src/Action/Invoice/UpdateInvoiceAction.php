@@ -192,8 +192,8 @@ final class UpdateInvoiceAction
         $userRateProvided = $userRate !== null && $userRate !== '' && is_numeric($userRate) && (float) $userRate > 0;
 
         if ($userRateProvided) {
-            // Manuální override z UI — preserve s issue_date jako rate_date
-            $this->repo->setExchangeRate($id, (float) $userRate, (string) $body['issue_date']);
+            // Manuální override z UI — rate_date = rozhodný den (DUZP, fallback vystavení)
+            $this->rateApplier->applyManualRate($id, (float) $userRate);
         } elseif ($wasDraft && ($currencyChanged || $issueDateChanged || $taxDateChanged)) {
             $rateMeta = $this->rateApplier->applyToInvoice($id);
         } else {
@@ -284,12 +284,23 @@ final class UpdateInvoiceAction
             'invoice_type', 'payment_method', 'note_above_items', 'note_below_items',
             'discount_percent', 'advance_paid_amount', 'reverse_charge',
             'prices_include_vat', 'vat_classification_code', 'income_tax_exempt', 'language',
+            'exchange_rate', 'exchange_rate_date',
         ];
 
         $changed = [];
         foreach ($columns as $col) {
+            $o = $old[$col] ?? null;
+            $n = $new[$col] ?? null;
+            if ($col === 'exchange_rate') {
+                // DECIMAL vs float: porovnej numericky, ať „25.000000" ≠ „25" nehlásí falešnou změnu.
+                if (($o === null || $o === '') !== ($n === null || $n === '')
+                    || (is_numeric($o) && is_numeric($n) && abs((float) $o - (float) $n) > 1e-9)) {
+                    $changed[] = $col;
+                }
+                continue;
+            }
             // String cast sjednotí int/float/null/bool porovnání napříč PDO casty.
-            if ((string) ($old[$col] ?? '') !== (string) ($new[$col] ?? '')) {
+            if ((string) ($o ?? '') !== (string) ($n ?? '')) {
                 $changed[] = preg_replace('/_id$/', '', $col); // client_id → client
             }
         }

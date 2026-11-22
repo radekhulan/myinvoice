@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Audit 2026-07 (fix 4): kurz ČNB u VYSTAVENÝCH faktur se musí zjistit k datu
  * uskutečnění zdanitelného plnění (DUZP = tax_date), ne k datu vystavení
- * (issue_date). § 4 odst. 5 / § 8 ZDPH — kurz platný ke dni vzniku daňové
+ * (issue_date). § 4 odst. 8 ZDPH — kurz platný ke dni vzniku daňové
  * povinnosti. DUZP a vystavení se běžně liší (§ 28 odst. 8 dává až 15 dní).
  *
  * Soft-skip bez cfg.php (CI runner bez DB).
@@ -111,5 +111,32 @@ final class ExchangeRateApplierDuzpTest extends TestCase
 
         $this->assertSame($taxDate, $captured,
             'Kurz ČNB se musí zjistit k DUZP (tax_date), ne k datu vystavení (issue_date)');
+    }
+
+    public function testManualRateIsStoredAtDuzp(): void
+    {
+        $pdo = $this->db->pdo();
+        $taxDate = '2099-01-31';
+        $issueDate = '2099-02-05';
+        $pdo->prepare(
+            'INSERT INTO invoices
+                (supplier_id, varsymbol, invoice_type, client_id, issue_date, tax_date, due_date,
+                 currency_id, reverse_charge, total_without_vat, total_vat, total_with_vat,
+                 status, vat_classification_code, created_by)
+             VALUES (?, "2099KURZ02", "invoice", ?, ?, ?, ?, ?, 0, 1000, 0, 1000, "draft", NULL, ?)'
+        )->execute([$this->supplierId, $this->clientId, $issueDate, $taxDate, $issueDate, $this->eurId, $this->userId]);
+        $id = (int) $pdo->lastInsertId();
+        $this->invoiceIds[] = $id;
+
+        $cnb = $this->createMock(CnbExchangeRateClient::class);
+        $cnb->expects($this->never())->method('getRate');
+
+        $stored = (new ExchangeRateApplier($this->db, $this->invoices, $cnb))->applyManualRate($id, 24.9999);
+
+        $this->assertTrue($stored);
+        $row = $pdo->query('SELECT exchange_rate, exchange_rate_date FROM invoices WHERE id = ' . $id)->fetch(\PDO::FETCH_ASSOC);
+        $this->assertEqualsWithDelta(24.9999, (float) $row['exchange_rate'], 1e-9);
+        $this->assertSame($taxDate, substr((string) $row['exchange_rate_date'], 0, 10),
+            'Ruční kurz se ukládá k DUZP, ne k datu vystavení');
     }
 }

@@ -76,6 +76,16 @@ final class CzkRecapTest extends TestCase
         self::assertSame(24.01, $r['breakdown'][0]['base_czk']);
     }
 
+    public function testRateDecimalsShowAllSignificantPlaces(): void
+    {
+        self::assertSame(3, CzkRecap::rateDecimals(25.0));
+        self::assertSame(3, CzkRecap::rateDecimals(24.365));
+        self::assertSame(4, CzkRecap::rateDecimals(24.9999));
+        self::assertSame(5, CzkRecap::rateDecimals(0.06123));
+        self::assertSame(6, CzkRecap::rateDecimals(0.0612345678));
+        self::assertSame(4, CzkRecap::build([], 24.9999, '2026-05-03')['rate_decimals']);
+    }
+
     public function testEmptyBreakdownReturnsZeros(): void
     {
         $r = CzkRecap::build([], 24.0, '2026-05-03');

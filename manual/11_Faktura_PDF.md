@@ -101,7 +101,7 @@ Vygenerované PDF obsahuje:
 5. **Bankovní spojení** — číslo účtu / IBAN, BIC, banka, variabilní symbol
 6. **Položky** — tabulka (Popis / Množství / Cena / DPH / Celkem)
 7. **Sumář** — mezisoučet, sleva, DPH rozpis, **CELKEM**
-8. **(EUR / cizí měna) Přepočet do CZK** — kurz ČNB + tabulka základů DPH a DPH v CZK (světle šedé podbarvení)
+8. **(EUR / cizí měna) Přepočet do CZK** — použitý kurz + tabulka základů DPH a DPH v CZK (světle šedé podbarvení)
 9. **QR platbu** — vpravo dole (CZK SPAYD nebo EUR SEPA EPC)
 10. **Patičku** — text z Nastavení dodavatele (volitelný)
 11. **(volitelně) 2. strana** — Výkaz víceprací. Pokud faktura výkaz má, položka „Výkaz víceprací" v tabulce položek je **proklikávací odkaz** (podtržená) — kliknutí přeskočí přímo na stránku s výkazem.
@@ -117,12 +117,14 @@ Vygenerované PDF obsahuje:
 
 Pokud je faktura v jiné měně než CZK, PDF obsahuje navíc:
 
-- **Drobnou řádku v hlavním sumáři**: „Kurz ČNB: 24,360 CZK / 1 EUR (2026-05-03)"
+- **Drobnou řádku v hlavním sumáři**: „Kurz: 24,360 CZK / 1 EUR (2026-05-03)";
+  kurz má všechna platná desetinná místa (3 až 6), např. 0,06123 CZK / 1 HUF
 - **Samostatnou tabulku „Přepočet do CZK"** pod sumářem se světle šedým
   podbarvením, kde je rozpis základů a DPH per sazba v CZK + celkové součty.
 
 Kurz se ukládá na fakturu v okamžiku **prvního uložení** a nemění se ani po
-vystavení, ani po editaci items (pokud se nezmění `issue_date` nebo měna).
+vystavení, ani po editaci items. U konceptu se načte znovu, když se změní
+DUZP, datum vystavení nebo měna (a kurz nebyl zadán ručně).
 Pokud je faktura starší a nemá zafixovaný kurz (legacy data), MyInvoice ho
 **doplní automaticky** při příštím otevření detailu nebo PDF (cache → ČNB →
 poslední známý). Detail viz [§ 10.4.2 Faktura v cizí měně](10_Faktura_editor.md#1042-faktura-v-cizi-mene-eur-usd-prepocet-do-czk).

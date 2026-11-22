@@ -40,6 +40,16 @@ const invoiceId = computed(() => (isEdit.value ? Number(route.params.id) : null)
 const loaded = ref(false)
 const submitting = ref(false)
 const loadedRate = ref<{ rate: number; date: string; currency: string } | null>(null)
+
+// Kurz se posílá jako ruční jen při skutečné změně uživatelem (ve stejné měně, v jaké
+// byl načten). Jinak backend po změně DUZP / data / měny přenačte kurz ČNB.
+function userChangedExchangeRate(): boolean {
+  const rate = form.value.exchange_rate
+  if (form.value.currency === 'CZK' || !rate || rate <= 0) return false
+  const orig = loadedRate.value
+  if (!orig || orig.currency !== form.value.currency) return false
+  return Math.abs(rate - orig.rate) > 1e-9
+}
 const error = ref('')
 // Odemčení uzamčeného (non-draft) dokladu — POUZE pro tuto návštěvu editoru.
 // Nastavuje se vědomým potvrzením v modalu (checkbox s následky); ?force=1
@@ -1344,10 +1354,9 @@ async function submit() {
       discount_percent: form.value.discount_percent || 0,
       payment_method: form.value.payment_method,
       auto_send_reminders: form.value.auto_send_reminders,
-      // Pošli kurz jen pokud uživatel ho má nastavený a měna není CZK — backend bere
-      // explicit hodnotu jako manuální override (nepřepočítá z ČNB).
-      exchange_rate: (form.value.currency !== 'CZK' && form.value.exchange_rate && form.value.exchange_rate > 0)
-        ? form.value.exchange_rate : undefined,
+      // Kurz posílej jen když ho uživatel skutečně změnil — backend explicitní hodnotu
+      // bere jako ruční override a nepřenačte kurz ČNB po změně DUZP / data / měny.
+      exchange_rate: userChangedExchangeRate() ? form.value.exchange_rate ?? undefined : undefined,
       // Volitelný ruční varsymbol — backend ho akceptuje jen u draftu;
       // prázdný řetězec → backend uloží NULL a vygeneruje při issue automaticky.
       varsymbol: form.value.varsymbol.trim(),
@@ -1722,8 +1731,10 @@ async function deleteDraft() {
               <label class="block text-sm font-medium text-neutral-700 mb-1">
                 {{ t('invoice.exchange_rate_label', { currency: form.currency }) }}
               </label>
-              <input v-model.number="form.exchange_rate" type="number" step="0.0001" min="0"
-                class="w-full h-10 px-3 border border-neutral-300 rounded-md font-mono" />
+              <input v-model.number="form.exchange_rate" type="number" step="any" min="0"
+                class="w-full h-10 px-3 border border-neutral-300 rounded-md font-mono"
+                @keydown.up.prevent @keydown.down.prevent
+                @wheel="($event.target as HTMLInputElement).blur()" />
               <p class="text-xs text-neutral-500 mt-1">
                 {{ t('invoice.exchange_rate_hint') }}
               </p>
