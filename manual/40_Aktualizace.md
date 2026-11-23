@@ -154,8 +154,10 @@ Stop: `schtasks /end /tn "MyInvoice Update Watcher"`.
 
 ### Pokud watcher neběží
 
-UI sice flag soubor zapíše, ale nikdo ho nezpracuje (UI zůstane věčně
-ve stavu „Upgrade probíhá…"). Spusť na hostu ručně:
+UI sice flag soubor zapíše, ale nikdo ho nezpracuje. Stav „Upgrade
+probíhá…" po 15 minutách sám vyprší a stránka ukáže „Upgrade nepotvrzen";
+jakmile je nasazená cílová verze (nebo novější), hláška zmizí. Spusť na
+hostu ručně:
 
 ```bash
 # Linux / macOS
@@ -172,6 +174,26 @@ docker compose -f docker-compose.production.yml exec app rm -f storage/upgrade-r
 ```
 
 (Pokud nepoužíváš production compose, vynechej `-f docker-compose.production.yml`.)
+
+### Nasazení řízené platformou (Coolify, Portainer, Kubernetes…)
+
+Když novou verzi nasazuje platforma — změnou tagu image a redeployem —
+host-side watcher nemá kde běžet a tlačítko **„Aktualizovat"** by jen
+zapsalo flag, který nikdo nezpracuje. Spouštění upgradu z aplikace proto
+vypni:
+
+```php
+// cfg.local.php
+'updates' => [
+    'in_app_upgrade' => false,
+],
+```
+
+nebo ENV proměnnou `MYINVOICE_IN_APP_UPGRADE=false` (u ENV-only nasazení
+nejjednodušší cesta). Stránka **Systém → Aktualizace** pak dál hlásí novou
+verzi a release notes, ale tlačítko „Aktualizovat" nenabízí a místo návodu
+k watcheru připomene, že nasazení řídí platforma. Migrace databáze spustí
+entrypoint kontejneru sám při startu nové verze.
 
 ## 40.5 Migrace na single-volume layout (3.5.x → 3.6.0)
 

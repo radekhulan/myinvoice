@@ -47,6 +47,7 @@ final class VersionService
     public function __construct(
         Connection $connection,
         private readonly NativeUpdateService $native,
+        private readonly Config $config,
     ) {
         $this->db      = $connection->pdo();
         $this->rootDir = Bootstrap::rootDir();
@@ -74,6 +75,16 @@ final class VersionService
             return 'docker';
         }
         return 'native';
+    }
+
+    /**
+     * Smí aplikace upgrade spustit sama (Docker watcher / nativní worker)?
+     * Vypíná se tam, kde nasazení nové verze řídí platforma (Coolify, Portainer,
+     * Kubernetes…) — tlačítko by jen zapsalo flag, který nikdo nezpracuje.
+     */
+    public function isInAppUpgradeEnabled(): bool
+    {
+        return (bool) $this->config->get('updates.in_app_upgrade', true);
     }
 
     /**
@@ -120,6 +131,7 @@ final class VersionService
             'last_check_error'     => $cache['last_check_error'] ?? null,
             'cache_stale'          => $cacheStale,
             'environment'          => $this->detectEnvironment(),
+            'in_app_upgrade'       => $this->isInAppUpgradeEnabled(),
             'upgrade_in_progress'  => $this->isUpgradeInProgress(),
             'upgrade_progress'     => $this->loadUpgradeProgress(),
             'last_upgrade_result'  => $this->loadUpgradeResult(),
@@ -223,6 +235,14 @@ final class VersionService
      */
     public function triggerUpgrade(?string $targetVersion, string $requestedByEmail): array
     {
+        if (!$this->isInAppUpgradeEnabled()) {
+            return [
+                'status'  => 'error',
+                'message' => 'Aktualizace z aplikace je vypnutá (updates.in_app_upgrade) — '
+                    . 'novou verzi nasaď přes svou platformu.',
+            ];
+        }
+
         $env = $this->detectEnvironment();
         $latest = $this->loadCache()['latest_version'] ?? null;
         $target = $targetVersion ?: $latest;
@@ -365,7 +385,15 @@ final class VersionService
         ];
     }
 
-    /** Watcher / docker-update.{sh,ps1} píše result sem po dokončení. */
+    /**
+     * Watcher / docker-update.{sh,ps1} píše result sem po dokončení.
+     *
+     * Self-healing jako u flagu: výsledek, který nasazená verze už překonala,
+     * se zahodí — stejně jako nepotvrzený (`unknown`) výsledek, jehož cílová
+     * verze je nasazená. Jinak by po ručním / platformou řízeném upgradu viselo
+     * „Upgrade nepotvrzen" pro starou cílovou verzi navždy. `failed` při shodě
+     * verzí zůstává: Docker může vyměnit image a pak selhat na migraci.
+     */
     public function loadUpgradeResult(): ?array
     {
         $path = $this->upgradeResultPath();
@@ -373,7 +401,19 @@ final class VersionService
         $raw = @file_get_contents($path);
         if (!is_string($raw) || $raw === '') return null;
         $decoded = json_decode($raw, true);
-        return is_array($decoded) ? $decoded : null;
+        if (!is_array($decoded)) return null;
+
+        $target  = isset($decoded['target_version']) ? (string) $decoded['target_version'] : '';
+        $current = $this->getCurrentVersion();
+        if ($target !== '' && $current !== 'unknown') {
+            $cmp = version_compare($current, $target);
+            if ($cmp > 0 || ($cmp === 0 && ($decoded['status'] ?? null) === 'unknown')) {
+                @unlink($path);
+                return null;
+            }
+        }
+
+        return $decoded;
     }
 
     /** Po kolika sekundách považujeme nezpracovaný upgrade flag za prošlý (watcher neběží/spadl). */

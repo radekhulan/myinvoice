@@ -132,7 +132,7 @@ final class Config
      * absolutní cestu (bez závěrečného oddělovače) nebo null pokud není set.
      *
      * Public static, aby ji mohly volat konzumenti, kteří si Config neumí
-     * snadno vstříknout (např. `VersionService` má jen `Connection`).
+     * snadno vstříknout (např. `RuntimePaths`, `CfgLocalWriter`).
      */
     public static function resolveDataDir(): ?string
     {
@@ -208,6 +208,9 @@ final class Config
             'session' => [
                 'lock_after_minutes' => 0,
             ],
+            'updates' => [
+                'in_app_upgrade' => true,
+            ],
             'auth' => [
                 'require_mfa'         => null,
                 'allowed_mfa_methods' => ['passkey', 'totp'],
@@ -254,6 +257,7 @@ final class Config
             'MYINVOICE_APP_ENV'     => ['app.env', 'string'],
             'MYINVOICE_APP_DEBUG'   => ['app.debug', 'bool'],
             'MYINVOICE_OVERDUE_INCLUDES_TODAY' => ['invoices.overdue_includes_today', 'bool'],
+            'MYINVOICE_IN_APP_UPGRADE' => ['updates.in_app_upgrade', 'bool'],
             'MYINVOICE_APP_URL'     => ['app.url', 'string'],
             'MYINVOICE_PEPPER'      => ['app.pepper', 'string'],
             'MYINVOICE_SECRET_KEY'  => ['app.secret_encryption_key', 'string'],

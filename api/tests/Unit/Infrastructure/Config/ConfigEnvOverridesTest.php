@@ -148,6 +148,14 @@ PHP);
         self::assertFalse(Config::load($this->tmpDir)->get('invoices.overdue_includes_today'));
     }
 
+    public function testInAppUpgradeDefaultsToEnabledAndSupportsBooleanEnv(): void
+    {
+        $this->unsetEnv('MYINVOICE_IN_APP_UPGRADE');
+        self::assertTrue(Config::load($this->tmpDir)->get('updates.in_app_upgrade'));
+        $this->setEnv('MYINVOICE_IN_APP_UPGRADE', 'false');
+        self::assertFalse(Config::load($this->tmpDir)->get('updates.in_app_upgrade'));
+    }
+
     private function setEnv(string $name, string $value): void
     {
         if (!array_key_exists($name, $this->envBackup)) {
