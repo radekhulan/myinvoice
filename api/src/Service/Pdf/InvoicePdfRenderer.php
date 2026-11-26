@@ -460,9 +460,9 @@ final class InvoicePdfRenderer
             $stmt = $this->db->pdo()->prepare(
                 'SELECT c.*, co.iso2 AS country_iso2, co.name_cs AS country_name_cs, co.name_en AS country_name_en
                    FROM clients c JOIN countries co ON co.id = c.country_id
-                  WHERE c.id = ?'
+                  WHERE c.id = ? AND c.supplier_id = ?'
             );
-            $stmt->execute([$invoice['client_id']]);
+            $stmt->execute([(int) $invoice['client_id'], (int) ($invoice['supplier_id'] ?? 0)]);
             $live = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
         }
         if (!empty($invoice['client_snapshot'])) {
@@ -482,9 +482,9 @@ final class InvoicePdfRenderer
         $live = [];
         if (!empty($invoice['currency_id'])) {
             $stmt = $this->db->pdo()->prepare(
-                'SELECT account_number, bank_code, bank_name, iban, bic FROM currencies WHERE id = ?'
+                'SELECT account_number, bank_code, bank_name, iban, bic FROM currencies WHERE id = ? AND supplier_id = ?'
             );
-            $stmt->execute([(int) $invoice['currency_id']]);
+            $stmt->execute([(int) $invoice['currency_id'], (int) ($invoice['supplier_id'] ?? 0)]);
             $live = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
         }
         $row = $live;

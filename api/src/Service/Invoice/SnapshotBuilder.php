@@ -24,21 +24,21 @@ final class SnapshotBuilder
     public function build(int $clientId, int $currencyId, int $supplierId, ?int $brandingProfileId = null): array
     {
         return [
-            'client'   => $this->clientSnapshot($clientId),
+            'client'   => $this->clientSnapshot($clientId, $supplierId),
             'supplier' => $this->supplierSnapshot($supplierId, $brandingProfileId),
-            'bank'     => $this->bankSnapshot($currencyId),
+            'bank'     => $this->bankSnapshot($currencyId, $supplierId),
         ];
     }
 
-    private function clientSnapshot(int $clientId): array
+    private function clientSnapshot(int $clientId, int $supplierId): array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT c.*, co.iso2 AS country_iso2, co.name_cs AS country_name_cs, co.name_en AS country_name_en
                FROM clients c
                JOIN countries co ON co.id = c.country_id
-              WHERE c.id = ?'
+              WHERE c.id = ? AND c.supplier_id = ?'
         );
-        $stmt->execute([$clientId]);
+        $stmt->execute([$clientId, $supplierId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             throw new \RuntimeException("Client #$clientId nenalezen");
@@ -119,13 +119,13 @@ final class SnapshotBuilder
         return $snapshot;
     }
 
-    private function bankSnapshot(int $currencyId): ?array
+    private function bankSnapshot(int $currencyId, int $supplierId): ?array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT code, account_number, bank_code, bank_name, iban, bic
-               FROM currencies WHERE id = ?'
+               FROM currencies WHERE id = ? AND supplier_id = ?'
         );
-        $stmt->execute([$currencyId]);
+        $stmt->execute([$currencyId, $supplierId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MyInvoice\Service\Invoice;
 
-use MyInvoice\Infrastructure\Config\Config;
 use MyInvoice\Infrastructure\Database\Connection;
 use PDO;
 
@@ -13,59 +12,63 @@ use PDO;
  */
 final class InvoiceDefaults
 {
-    public function __construct(
-        private readonly Connection $db,
-        private readonly Config $config,
-    ) {}
+    private const INVALID_REFERENCE = 'Neplatný odkaz na související záznam faktury.';
+
+    public function __construct(private readonly Connection $db) {}
 
     /**
      * Doplní chybějící pole v $data podle defaultů.
      */
-    public function resolve(array $data): array
+    public function resolve(array $data, int $supplierId): array
     {
         $pdo = $this->db->pdo();
         $today = date('Y-m-d');
-        $tz = (string) $this->config->get('app.timezone', 'Europe/Prague');
 
-        $clientId = (int) ($data['client_id'] ?? 0);
-        $projectId = isset($data['project_id']) && $data['project_id'] ? (int) $data['project_id'] : null;
+        $clientId = self::referenceId($data['client_id'] ?? null);
+        $projectId = self::referenceId($data['project_id'] ?? null);
+        $categoryId = self::referenceId($data['revenue_category_id'] ?? null);
+        $currencyId = self::referenceId($data['currency_id'] ?? null);
+        if ($supplierId <= 0 || $clientId === null) {
+            throw new \InvalidArgumentException(self::INVALID_REFERENCE);
+        }
 
-        $client = null;
-        if ($clientId) {
-            $stmt = $pdo->prepare(
-                'SELECT supplier_id, language, currency_default_id, reverse_charge,
-                        payment_due_default, payment_due_unit
-                   FROM clients WHERE id = ?'
-            );
-            $stmt->execute([$clientId]);
-            $client = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $stmt = $pdo->prepare(
+            'SELECT language, currency_default_id, reverse_charge, payment_due_default, payment_due_unit
+               FROM clients WHERE id = ? AND supplier_id = ?'
+        );
+        $stmt->execute([$clientId, $supplierId]);
+        $client = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($client === false) {
+            throw new \InvalidArgumentException(self::INVALID_REFERENCE);
         }
 
         $project = null;
-        if ($projectId) {
+        if ($projectId !== null) {
             $stmt = $pdo->prepare(
-                'SELECT client_id, currency_id, payment_due_days, payment_due_unit, hourly_rate
-                   FROM projects WHERE id = ?'
+                'SELECT currency_id, payment_due_days, payment_due_unit
+                   FROM projects WHERE id = ? AND client_id = ?'
             );
-            $stmt->execute([$projectId]);
+            $stmt->execute([$projectId, $clientId]);
             $project = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-            // MS-P1-1: project musí patřit zadanému klientovi
-            if ($project !== null && (int) $project['client_id'] !== $clientId) {
-                throw new \InvalidArgumentException("Zakázka #$projectId nepatří klientovi #$clientId.");
+            if ($project === null) {
+                throw new \InvalidArgumentException(self::INVALID_REFERENCE);
             }
         }
 
-        // Supplier defaults — bere z clientova supplier_id (invoice je vždy v rámci klientova supplier)
-        $supplier = null;
-        if ($client !== null && !empty($client['supplier_id'])) {
-            $stmt = $pdo->prepare(
-                'SELECT default_currency_id, default_payment_due_days, default_payment_due_unit
-                   FROM supplier WHERE id = ?'
-            );
-            $stmt->execute([(int) $client['supplier_id']]);
-            $supplier = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($categoryId !== null) {
+            $stmt = $pdo->prepare('SELECT 1 FROM revenue_categories WHERE id = ? AND supplier_id = ?');
+            $stmt->execute([$categoryId, $supplierId]);
+            if (!$stmt->fetchColumn()) {
+                throw new \InvalidArgumentException(self::INVALID_REFERENCE);
+            }
         }
-        $supplierId = $client['supplier_id'] ?? 0;
+
+        $stmt = $pdo->prepare(
+            'SELECT default_currency_id, default_payment_due_days, default_payment_due_unit
+               FROM supplier WHERE id = ?'
+        );
+        $stmt->execute([$supplierId]);
+        $supplier = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         // Defaults
         $data['issue_date'] = (string) ($data['issue_date'] ?? $today);
@@ -77,44 +80,35 @@ final class InvoiceDefaults
             $data['tax_date'] = (string) ($data['tax_date'] ?? $today);
         }
 
-        if (empty($data['currency_id'])) {
-            // Legacy: pokud frontend posílá `currency` (code), resolve na id (scope per supplier)
-            if (!empty($data['currency']) && is_string($data['currency']) && $supplierId > 0) {
-                $stmt = $pdo->prepare(
-                    'SELECT id FROM currencies WHERE supplier_id = ? AND code = ? ORDER BY is_default DESC, id ASC LIMIT 1'
-                );
-                $stmt->execute([(int) $supplierId, strtoupper($data['currency'])]);
-                $found = (int) $stmt->fetchColumn();
-                if ($found > 0) $data['currency_id'] = $found;
-            }
+        if ($currencyId === null && !empty($data['currency']) && is_string($data['currency'])) {
+            $stmt = $pdo->prepare(
+                'SELECT id FROM currencies WHERE supplier_id = ? AND code = ? ORDER BY is_default DESC, id ASC LIMIT 1'
+            );
+            $stmt->execute([$supplierId, strtoupper($data['currency'])]);
+            $currencyId = (int) $stmt->fetchColumn() ?: null;
         }
-        if (empty($data['currency_id'])) {
-            $data['currency_id'] = (int) (
+        if ($currencyId === null) {
+            $currencyId = (int) (
                 $project['currency_id']
                 ?? $client['currency_default_id']
                 ?? $supplier['default_currency_id']
                 ?? 0
             );
-            if ($data['currency_id'] <= 0 && $supplierId > 0) {
-                // Fallback: vyber default CZK clientova supplier
+            if ($currencyId <= 0) {
                 $stmt = $pdo->prepare(
                     "SELECT id FROM currencies WHERE supplier_id = ? AND code = 'CZK' ORDER BY is_default DESC LIMIT 1"
                 );
-                $stmt->execute([(int) $supplierId]);
-                $data['currency_id'] = (int) $stmt->fetchColumn();
+                $stmt->execute([$supplierId]);
+                $currencyId = (int) $stmt->fetchColumn();
             }
         }
 
-        // MS-P1-2: ověř že currency_id patří klientovu supplier (cross-supplier integrity)
-        if (!empty($data['currency_id']) && $supplierId > 0) {
-            $check = $pdo->prepare('SELECT 1 FROM currencies WHERE id = ? AND supplier_id = ?');
-            $check->execute([(int) $data['currency_id'], (int) $supplierId]);
-            if (!$check->fetchColumn()) {
-                throw new \InvalidArgumentException(
-                    "Měna #{$data['currency_id']} nepatří supplier #{$supplierId} klienta."
-                );
-            }
+        $stmt = $pdo->prepare('SELECT 1 FROM currencies WHERE id = ? AND supplier_id = ?');
+        $stmt->execute([$currencyId, $supplierId]);
+        if (!$stmt->fetchColumn()) {
+            throw new \InvalidArgumentException(self::INVALID_REFERENCE);
         }
+        $data['currency_id'] = $currencyId;
 
         if (empty($data['language'])) {
             $data['language'] = $client['language'] ?? 'cs';
@@ -128,7 +122,7 @@ final class InvoiceDefaults
             if ($project !== null && $project['payment_due_days'] !== null) {
                 $dueValue = (int) $project['payment_due_days'];
                 $dueUnit = (string) ($project['payment_due_unit'] ?? 'days');
-            } elseif ($client !== null && $client['payment_due_default'] !== null) {
+            } elseif ($client['payment_due_default'] !== null) {
                 $dueValue = (int) $client['payment_due_default'];
                 $dueUnit = (string) (
                     $client['payment_due_unit']
@@ -150,5 +144,17 @@ final class InvoiceDefaults
         }
 
         return $data;
+    }
+
+    private static function referenceId(mixed $value): ?int
+    {
+        if (in_array($value, [null, '', 0, '0'], true)) {
+            return null;
+        }
+        $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($id === false || is_bool($value)) {
+            throw new \InvalidArgumentException(self::INVALID_REFERENCE);
+        }
+        return $id;
     }
 }

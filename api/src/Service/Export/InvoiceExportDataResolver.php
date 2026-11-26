@@ -35,7 +35,7 @@ final class InvoiceExportDataResolver
      */
     public function client(array $invoice): array
     {
-        $live = $this->loadLiveClient((int) ($invoice['client_id'] ?? 0));
+        $live = $this->loadLiveClient((int) ($invoice['client_id'] ?? 0), (int) ($invoice['supplier_id'] ?? 0));
         $snapshot = $this->snapshot($invoice['client_snapshot'] ?? null);
         if ($snapshot !== []) {
             return array_merge($live, $snapshot);
@@ -143,7 +143,7 @@ final class InvoiceExportDataResolver
     /**
      * @return array<string,mixed>
      */
-    private function loadLiveClient(int $clientId): array
+    private function loadLiveClient(int $clientId, int $supplierId): array
     {
         if ($clientId <= 0) {
             return [];
@@ -152,9 +152,9 @@ final class InvoiceExportDataResolver
             'SELECT c.*, co.iso2 AS country_iso2, co.name_cs AS country_name_cs, co.name_en AS country_name_en
                FROM clients c
                JOIN countries co ON co.id = c.country_id
-              WHERE c.id = ?'
+              WHERE c.id = ? AND c.supplier_id = ?'
         );
-        $stmt->execute([$clientId]);
+        $stmt->execute([$clientId, $supplierId]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         return is_array($row) ? $row : [];

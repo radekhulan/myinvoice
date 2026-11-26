@@ -7,7 +7,6 @@ namespace MyInvoice\Action\Invoice;
 use MyInvoice\Http\Json;
 use MyInvoice\Http\SupplierGuard;
 use MyInvoice\Middleware\AuthMiddleware;
-use MyInvoice\Repository\ClientRepository;
 use MyInvoice\Repository\InvoiceRepository;
 use MyInvoice\Service\ActivityLogger;
 use MyInvoice\Service\Currency\ExchangeRateApplier;
@@ -25,7 +24,6 @@ final class CreateInvoiceAction
 
     public function __construct(
         private readonly InvoiceRepository $repo,
-        private readonly ClientRepository $clients,
         private readonly InvoiceDefaults $defaults,
         private readonly InvoiceCalculator $calc,
         private readonly VatClassificationDefaulter $vatDefaulter,
@@ -38,7 +36,7 @@ final class CreateInvoiceAction
     {
         $body = (array) ($request->getParsedBody() ?? []);
         try {
-            $body = $this->defaults->resolve($body);
+            $body = $this->defaults->resolve($body, SupplierGuard::currentId($request));
         } catch (\InvalidArgumentException $e) {
             return Json::error($response, 'integrity_violation', $e->getMessage(), 400);
         }
@@ -46,11 +44,6 @@ final class CreateInvoiceAction
         $errors = InvoiceValidation::invoice($body, $this->repo->vatRateMap(), $this->repo->vatRateCountryMap());
         if (!empty($errors)) {
             return Json::error($response, 'validation_failed', 'Validace selhala', 400, ['fields' => $errors]);
-        }
-
-        // Klient musí existovat A patřit aktuálnímu supplier (proti cross-supplier injection)
-        if (!SupplierGuard::owns($request, $this->clients->find((int) $body['client_id']))) {
-            return Json::error($response, 'client_not_found', 'Klient neexistuje.', 400);
         }
 
         $user = (array) $request->getAttribute(AuthMiddleware::ATTR_USER, []);

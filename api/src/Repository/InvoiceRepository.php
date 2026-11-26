@@ -87,11 +87,11 @@ final class InvoiceRepository
                     cur.bank_name AS bank_name, cur.iban AS bank_iban, cur.bic AS bank_bic,
                     rcat.label AS revenue_category_label, rcat.code AS revenue_category_code
                FROM invoices i
-               JOIN clients c ON c.id = i.client_id
+               JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
           LEFT JOIN users u ON u.id = i.created_by
-          LEFT JOIN projects p ON p.id = i.project_id
-               JOIN currencies cur ON cur.id = i.currency_id
-          LEFT JOIN revenue_categories rcat ON rcat.id = i.revenue_category_id
+          LEFT JOIN projects p ON p.id = i.project_id AND p.client_id = c.id
+               JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
+          LEFT JOIN revenue_categories rcat ON rcat.id = i.revenue_category_id AND rcat.supplier_id = i.supplier_id
               WHERE i.id = ?'
         );
         $stmt->execute([$id]);
@@ -104,9 +104,14 @@ final class InvoiceRepository
         // Fakturační emaily projektu (jen popisky, používané v UI hlavičce)
         if (!empty($row['project_id'])) {
             $stmt2 = $pdo->prepare(
-                'SELECT email, label FROM project_billing_emails WHERE project_id = ? ORDER BY position'
+                'SELECT e.email, e.label
+                   FROM project_billing_emails e
+                   JOIN projects p ON p.id = e.project_id
+                   JOIN clients c ON c.id = p.client_id
+                  WHERE p.id = ? AND c.id = ? AND c.supplier_id = ?
+                  ORDER BY e.position'
             );
-            $stmt2->execute([(int) $row['project_id']]);
+            $stmt2->execute([(int) $row['project_id'], (int) $row['client_id'], (int) $row['supplier_id']]);
             $row['project_billing_emails'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $row['project_billing_emails'] = [];
@@ -265,7 +270,7 @@ final class InvoiceRepository
             "SELECT i.id, i.varsymbol, i.invoice_type, i.status, i.issue_date,
                     i.total_with_vat, cur.code AS currency
                FROM invoices i
-               JOIN currencies cur ON cur.id = i.currency_id
+               JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
               WHERE i.supplier_id = ?
                 AND i.client_id = ?
                 AND i.invoice_type = 'proforma'
@@ -418,7 +423,7 @@ final class InvoiceRepository
             "SELECT i.id, i.varsymbol, i.invoice_type, i.status, i.issue_date,
                     i.total_with_vat, cur.code AS currency
                FROM invoices i
-               JOIN currencies cur ON cur.id = i.currency_id
+               JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
               WHERE i.supplier_id = ?
                 AND i.client_id = ?
                 AND i.invoice_type = 'invoice'
@@ -494,8 +499,8 @@ final class InvoiceRepository
                     i.total_with_vat, COALESCE(cur.code, 'CZK') AS currency,
                     c.company_name
                FROM invoices i
-               JOIN clients c ON c.id = i.client_id
-          LEFT JOIN currencies cur ON cur.id = i.currency_id
+               JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
+               JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
               WHERE i.supplier_id = ?
                 AND i.varsymbol LIKE ?
               ORDER BY i.issue_date DESC, i.id DESC
@@ -604,9 +609,9 @@ final class InvoiceRepository
         if ($perPage > 0) {
             $cntStmt = $this->db->pdo()->prepare(
                 "SELECT COUNT(*) FROM invoices i
-                   JOIN clients c ON c.id = i.client_id
-              LEFT JOIN projects p ON p.id = i.project_id
-                   JOIN currencies cur ON cur.id = i.currency_id
+                   JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
+              LEFT JOIN projects p ON p.id = i.project_id AND p.client_id = c.id
+                   JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
                   WHERE $whereSql"
             );
             $cntStmt->execute($params);
@@ -628,9 +633,9 @@ final class InvoiceRepository
                        EXISTS (SELECT 1 FROM work_reports wr WHERE wr.invoice_id = i.id) AS has_work_report,
                        DATE_FORMAT(COALESCE(i.tax_date, i.issue_date), '%Y-%m') AS month_bucket
                   FROM invoices i
-                  JOIN clients c ON c.id = i.client_id
-             LEFT JOIN projects p ON p.id = i.project_id
-                  JOIN currencies cur ON cur.id = i.currency_id
+                  JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
+             LEFT JOIN projects p ON p.id = i.project_id AND p.client_id = c.id
+                  JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
                  WHERE $whereSql
                  ORDER BY COALESCE(i.tax_date, i.issue_date) DESC, i.id DESC";
 
@@ -1385,14 +1390,23 @@ final class InvoiceRepository
     public static function resolveDefaultRevenueCategoryId(PDO $pdo, int $clientId, ?int $projectId): ?int
     {
         if ($projectId !== null) {
-            $ps = $pdo->prepare('SELECT default_revenue_category_id FROM projects WHERE id = ?');
-            $ps->execute([$projectId]);
+            $ps = $pdo->prepare(
+                'SELECT r.id FROM projects p
+                   JOIN clients c ON c.id = p.client_id
+                   JOIN revenue_categories r ON r.id = p.default_revenue_category_id AND r.supplier_id = c.supplier_id
+                  WHERE p.id = ? AND c.id = ?'
+            );
+            $ps->execute([$projectId, $clientId]);
             $pcat = $ps->fetchColumn();
             if ($pcat !== false && $pcat !== null) {
                 return (int) $pcat;
             }
         }
-        $cs = $pdo->prepare('SELECT default_revenue_category_id FROM clients WHERE id = ?');
+        $cs = $pdo->prepare(
+            'SELECT r.id FROM clients c
+               JOIN revenue_categories r ON r.id = c.default_revenue_category_id AND r.supplier_id = c.supplier_id
+              WHERE c.id = ?'
+        );
         $cs->execute([$clientId]);
         $ccat = $cs->fetchColumn();
         return ($ccat !== false && $ccat !== null) ? (int) $ccat : null;
@@ -1626,7 +1640,9 @@ final class InvoiceRepository
                     SUM(CASE WHEN i.approval_status = 'rejected'  THEN 1 ELSE 0 END) AS rejected,
                     COUNT(*) AS all_count
                  FROM invoices i
-                WHERE $whereCountsSql"
+                 JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
+                 JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
+                 WHERE $whereCountsSql"
             );
             $stmtCounts->execute($paramsForCounts);
             $statusCounts = $stmtCounts->fetch(PDO::FETCH_ASSOC) ?: ['requested' => 0, 'approved' => 0, 'rejected' => 0, 'all_count' => 0];
@@ -1661,9 +1677,9 @@ final class InvoiceRepository
                        p.name AS project_name,
                        cur.code AS currency
                   FROM invoices i
-                  JOIN clients c ON c.id = i.client_id
-             LEFT JOIN projects p ON p.id = i.project_id
-                  JOIN currencies cur ON cur.id = i.currency_id
+                  JOIN clients c ON c.id = i.client_id AND c.supplier_id = i.supplier_id
+             LEFT JOIN projects p ON p.id = i.project_id AND p.client_id = c.id
+                  JOIN currencies cur ON cur.id = i.currency_id AND cur.supplier_id = i.supplier_id
                  WHERE $whereSql
                  ORDER BY i.approval_requested_at DESC{$limitSql}";
 

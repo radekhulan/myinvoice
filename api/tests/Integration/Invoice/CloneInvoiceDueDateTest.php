@@ -125,7 +125,7 @@ final class CloneInvoiceDueDateTest extends TestCase
             $resolved = $this->defaults->resolve([
                 'client_id' => $clientId,
                 'issue_date' => '2026-07-31',
-            ]);
+            ], $this->supplierId);
             self::assertSame('2026-08-31', $resolved['due_date']);
         } finally {
             $pdo->prepare(
@@ -224,7 +224,7 @@ final class CloneInvoiceDueDateTest extends TestCase
             $resolved = $this->defaults->resolve([
                 'client_id' => $clientId,
                 'issue_date' => '2026-07-31',
-            ]);
+            ], $this->supplierId);
             self::assertSame('2026-08-31', $resolved['due_date']);
         } finally {
             $pdo->prepare(

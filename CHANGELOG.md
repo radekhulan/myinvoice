@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.59.6] - 2026-11-27
+
+### Security
+
+- **Izolace firem u vydaných faktur.** Aplikace při uložení kontroluje vlastnictví klienta, zakázky, měny a kategorie tržby. Oprava brání úniku klientských a bankovních údajů jiné firmy přes API a generované PDF.
+- **Nahlášení zranitelnosti:** Patryk Kieszek (Patsecu).
+
 ## [4.59.5] - 2026-11-22
 
 ### Fixed

@@ -449,6 +449,7 @@ paths:
       description: |
         Vytvoří fakturu ve stavu `draft`. Pro vystavení (přidělení čísla, zápis do
         DB účetně) volej `POST /api/v1/invoices/{id}/issue`.
+        Neexistující nebo cizí odkaz na klienta, zakázku, měnu či kategorii tržby vrátí `400` s kódem `integrity_violation`.
       parameters:
         - $ref: '#/components/parameters/SupplierIdHeader'
       requestBody:
@@ -644,6 +645,7 @@ paths:
     get:
       tags: [Invoices]
       summary: Detail faktury
+      description: Faktura s klientem nebo měnou mimo vlastní firmu není dostupná.
       responses:
         '200':
           description: OK
@@ -655,6 +657,7 @@ paths:
     put:
       tags: [Invoices]
       summary: Aktualizace draftu
+      description: Neexistující nebo cizí odkaz na klienta, zakázku, měnu či kategorii tržby vrátí `400` s kódem `integrity_violation`.
       requestBody:
         required: true
         content:
@@ -666,6 +669,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Invoice' }
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '409':
           description: Faktura už není draft (vystavená/storno) — nelze editovat
           content:
@@ -6243,7 +6248,7 @@ components:
         reverse_charge: { type: boolean, description: "Přenesená daňová povinnost. Default = z klienta." }
         prices_include_vat: { type: boolean, default: false, description: "Ceny položek zadané včetně DPH (DPH shora koeficientem)." }
         auto_send_reminders: { type: boolean, default: true, description: "Per-faktura přepínač automatických upomínek (migrace 0088). False = cron tuto fakturu přeskočí." }
-        revenue_category_id: { type: [integer, "null"], description: "Kategorie tržby. Když chybí, na create se odvodí z defaultu projektu/klienta." }
+        revenue_category_id: { type: [integer, "null"], description: "Kategorie tržby aktuální firmy. Když chybí, na create se odvodí z defaultu projektu/klienta." }
         vat_classification_code: { type: [string, "null"], description: "Hlavičkový default klasifikace plnění; auto-default podle sazby/RC/země, pokud prázdné." }
         varsymbol:
           type: [string, "null"]

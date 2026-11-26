@@ -86,11 +86,21 @@ final class UpdateInvoiceAction
         // (proforma) → faktura. U draftu se typ mění bez přečíslování (číslo se přidělí
         // až při vystavení), takže ten jede beze změny v else větvi.
         $renumber = null;
-        if ($isIssued
+        $shouldRenumber = $isIssued
             && in_array($requestedType, $validTypes, true)
             && $requestedType !== $existingType
-            && in_array($existingType, $validTypes, true)  // ne cancellation/tax_document
-        ) {
+            && in_array($existingType, $validTypes, true);
+        $body['invoice_type'] = $shouldRenumber || (!$isIssued && in_array($requestedType, $validTypes, true))
+            ? $requestedType
+            : $existingType;
+        $requestedIssueDate = $body['issue_date'] ?? null;
+        try {
+            $body = $this->defaults->resolve($body, (int) $existing['supplier_id']);
+        } catch (\InvalidArgumentException $e) {
+            return Json::error($response, 'integrity_violation', $e->getMessage(), 400);
+        }
+
+        if ($shouldRenumber) {
             $supplierId = (int) ($existing['supplier_id'] ?? 0);
             $oldVs      = (string) ($existing['varsymbol'] ?? '');
 
@@ -123,7 +133,7 @@ final class UpdateInvoiceAction
             }
 
             // 2) Přiděl nové číslo v řadě cílového typu (datum/klient z payloadu, fallback na staré).
-            $newDate   = !empty($body['issue_date']) ? new \DateTimeImmutable((string) $body['issue_date']) : ($oldDate ?? new \DateTimeImmutable('today'));
+            $newDate   = !empty($requestedIssueDate) ? new \DateTimeImmutable((string) $requestedIssueDate) : ($oldDate ?? new \DateTimeImmutable('today'));
             $newClient = isset($body['client_id']) ? (int) $body['client_id'] : $oldClient;
             try {
                 $newVs = $this->varsymbol->next($supplierId, $requestedType, $newDate, $newClient);
@@ -131,25 +141,10 @@ final class UpdateInvoiceAction
                 return Json::error($response, 'varsymbol_failed', $e->getMessage(), 500);
             }
 
-            $body['invoice_type'] = $requestedType;
             $body['varsymbol']    = $newVs;
             $renumber = ['from' => $oldVs, 'to' => $newVs, 'from_type' => $existingType, 'to_type' => $requestedType];
-        } else {
-            // Bez přečíslování: typ je u vystavené faktury immutable (číslo + auditní stopa),
-            // u draftu lze přepnout mezi invoice/proforma/dobropis (ne na storno/cancellation).
-            if ($isIssued || !in_array($requestedType, $validTypes, true)) {
-                $body['invoice_type'] = $existingType;
-            }
-            // Varsymbol vystavené faktury je immutable bez změny typu (snapshot pro účetní
-            // evidenci a PDF); ruční přepis čísla se řeší dobropisem/stornem.
-            if ($isIssued) {
-                unset($body['varsymbol']);
-            }
-        }
-        try {
-            $body = $this->defaults->resolve($body);
-        } catch (\InvalidArgumentException $e) {
-            return Json::error($response, 'integrity_violation', $e->getMessage(), 400);
+        } elseif ($isIssued) {
+            unset($body['varsymbol']);
         }
 
         $errors = InvoiceValidation::invoice($body, $this->repo->vatRateMap(), $this->repo->vatRateCountryMap());
